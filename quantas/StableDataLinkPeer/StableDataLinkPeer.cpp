@@ -69,9 +69,9 @@ void StableDataLinkPeer::endOfRound(vector<Peer*>& _peers) {
 	const double utility = totalMessages > 0.0 ? (totalSatisfied / totalMessages) * 100.0 : 0.0;
 	const double throughput = peers.empty() ? 0.0 : totalSatisfied / peers.size();
 
-	LogWriter::pushValue("utility", utility);
-	LogWriter::pushValue("messages", totalMessages);
-	LogWriter::pushValue("throughput", throughput);
+	OutputWriter::pushValue("utility", utility);
+	OutputWriter::pushValue("messages", totalMessages);
+	OutputWriter::pushValue("throughput", throughput);
 }
 
 void StableDataLinkPeer::handleAck(int messageNum) {

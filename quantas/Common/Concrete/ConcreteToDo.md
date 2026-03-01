@@ -1,10 +1,7 @@
-Absolutely — here's a clear, developer-friendly **✅ TODO list** based on the 9 suggestions, along with more detailed guidance on **reliability and safety** concerns so you know exactly what to tackle and why.
 
----
+## **TO-DO List**
 
-## ✅ **TO-DO List** (Based on Suggestions)
-
-### 🔁 1. Use **Persistent TCP Connections**
+### 1. Use **Persistent TCP Connections**
 **Goal:** Only connect to each peer once and reuse that connection.
 
 **How:**
@@ -18,7 +15,7 @@ Absolutely — here's a clear, developer-friendly **✅ TODO list** based on the
 
 ---
 
-### 🧵 2. Push **accept() handling to thread pool**
+### 2. Push **accept() handling to thread pool**
 **Goal:** Don’t block listener loop waiting on slow connections.
 
 **How:**
@@ -33,7 +30,7 @@ Absolutely — here's a clear, developer-friendly **✅ TODO list** based on the
 
 ---
 
-### 🔌 3. Modularize Message Handling
+### 3. Modularize Message Handling
 **Goal:** Make message processing logic extensible and maintainable.
 
 **How:**
@@ -47,11 +44,11 @@ Absolutely — here's a clear, developer-friendly **✅ TODO list** based on the
   if (handlers.contains(type)) handlers[type](msg);
   ```
 
-📝 *Cleaner than `if-else-if` chains and easier to expand.*
+*Cleaner than `if-else-if` chains and easier to expand.*
 
 ---
 
-### 🧱 4. Add a `PeerChannelManager` Layer
+### 4. Add a `PeerChannelManager` Layer
 **Goal:** Cleanly manage per-peer persistent connections and their states.
 
 **How:**
@@ -61,36 +58,36 @@ Absolutely — here's a clear, developer-friendly **✅ TODO list** based on the
   - Attempt reconnection if broken
 - Use this inside `unicastTo()` instead of calling `send_json()` directly
 
-📝 *Separates connection logic from protocol logic.*
+*Separates connection logic from protocol logic.*
 
 ---
 
-### 📊 5. Add **Message Stats / Logging**
+### 5. Add **Message Stats / Logging**
 **Goal:** Track messages sent, received, retries, failed sends.
 
 **How:**
-- Add counters (e.g. `std::atomic<int> sent_messages`) or use `LogWriter::pushValue("stats", {...})`
+- Add counters (e.g. `std::atomic<int> sent_messages`) or use `OutputWriter::pushValue("stats", {...})`
 - Print stats periodically or on shutdown
 
-📝 *Useful for performance tuning and debugging.*
+*Useful for performance tuning and debugging.*
 
 ---
 
-### ⚠️ 6. Improve Error Checking on Socket Ops
+### 6. Improve Error Checking on Socket Ops
 **Goal:** Detect and diagnose hidden network bugs.
 
 **Checklist:**
-- ✅ `setsockopt()` → check return code
-- ✅ `bind()` → check and throw on failure (you already do!)
-- ✅ `send()` → check return value (`if (bytes_sent < 0)`)
-- ✅ `recv()` / `read()` → handle `EINTR`, `EAGAIN`, `bytes == 0`
-- ❌ Avoid swallowing exceptions in `catch (...)` — at least log them
+- `setsockopt()` → check return code
+- `bind()` → check and throw on failure (you already do!)
+- `send()` → check return value (`if (bytes_sent < 0)`)
+- `recv()` / `read()` → handle `EINTR`, `EAGAIN`, `bytes == 0`
+- Avoid swallowing exceptions in `catch (...)` — at least log them
 
-📝 *Improves safety, reliability, and log transparency.*
+*Improves safety, reliability, and log transparency.*
 
 ---
 
-### 🔍 7. Log Malformed or Invalid JSON
+### 7. Log Malformed or Invalid JSON
 **Goal:** Don’t silently ignore bad data.
 
 **How:**
@@ -100,11 +97,11 @@ catch (const std::exception& e) {
 }
 ```
 
-📝 *Helps debug malformed packets or protocol mismatches.*
+*Helps debug malformed packets or protocol mismatches.*
 
 ---
 
-### 🧽 8. Clean Up Includes
+### 8. Clean Up Includes
 **Goal:** Slim down the file and improve clarity.
 
 **How:**
@@ -113,7 +110,7 @@ catch (const std::exception& e) {
 
 ---
 
-### 🔄 9. Use an RAII Wrapper for Sockets
+### 9. Use an RAII Wrapper for Sockets
 **Goal:** Avoid manually closing sockets in every branch.
 
 **How:**
@@ -132,13 +129,13 @@ Use:
 ScopedSocket sock(accept(...));
 ```
 
-📝 *Reduces bugs and ensures sockets always close cleanly.*
+*Reduces bugs and ensures sockets always close cleanly.*
 
 ---
 
-## 🔒 Reliability & Safety – In Detail
+## Reliability & Safety – In Detail
 
-### 🔥 Why These Matter
+### Why These Matter
 
 **In a distributed simulation**, one bad socket or missed error check can:
 - Cause peer hangs
@@ -146,11 +143,11 @@ ScopedSocket sock(accept(...));
 - Delay reconnections
 - Leave ports stuck in `TIME_WAIT` or `CLOSE_WAIT`
 
-### 🚨 Key Issues and Fixes
+### Key Issues and Fixes
 
 | Issue | Risk | Fix |
 |-------|------|-----|
-| `bind()` fails | Port can't be reused → hangs | ✅ Already fixed by throwing |
+| `bind()` fails | Port can't be reused → hangs | Already fixed by throwing |
 | `send()` fails silently | Messages lost, peer unaware | Log and reconnect socket |
 | `recv() == 0` | Peer closed connection | Clean up or reconnect |
 | Swallowed exception in `catch (...)` | All errors ignored | Log with `what()` and message dump |
@@ -160,11 +157,9 @@ ScopedSocket sock(accept(...));
 
 ---
 
-## ✅ Final Notes
+## Notes
 
-You’ve already built a solid foundation — these steps will:
+these steps will:
 - Improve robustness and observability
 - Future-proof the architecture
 - Make it easier to scale to 10s or 100s of nodes
-
-Let me know if you'd like me to scaffold out any of these (e.g., persistent `PeerConnectionManager`, message dispatcher, socket RAII utility) — I’d be happy to help you implement it cleanly.

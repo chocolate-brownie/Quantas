@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License along with QUA
 
 #include "../Common/Abstract/NetworkInterfaceAbstract.hpp"
 #include "../Common/Concrete/NetworkInterfaceConcrete.hpp"
-#include "../Common/LogWriter.hpp"
+#include "../Common/OutputWriter.hpp"
 #include "../Common/RandomUtil.hpp"
 #include "../Common/RoundManager.hpp"
 
@@ -360,10 +360,10 @@ void KademliaPeer::endOfRound(std::vector<Peer*>& peers) {
 
     if (satisfied > 0) {
         const double avgHops = static_cast<double>(hops) / satisfied;
-        LogWriter::pushValue("kademliaAverageHops", avgHops);
-        LogWriter::pushValue("kademliaAverageLatency", static_cast<double>(latency) / satisfied);
+        OutputWriter::pushValue("kademliaAverageHops", avgHops);
+        OutputWriter::pushValue("kademliaAverageLatency", static_cast<double>(latency) / satisfied);
     }
-    LogWriter::pushValue("kademliaRequestsSatisfied", static_cast<double>(satisfied));
+    OutputWriter::pushValue("kademliaRequestsSatisfied", static_cast<double>(satisfied));
 }
 
 }  // namespace quantas

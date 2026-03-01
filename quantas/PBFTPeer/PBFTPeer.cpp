@@ -263,11 +263,11 @@ void PBFTPeer::performComputation() {
         json msg = packet.getMessage();
         
         if (!msg.contains("type")) {
-            std::cout << "Message requires a type" << std::endl;
+            QUANTAS_LOG_WARN("PBFT") << "Message requires a type";
             continue;
         }
         if (!msg.contains("consensusId")) {
-            std::cout << "Message requires a consensusId" << std::endl;
+            QUANTAS_LOG_WARN("PBFT") << "Message requires a consensusId";
             continue;
         }
         if (msg["type"] == "Request") {
@@ -282,32 +282,32 @@ void PBFTPeer::performComputation() {
             auto it = consensuses.find(targetId);
             if (it != consensuses.end()) {
                 if (!msg.contains("seqNum")) {
-                    std::cout << "Message requires a  a seqNum" << std::endl;
+                    QUANTAS_LOG_WARN("PBFT") << "Message requires a seqNum";
                     continue;
                 }
                 int seq = msg["seqNum"];
                 if (!msg.contains("view")) {
-                    std::cout << "Message requires a  a view" << std::endl;
+                    QUANTAS_LOG_WARN("PBFT") << "Message requires a view";
                     continue;
                 }
                 int view = msg["view"];
                 if (!msg.contains("MessageType")) {
-                    std::cout << "Message requires a  a MessageType" << std::endl;
+                    QUANTAS_LOG_WARN("PBFT") << "Message requires a MessageType";
                     continue;
                 }
                 string type = msg["MessageType"];
                 Consensus* base = it->second;
                 auto* target = dynamic_cast<PBFTConsensus*>(base);
-                if (!target) { std::cout << "message lost" << std::endl; continue; }
+                if (!target) { QUANTAS_LOG_WARN("PBFT") << "Message lost"; continue; }
                 target->_receivedMessages[seq][view].insert({type, msg});
-                // std::cout << publicId() << " receive " << type << " in round " << RoundManager::currentRound() << "\n\n";
+
+                QUANTAS_LOG_TRACE("PBFT") << publicId() << " receive " << type << " in round " << RoundManager::currentRound();
             } else {
-                std::cout << "message lost" << std::endl;
+                QUANTAS_LOG_WARN("PBFT") << "Message lost";
             }
         } else {
-            std::cout << "Other?" << std::endl;
+            QUANTAS_LOG_WARN("PBFT") << "Other error";
         }
-        // std::cout << std::endl;
     }
 
     for (auto consensus : consensuses) {
@@ -364,8 +364,8 @@ void PBFTConsensus::requestViewChange(Peer* peer) {
     // Update view change timer since we have requested to move to the next view
     viewChangeTimer = RoundManager::currentRound() + viewChangeDelay;
 
-    // std::cout << peer->publicId() << " request view change in round " << RoundManager::currentRound() << std::endl;
-    // std::cout << "seqNum: " << viewChangeAnchorSeq << " newView: " << view << std::endl << std::endl;
+    QUANTAS_LOG_TRACE("PBFT") << peer->publicId() << " request view change in round " << RoundManager::currentRound();
+    QUANTAS_LOG_TRACE("PBFT") << "seqNum: " << viewChangeAnchorSeq << " newView: " << view;
 
     Phase* nextPhase = PBFTViewChangePhase::instance();
     changePhase(nextPhase);
@@ -575,8 +575,8 @@ void PBFTViewChangePhase::runPhase(Consensus* con, Peer* peer) {
 
     Phase* np = PBFTNewViewPhase::instance();
     c->changePhase(np);
-    // std::cout << peer->publicId() << " move to new view in round  " << RoundManager::currentRound() << std::endl;
-    // std::cout << "seqNum: " << c->viewChangeAnchorSeq << " newView: " << c->view << std::endl << std::endl;
+    QUANTAS_LOG_TRACE("PBFT") << peer->publicId() << " move to new view in round  " << RoundManager::currentRound();
+    QUANTAS_LOG_TRACE("PBFT") "seqNum: " << c->viewChangeAnchorSeq << " newView: " << c->view;
 }
 
 void PBFTNewViewPhase::runPhase(Consensus* con, Peer* peer) {
@@ -636,8 +636,8 @@ void PBFTNewViewPhase::runPhase(Consensus* con, Peer* peer) {
     // Update view change timer since we have made it to the next view
     c->viewChangeTimer = RoundManager::currentRound() + c->viewChangeDelay;
 
-    // std::cout << peer->publicId() << " move to pre-prepare in round  " << RoundManager::currentRound() << std::endl;
-    // std::cout << "seqNum: " << c->viewChangeAnchorSeq << " newView: " << c->view << std::endl << std::endl;
+    QUANTAS_LOG_TRACE("PBFT") << peer->publicId() << " move to pre-prepare in round  " << RoundManager::currentRound();
+    QUANTAS_LOG_TRACE("PBFT") << "seqNum: " << c->viewChangeAnchorSeq << " newView: " << c->view;
     changePhase(c, PBFTPrePreparePhase::instance());
     c->runPhase(peer);
 }
@@ -705,13 +705,13 @@ void PBFTPeer::endOfRound(vector<Peer*>& _peers) {
     }
 
     if (length > 0) {
-        LogWriter::pushValue("latency", latency / length);
-        LogWriter::pushValue("faultyConfirmed", faultyConfirmed / length);
+        OutputWriter::pushValue("latency", latency / length);
+        OutputWriter::pushValue("faultyConfirmed", faultyConfirmed / length);
     } else {
-        LogWriter::pushValue("latency", 0.0);
-        LogWriter::pushValue("faultyConfirmed", 0.0);
+        OutputWriter::pushValue("latency", 0.0);
+        OutputWriter::pushValue("faultyConfirmed", 0.0);
     }
-	LogWriter::pushValue("throughput", length / peers.size());
+	OutputWriter::pushValue("throughput", length / peers.size());
     
 }
 

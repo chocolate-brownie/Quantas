@@ -16,23 +16,25 @@
 # Configurable usage to override the hardcoded input:
 # [make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json]
 
-# Hard coded usage [make run]
+# Hard coded usage [make run] or [make run MODE=concrete] or [make run MODE=concrete PORT=XXXX]
 # Configure this for the specific input file.
 # Make sure to include the path to the input file 
 
-INPUTFILE := quantas/ExamplePeer/ExampleInput.json
+# INPUTFILE := quantas/ExamplePeer/ExampleInput.json
+# INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput.json
 
-# INPUTFILE := quantas/AltBitPeer/AltBitUtility.json
+# INPUTFILE := quantas/AltBitPeer/AltBitInput.json
 
 # INPUTFILE := quantas/PBFTPeer/PBFTInput.json
 
-# INPUTFILE := quantas/BitcoinPeer/BitcoinInput.json
+# INPUTFILE := quantas/BitcoinPeer/BitcoinPeerInput.json
+INPUTFILE := quantas/BitcoinPeer/BitcoinConcreteInput.json
 
 # INPUTFILE := quantas/EthereumPeer/EthereumPeerInput.json
 
-# INPUTFILE := quantas/LinearChordPeer/LinearChordInput.json
-
 # INPUTFILE := quantas/KademliaPeer/KademliaPeerInput.json
+
+# INPUTFILE := quantas/ChordPeer/ChordPeerInput.json
 
 # INPUTFILE := quantas/RaftPeer/RaftInput.json
 
@@ -42,12 +44,22 @@ INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 
 EXE := quantas.exe
 
+MAKEFLAGS += -j16
+
 # compiles all the cpps in Common and main.cpp
 COMMON_SRCS := $(wildcard quantas/Common/*.cpp)
 COMMON_OBJS := $(COMMON_SRCS:.cpp=.o)
 
-ABSTRACT_OBJS := $(COMMON_OBJS) quantas/Common/Abstract/abstractSimulation.o quantas/Common/Abstract/Channel.o quantas/Common/Abstract/Network.o
-CONCRETE_OBJS := $(COMMON_OBJS) quantas/Common/Concrete/concreteSimulation.o quantas/Common/Concrete/ipUtil.o
+MODE ?= abstract
+
+ABSTRACT_SIM_OBJS := quantas/Common/Abstract/abstractSimulation.o quantas/Common/Abstract/Channel.o quantas/Common/Abstract/Network.o quantas/Common/Concrete/NetworkInterfaceConcrete.o quantas/Common/Concrete/ProcessCoordinator.o quantas/Common/Concrete/ipUtil.o
+CONCRETE_SIM_OBJS := quantas/Common/Concrete/NetworkInterfaceConcrete.o quantas/Common/Concrete/ProcessCoordinator.o quantas/Common/Concrete/concreteSimulation.o quantas/Common/Concrete/ipUtil.o quantas/Common/Abstract/Channel.o
+
+ifeq ($(MODE),concrete)
+SIM_OBJS := $(COMMON_OBJS) $(CONCRETE_SIM_OBJS)
+else
+SIM_OBJS := $(COMMON_OBJS) $(ABSTRACT_SIM_OBJS)
+endif
 
 # compiles all cpps specified as necessary in the INPUTFILE
 ALGS := $(shell sed -n '/"algorithms"/,/]/p' $(INPUTFILE) \
@@ -79,8 +91,15 @@ clang: release
 
 # When running on Linux use make run
 run: release
-	@echo running with input: $(INPUTFILE)
-	@./$(EXE) $(INPUTFILE); exit_code=$$?; \
+	
+	@if [ -n "$(PORT)" ]; then \
+		echo running with input: $(INPUTFILE) on port $(PORT); \
+		./$(EXE) $(INPUTFILE) $(PORT); \
+	else \
+		echo running with input: $(INPUTFILE); \
+		./$(EXE) $(INPUTFILE); \
+	fi; \
+	exit_code=$$?; \
 	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
 
 ############################### Debugging ###############################
@@ -103,17 +122,69 @@ run_simple_memory: debug
 
 # runs the program with GDB for more advanced error viewing
 run_debug: debug
-	@gdb -q -nx \
-		 -iex "set pagination off" \
-		 --ex "set pagination off" \
-		 --ex "set height 0" \
-	     --ex "set debuginfod enabled off" \
-	     --ex "set print thread-events off" \
-	     --ex run \
-	     --ex backtrace \
-	     --args ./$(EXE) $(INPUTFILE); \
+	@if [ -n "$(PORT)" ]; then \
+		echo debugging with input: $(INPUTFILE) on port $(PORT); \
+		gdb -q -nx \
+			-iex "set pagination off" \
+			--ex "set pagination off" \
+			--ex "set height 0" \
+			--ex "set debuginfod enabled off" \
+			--ex "set print thread-events off" \
+			--ex run \
+			--ex backtrace \
+			--args ./$(EXE) $(INPUTFILE) $(PORT); \
+	else \
+		echo debugging with input: $(INPUTFILE); \
+		gdb -q -nx \
+			-iex "set pagination off" \
+			--ex "set pagination off" \
+			--ex "set height 0" \
+			--ex "set debuginfod enabled off" \
+			--ex "set print thread-events off" \
+			--ex run \
+			--ex backtrace \
+			--args ./$(EXE) $(INPUTFILE); \
+	fi; \
 	exit_code=$$?; \
 	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
+
+getIP:
+	@hostname -I
+
+
+kill:
+	@USER=$$(whoami); \
+	PIDS=$$(pgrep -u $$USER -x $(EXE) 2>/dev/null || true); \
+	if [ -n "$$PIDS" ]; then \
+		echo "Killing $$(echo "$$PIDS" | wc -w) process(es) of $(EXE) started by $$USER..."; \
+		kill $$PIDS 2>/dev/null || true; \
+		sleep 0.2; \
+		kill -9 $$PIDS 2>/dev/null || true; \
+	else \
+		echo "No running $(EXE) processes found for user $$USER."; \
+	fi
+
+status:
+	@USER=$$(whoami); \
+	PIDS=$$(ps -eo user=,pid=,comm= | awk -v user="$$USER" '$$1 == user && $$3 == "$(EXE)" {print $$3}'); \
+	COUNT=$$(echo "$$PIDS" | wc -w); \
+	if [ -n "$$PIDS" ]; then \
+		echo "$$COUNT process(es) of $(EXE) started by $$USER:"; \
+		echo "$$PIDS"; \
+	else \
+		echo "No running $(EXE) processes found for user $$USER."; \
+	fi
+
+statusAll:
+	@USER=$$(whoami); \
+	PIDS=$$(ps -eo user=,pid=,comm= | awk -v user="$$USER" '$$1 == user'); \
+	COUNT=$$(echo "$$PIDS" | wc -l); \
+	if [ -n "$$PIDS" ]; then \
+		echo "$$COUNT process(es) of started by $$USER:"; \
+		echo "$$PIDS"; \
+	else \
+		echo "No running processes found for user $$USER."; \
+	fi
 
 ############################### Tests ###############################
 
@@ -127,7 +198,7 @@ rand_test: quantas/Tests/randtest.cpp
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
-TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
+TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/ChordPeer/ChordPeerInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
 test: check-version rand_test
 	@make --no-print-directory clean
@@ -161,7 +232,7 @@ check-version:
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then echo "To change the default version visit: https://linuxconfig.org/how-to-switch-between-multiple-gcc-and-g-compiler-versions-on-ubuntu-20-04-lts-focal-fossa"; fi
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then exit 1; fi
 
-$(EXE): $(ALG_OBJS) $(ABSTRACT_OBJS)
+$(EXE): $(ALG_OBJS) $(SIM_OBJS)
 	@$(CXX) $(CXXFLAGS) $^ -o $(EXE)
 
 ############################### Cleanup ###############################

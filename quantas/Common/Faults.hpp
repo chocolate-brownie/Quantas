@@ -68,9 +68,7 @@ public:
 
         // Check overridden onSend behavior for known types
         for (const std::string& sendType : knownSendTypes) {
-            // std::cout << "try to add\n";
             if (fault->overridesSendType(sendType)) {
-                // std::cout << "added\n";
                 sendFaults[sendType].push_back(fault);
             }
         }

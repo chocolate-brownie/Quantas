@@ -35,7 +35,7 @@ public:
     void performComputation() override;
     void runProtocolStep(const std::vector<std::string>& overrideParents = {}) override;
     void initParameters(const std::vector<Peer*>& peers, json parameters) override;
-    void endOfRound(std::vector<Peer*>& peers) override;
+    void endOfExperiment(std::vector<Peer*>& peers) override;
 
 private:
     struct PendingTx {

@@ -26,7 +26,7 @@ namespace quantas {
 		// perform one step of the Algorithm with the messages in inStream
 		void                 performComputation() override;
 		// perform any calculations needed at the end of a round such as determine throughput (only ran once, not for every peer)
-		void                 endOfRound(vector<Peer*>& _peers) override;
+		void                 endOfExperiment(vector<Peer*>& _peers) override;
 
 		void 				 initParameters(const std::vector<Peer*>& _peers, json parameters);
 

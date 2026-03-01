@@ -28,7 +28,8 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #include "Abstract/NetworkInterfaceAbstract.hpp"
 #include "Concrete/NetworkInterfaceConcrete.hpp"
 #include "RoundManager.hpp"
-#include "LogWriter.hpp"
+#include "OutputWriter.hpp"
+#include "Logger.hpp"
 
 namespace quantas {
 
@@ -59,7 +60,7 @@ public:
         PeerRegistry* inst = instance();
         bool result = inst->registry.insert(std::make_pair(name, factory)).second;
         if (!result) {
-            std::cout << "Peer of type:" << name <<" already registered." << std::endl;
+            QUANTAS_LOG_WARN("peer.hpp") << "Peer of type:" << name <<" already registered.";
         }
         return result;
     }
@@ -108,6 +109,8 @@ inline Peer() {}
 
     // Called after performComputation in each round (subclass can override to collect metrics, etc.)
     virtual void endOfRound(std::vector<Peer*>& peers) {}
+    
+    virtual void endOfExperiment(std::vector<Peer*>& peers) {}
     
     bool isCrashed() {return (_crashRecoveryRound > RoundManager::currentRound());}
     void setCrashRecoveryRound(size_t crashRecoveryRound) {_crashRecoveryRound = crashRecoveryRound;}

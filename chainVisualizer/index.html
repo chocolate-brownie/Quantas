@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Ledger Visualizer</title>
+<link rel="stylesheet" href="style.css">
+
+<!-- Cytoscape + Dagre -->
+<script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+</head>
+
+<body>
+  <div id="controls">
+    <div class="row">
+        <button id="toggleControlsBtn">Hide controls</button>
+        <button id="toggleStatsBtn">Show stats</button>
+    </div>
+
+    <div class="row">
+        <label class="chk">
+  Load file:
+  <input type="file" id="fileInput" accept=".txt,.json" />
+</label>
+
+      <label>Select Peers:</label>
+      <select id="peerSelect" multiple size="8"></select>
+
+      <label class="chk">
+        <input type="checkbox" id="globalTree" />
+        Global tree
+      </label>
+
+    </div>
+
+    <div class="row">
+      <button id="fitBtn">Fit</button>
+      <button id="zoomInBtn">+</button>
+      <button id="zoomOutBtn">−</button>
+    </div>
+
+    <div id="legend">
+      <span><span class="swatch commonlong"></span> In all ledgers + longest chain (blue)</span>
+      <span><span class="swatch longest"></span> Longest chain (green border)</span>
+      <span><span class="swatch parasite"></span> Parasite (✕)</span>
+      <span><span class="swatch ghost"></span> Missing parent (ghost)</span>
+    </div>
+  </div>
+
+  <div id="statsPanel" class="panel hidden">
+  <div class="panelHeader">
+    <div class="panelTitle">Global Tree Stats</div>
+    <button id="closeStatsBtn">Hide</button>
+  </div>
+  <pre id="statsBody" class="panelBody"></pre>
+</div>
+
+<button id="showControlsBtn" class="floating hidden">Show controls</button>
+
+
+  <div id="cy"></div>
+  <div id="tooltip" style="display:none;"></div>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "EthereumRun.txt",
+      "id": "EthereumRun",
       "threadCount": 11,
       "distribution": {
         "type": "uniform",

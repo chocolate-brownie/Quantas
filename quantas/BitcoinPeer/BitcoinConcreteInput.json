@@ -2,10 +2,16 @@
   "algorithms": [
     "BitcoinPeer/BitcoinPeer.cpp"
   ],
+  "concrete": {
+    "leader": { "id": 0, "ip": "10.37.7.222", "port": 5000 },
+    "peersPerProcess": 5,
+    "stopCondition": { "type": "time", "milliseconds": 100 }
+  },
+  "logging_level": "trace",
   "experiments": [
     {
-      "id": "bitcoinRun",
-      "threadCount": 11,
+      "id": "bitcoinConcrete",
+      "threadCount": 10,
       "distribution": {
         "type": "uniform",
         "maxDelay": 1,
@@ -13,14 +19,13 @@
       },
       "topology": {
         "type": "complete",
-        "initialPeers": 11,
+        "initialPeers": 10,
         "initialPeerType": "BitcoinPeer"
       },
       "parameters": {
         "submitRate": 10,
         "defaultMineRate": 1,
-        "mineScaler": 5,
-        "mineRates": [9],
+        "mineScaler": 1,
         "parasiteFault": {
           "leadThreshold": 2,
           "peerIndices": [0]

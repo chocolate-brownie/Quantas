@@ -10,10 +10,10 @@
 
 #include "../quantas/Common/Concrete/ipUtil.hpp"
 #include "../quantas/Common/Json.hpp"
-#include "../quantas/Common/LogWriter.hpp"
+#include "../quantas/Common/OutputWriter.hpp"
 
 using json = nlohmann::json;
-using quantas::LogWriter;
+using quantas::OutputWriter;
 
 class PeerInfo {
 public:
@@ -55,8 +55,8 @@ public:
             wait_for_peer_list();
         }
 
-        LogWriter::setLogFile("peer_" + std::to_string(my_id) + ".log");
-        LogWriter::setTest(0);
+        OutputWriter::setLogFile("peer_" + std::to_string(my_id) + ".log");
+        OutputWriter::setTest(0);
     }
 
 
@@ -67,15 +67,15 @@ public:
                     {"type", "hello"},
                     {"from_id", my_id}
                 });
-                LogWriter::pushValue("info", "[SEND] " + std::to_string(my_id) + " sent hello to " + std::to_string(peer.id));
+                OutputWriter::pushValue("info", "[SEND] " + std::to_string(my_id) + " sent hello to " + std::to_string(peer.id));
             }
         }
         
         std::unique_lock<std::mutex> lock(mtx);
         cv.wait(lock, [this] { return shutdown_condition; });
 
-        LogWriter::pushValue("info", "[DONE] Exiting.");
-        LogWriter::print();
+        OutputWriter::pushValue("info", "[DONE] Exiting.");
+        OutputWriter::print();
 
         #ifdef _WIN32
             WSACleanup();
@@ -124,7 +124,7 @@ private:
         inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
 
         while (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-            LogWriter::pushValue("warn", "Retrying connection to " + ip + ":" + std::to_string(port));
+            OutputWriter::pushValue("warn", "Retrying connection to " + ip + ":" + std::to_string(port));
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
@@ -148,7 +148,7 @@ private:
             {"id_count", 1}
         };
         send_json(config["leader"]["ip"], config["leader"]["port"], msg);
-        LogWriter::pushValue("info", "[SEND] " + std::to_string(my_id) + " sent report to: " + std::to_string(int(config["leader"]["id"])));
+        OutputWriter::pushValue("info", "[SEND] " + std::to_string(my_id) + " sent report to: " + std::to_string(int(config["leader"]["id"])));
     }
 
     void wait_for_peer_list() {
@@ -195,7 +195,7 @@ private:
                     int assigned_id = received_ids.size() + 1;
                     received_ids.insert(assigned_id);
                     all_peers.push_back({assigned_id, ip, port});
-                    LogWriter::pushValue("info", "[REC] " + std::to_string(my_id) + " received report from " + std::to_string(assigned_id));
+                    OutputWriter::pushValue("info", "[REC] " + std::to_string(my_id) + " received report from " + std::to_string(assigned_id));
 
                     if (all_peers.size() == total_peers - 1) {
                         all_peers.insert(all_peers.begin(), {0, my_ip, my_port});
@@ -213,7 +213,7 @@ private:
                         for (const auto& peer : all_peers) {
                             if (peer.id == my_id) continue;
                             send_json(peer.ip, peer.port, newMsg);
-                            LogWriter::pushValue("info", "[SEND] " + std::to_string(my_id) + " sent full report to " + std::to_string(peer.id));
+                            OutputWriter::pushValue("info", "[SEND] " + std::to_string(my_id) + " sent full report to " + std::to_string(peer.id));
                         }
                     }
                 } else if (type == "ip_list" && !is_leader) {
@@ -224,13 +224,13 @@ private:
                             my_id = item["id"];
                         }
                     }
-                    LogWriter::pushValue("info", "[REC] " + std::to_string(my_id) + " received full report");
+                    OutputWriter::pushValue("info", "[REC] " + std::to_string(my_id) + " received full report");
                 } else if (type == "hello") {
                     std::lock_guard<std::mutex> lock(mtx);
                     int sender = msg.value("from_id", -1);
                     if (sender != -1) {
                         received_hello_from.insert(sender);
-                        LogWriter::pushValue("info", "[REC] " + std::to_string(my_id) + " received hello from " + std::to_string(sender));
+                        OutputWriter::pushValue("info", "[REC] " + std::to_string(my_id) + " received hello from " + std::to_string(sender));
                         if (received_hello_from.size() == total_peers - 1) {
                             shutdown_condition = true;
                             cv.notify_all();

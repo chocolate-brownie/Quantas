@@ -25,7 +25,7 @@ If not, see <https://www.gnu.org/licenses/>.
 #include <vector>
 
 #include "../Common/Committee.hpp"
-#include "../Common/LogWriter.hpp"
+#include "../Common/OutputWriter.hpp"
 #include "../Common/Packet.hpp"
 #include "../Common/RandomUtil.hpp"
 #include "../Common/RoundManager.hpp"
@@ -709,18 +709,18 @@ void RaftPeer::endOfRound(std::vector<Peer*>& peers) {
     }
 
     if (totalConfirmed > 0.0) {
-        LogWriter::pushValue("latency", totalLatency / totalConfirmed);
+        OutputWriter::pushValue("latency", totalLatency / totalConfirmed);
     } else {
-        LogWriter::pushValue("latency", 0.0);
+        OutputWriter::pushValue("latency", 0.0);
     }
 
     if (!peers.empty()) {
-        LogWriter::pushValue("throughput", totalConfirmed / peers.size());
+        OutputWriter::pushValue("throughput", totalConfirmed / peers.size());
     } else {
-        LogWriter::pushValue("throughput", 0.0);
+        OutputWriter::pushValue("throughput", 0.0);
     }
 
-    LogWriter::pushValue("leaderChanges", totalLeaderChanges);
+    OutputWriter::pushValue("leaderChanges", totalLeaderChanges);
 }
 
 } // namespace quantas

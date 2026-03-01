@@ -54,7 +54,7 @@ A simulation is described by a JSON document with two top-level keys:
 
 Every experiment object can contain:
 
-- `logFile`: Output destination for metrics. Use a filename to create/append to that file, or `"cout"` to emit JSON metrics on stdout.
+- `id`: Output destination for metrics. Use a filename to create/append to that file, or `"cout"` to emit JSON metrics on stdout.
 - `threadCount`: Desired worker threads for message delivery and computation. The runtime caps this at the number of peers.
 - `tests`: Repeat count for the experiment (default 1). Each repetition re-initialises the topology and random seeds.
 - `rounds`: Number of synchronous rounds to execute per test.
@@ -114,7 +114,7 @@ Feel free to embed nested objects or arrays if your algorithm benefits from rich
 
 ```json
 {
-  "logFile": "PBFTByzantine_04.txt",
+  "id": "PBFTByzantine_04",
   "threadCount": 48,
   "distribution": {
     "type": "UNIFORM",
@@ -152,7 +152,7 @@ Attach faults from your algorithm’s `initParameters`. For instance, `PBFTPeer`
 
 ## Logging and Metrics
 
-`LogWriter` aggregates per-test metrics into structured JSON records. Algorithms push values during execution (for example PBFT tracks throughput, latency, and faulty confirmations). Each experiment writes its metrics at the end of the run, either to stdout (`logFile = "cout"`) or to the named log file.
+`OutputWriter` aggregates per-test metrics into structured JSON records. Algorithms push values during execution (for example PBFT tracks throughput, latency, and faulty confirmations). Each experiment writes its metrics at the end of the run, either to stdout (`id = "cout"`) or to the named log file.
 
 ## Platform Notes
 

@@ -78,6 +78,8 @@ public:
 
     void endOfRound() {_peers[0]->endOfRound(_peers); }
 
+    void endOfExperiment() {_peers[0]->endOfExperiment(_peers); }
+
     // -------------- Access by index --------------
     // (Might be optional if you rarely do random access.)
     Peer*       operator[](int i)       { return _peers[i]; }

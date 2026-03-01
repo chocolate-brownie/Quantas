@@ -38,7 +38,7 @@ namespace quantas {
 
 	void AltBitPeer::performComputation() {
 		while (!inStreamEmpty()) {
-			// std::cout << publicId() << " received a message" << std::endl;
+			QUANTAS_LOG_TRACE("ALTBit") << publicId() << " received a message";
 			Packet packet = popInStream();
 			interfaceId source = packet.sourceId();
 			json oldMessage = packet.getMessage();
@@ -93,21 +93,19 @@ namespace quantas {
 
 	
 
-	void AltBitPeer::endOfRound(vector<Peer*>& _peers) {
-		if (RoundManager::lastRound() <= RoundManager::currentRound()) {
-			const vector<AltBitPeer*> peers = reinterpret_cast<vector<AltBitPeer*> const&>(_peers);
-			double throughput = 0.0;
-			double messages = 0.0;
-			for (const auto* peer : peers) {
-				throughput += static_cast<double>(peer->requestsSatisfied);
-				messages += static_cast<double>(peer->messagesSent);
-			}
-			const double utility = messages > 0.0 ? (throughput / messages) * 100.0 : 0.0;
-
-			LogWriter::pushValue("utility", utility);
-			LogWriter::pushValue("messages", messages);
-			LogWriter::pushValue("throughput", throughput);
+	void AltBitPeer::endOfExperiment(vector<Peer*>& _peers) {
+		const vector<AltBitPeer*> peers = reinterpret_cast<vector<AltBitPeer*> const&>(_peers);
+		double throughput = 0.0;
+		double messages = 0.0;
+		for (const auto* peer : peers) {
+			throughput += static_cast<double>(peer->requestsSatisfied);
+			messages += static_cast<double>(peer->messagesSent);
 		}
+		const double utility = messages > 0.0 ? (throughput / messages) * 100.0 : 0.0;
+
+		OutputWriter::pushValue("utility", utility);
+		OutputWriter::pushValue("messages", messages);
+		OutputWriter::pushValue("throughput", throughput);
 	}
 
 	void AltBitPeer::sendMessage(interfaceId peer, json message) {

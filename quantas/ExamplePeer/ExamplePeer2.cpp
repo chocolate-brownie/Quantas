@@ -24,6 +24,12 @@ static bool registerExamplePeer2 = []() {
         [](interfaceId pubId) { return new ExamplePeer2(new NetworkInterfaceAbstract(pubId)); });
 }();
 
+static bool registerExamplePeer2Concrete = []() {
+    return PeerRegistry::registerPeerType(
+        "ExamplePeer2Concrete",
+        [](interfaceId) { return new ExamplePeer2(new NetworkInterfaceConcrete()); });
+}();
+
 ExamplePeer2::ExamplePeer2(NetworkInterface* networkInterface)
     : Peer(networkInterface) {}
 
@@ -43,20 +49,20 @@ ExamplePeer2::~ExamplePeer2() = default;
 
 void ExamplePeer2::initParameters(std::vector<Peer*>& peers, json parameters) {
     if (parameters.contains("parameter1")) {
-        LogWriter::pushValue("parameter1", parameters["parameter1"]);
+        OutputWriter::pushValue("parameter1", parameters["parameter1"]);
     }
 
     if (parameters.contains("parameter2")) {
-        LogWriter::pushValue("parameter2", parameters["parameter2"]);
+        OutputWriter::pushValue("parameter2", parameters["parameter2"]);
     }
 
     if (parameters.contains("parameter3")) {
-        LogWriter::pushValue("parameter3", parameters["parameter3"]);
+        OutputWriter::pushValue("parameter3", parameters["parameter3"]);
     }
 }
 
 void ExamplePeer2::performComputation() {
-    LogWriter::pushValue("performs computation", publicId());
+    OutputWriter::pushValue("performs computation", publicId());
     checkInStrm();
 
     int baseSequence = msgsSent;
@@ -99,7 +105,7 @@ void ExamplePeer2::logInboundMessage(const Packet& packet) const {
     logEntry["from"] = sender;
     logEntry["receivedRound"] = RoundManager::currentRound();
     logEntry["contents"] = payload;
-    LogWriter::pushValue("receivedMessages", logEntry);
+    OutputWriter::pushValue("receivedMessages", logEntry);
 }
 
 json ExamplePeer2::buildGreetingPayload(int sequenceNumber, int emissionIndex) const {
@@ -123,7 +129,7 @@ void ExamplePeer2::logSentMessages(const std::vector<Peer*>& peers) const {
             total += second->msgsSent;
         }
     }
-    LogWriter::pushValue("sentMessages", total);
+    OutputWriter::pushValue("sentMessages", total);
 }
 
 } // namespace quantas

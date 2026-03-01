@@ -7,7 +7,7 @@ QUANTAS is distributed in the hope that it will be useful, but WITHOUT ANY WARRA
 You should have received a copy of the GNU General Public License along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "LinearChordPeer.hpp"
+#include "ChordPeer.hpp"
 
 #include <algorithm>
 #include <string>
@@ -15,24 +15,24 @@ You should have received a copy of the GNU General Public License along with QUA
 
 #include "../Common/Abstract/NetworkInterfaceAbstract.hpp"
 #include "../Common/Json.hpp"
-#include "../Common/LogWriter.hpp"
+#include "../Common/OutputWriter.hpp"
 #include "../Common/RandomUtil.hpp"
 #include "../Common/RoundManager.hpp"
 
 namespace quantas {
 
-static bool registerLinearChordPeer = []() {
+static bool registerChordPeer = []() {
     return PeerRegistry::registerPeerType(
-        "LinearChordPeer",
-        [](interfaceId pubId) { return new LinearChordPeer(new NetworkInterfaceAbstract(pubId)); });
+        "ChordPeer",
+        [](interfaceId pubId) { return new ChordPeer(new NetworkInterfaceAbstract(pubId)); });
 }();
 
-int LinearChordPeer::s_nextTransactionId = 1;
+int ChordPeer::s_nextTransactionId = 1;
 
-LinearChordPeer::LinearChordPeer(NetworkInterface* interfacePtr)
+ChordPeer::ChordPeer(NetworkInterface* interfacePtr)
     : Peer(interfacePtr) {}
 
-LinearChordPeer::LinearChordPeer(const LinearChordPeer& rhs)
+ChordPeer::ChordPeer(const ChordPeer& rhs)
     : Peer(rhs),
       _ringOrder(rhs._ringOrder),
       _indexById(rhs._indexById),
@@ -43,7 +43,7 @@ LinearChordPeer::LinearChordPeer(const LinearChordPeer& rhs)
       _totalHops(rhs._totalHops),
       _totalLatency(rhs._totalLatency) {}
 
-void LinearChordPeer::initParameters(const std::vector<Peer*>& peers, json /*parameters*/) {
+void ChordPeer::initParameters(const std::vector<Peer*>& peers, json /*parameters*/) {
     std::vector<interfaceId> ringOrder;
     ringOrder.reserve(peers.size());
     for (const auto* peerPtr : peers) {
@@ -57,7 +57,7 @@ void LinearChordPeer::initParameters(const std::vector<Peer*>& peers, json /*par
     }
 
     for (auto* basePtr : peers) {
-        auto* peerPtr = static_cast<LinearChordPeer*>(basePtr);
+        auto* peerPtr = static_cast<ChordPeer*>(basePtr);
         peerPtr->_ringOrder = ringOrder;
         peerPtr->_indexById = indexById;
         auto it = indexById.find(peerPtr->publicId());
@@ -70,16 +70,16 @@ void LinearChordPeer::initParameters(const std::vector<Peer*>& peers, json /*par
     }
 }
 
-void LinearChordPeer::performComputation() {
+void ChordPeer::performComputation() {
     if (!_initialized) return;
     checkInStrm();
 }
 
-void LinearChordPeer::checkInStrm() {
+void ChordPeer::checkInStrm() {
     while (!inStreamEmpty()) {
         Packet packet = popInStream();
         json msg = packet.getMessage();
-        if (!msg.contains("type") || msg["type"] != "LinearChord") continue;
+        if (!msg.contains("type") || msg["type"] != "Chord") continue;
         const std::string messageType = msg.value("messageType", std::string());
         if (messageType == "lookup") {
             handleLookup(std::move(msg));
@@ -87,7 +87,7 @@ void LinearChordPeer::checkInStrm() {
     }
 }
 
-void LinearChordPeer::handleLookup(json msg) {
+void ChordPeer::handleLookup(json msg) {
     interfaceId target = msg.value("targetId", NO_PEER_ID);
     if (target == NO_PEER_ID) return;
 
@@ -109,7 +109,7 @@ void LinearChordPeer::handleLookup(json msg) {
     dispatchLookup(std::move(msg), nextHop, neighborSet);
 }
 
-void LinearChordPeer::submitLookup(int transactionId) {
+void ChordPeer::submitLookup(int transactionId) {
     if (!_initialized || _ringOrder.empty()) return;
 
     interfaceId target = pickRandomTarget();
@@ -129,9 +129,9 @@ void LinearChordPeer::submitLookup(int transactionId) {
     dispatchLookup(std::move(msg), nextHop, neighborSet);
 }
 
-json LinearChordPeer::makeLookupTemplate(interfaceId target, int transactionId) const {
+json ChordPeer::makeLookupTemplate(interfaceId target, int transactionId) const {
     json msg = {
-        {"type", "LinearChord"},
+        {"type", "Chord"},
         {"messageType", "lookup"},
         {"transactionId", transactionId},
         {"originId", publicId()},
@@ -142,7 +142,7 @@ json LinearChordPeer::makeLookupTemplate(interfaceId target, int transactionId) 
     return msg;
 }
 
-interfaceId LinearChordPeer::pickRandomTarget() const {
+interfaceId ChordPeer::pickRandomTarget() const {
     if (_ringOrder.empty()) return publicId();
     int index = randMod(static_cast<int>(_ringOrder.size()));
     interfaceId candidate = _ringOrder[static_cast<size_t>(index)];
@@ -153,7 +153,7 @@ interfaceId LinearChordPeer::pickRandomTarget() const {
     return candidate;
 }
 
-interfaceId LinearChordPeer::selectFinger(interfaceId target, const std::set<interfaceId>& neighborSet) const {
+interfaceId ChordPeer::selectFinger(interfaceId target, const std::set<interfaceId>& neighborSet) const {
     const size_t ringSize = _ringOrder.size();
     if (ringSize <= 1) return NO_PEER_ID;
 
@@ -177,7 +177,7 @@ interfaceId LinearChordPeer::selectFinger(interfaceId target, const std::set<int
     return best;
 }
 
-interfaceId LinearChordPeer::chooseClockwiseNeighbor(interfaceId target,
+interfaceId ChordPeer::chooseClockwiseNeighbor(interfaceId target,
                                                         const std::set<interfaceId>& neighborSet) const {
     const size_t ringSize = _ringOrder.size();
     if (ringSize <= 1 || neighborSet.empty()) return NO_PEER_ID;
@@ -215,7 +215,7 @@ interfaceId LinearChordPeer::chooseClockwiseNeighbor(interfaceId target,
     return best;
 }
 
-void LinearChordPeer::dispatchLookup(json msg,
+void ChordPeer::dispatchLookup(json msg,
                                         interfaceId nextHop,
                                         const std::set<interfaceId>& neighborSet) {
     if (nextHop == NO_PEER_ID || nextHop == publicId()) return;
@@ -225,7 +225,7 @@ void LinearChordPeer::dispatchLookup(json msg,
     unicastTo(msg, nextHop);
 }
 
-void LinearChordPeer::buildFingerTable() {
+void ChordPeer::buildFingerTable() {
     _fingers.clear();
     const size_t ringSize = _ringOrder.size();
     if (ringSize <= 1) return;
@@ -253,13 +253,13 @@ void LinearChordPeer::buildFingerTable() {
     }
 }
 
-void LinearChordPeer::endOfRound(std::vector<Peer*>& peers) {
+void ChordPeer::endOfRound(std::vector<Peer*>& peers) {
     if (peers.empty()) return;
 
-    std::vector<LinearChordPeer*> typed;
+    std::vector<ChordPeer*> typed;
     typed.reserve(peers.size());
     for (auto* basePtr : peers) {
-        typed.push_back(static_cast<LinearChordPeer*>(basePtr));
+        typed.push_back(static_cast<ChordPeer*>(basePtr));
     }
 
     if (!typed.empty()) {
@@ -278,10 +278,10 @@ void LinearChordPeer::endOfRound(std::vector<Peer*>& peers) {
     }
 
     if (totalSatisfied > 0) {
-        LogWriter::pushValue("linearChordAverageHops", static_cast<double>(totalHops) / totalSatisfied);
-        LogWriter::pushValue("linearChordAverageLatency", static_cast<double>(totalLatency) / totalSatisfied);
+        OutputWriter::pushValue("ChordAverageHops", static_cast<double>(totalHops) / totalSatisfied);
+        OutputWriter::pushValue("ChordAverageLatency", static_cast<double>(totalLatency) / totalSatisfied);
     }
-    LogWriter::pushValue("linearChordRequestsSatisfied", static_cast<double>(totalSatisfied));
+    OutputWriter::pushValue("ChordRequestsSatisfied", static_cast<double>(totalSatisfied));
 }
 
 } // namespace quantas

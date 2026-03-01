@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "PBFTByzantine_00.txt",
+      "id": "PBFTByzantine_00",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -23,7 +23,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_01.txt",
+      "id": "PBFTByzantine_01",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -42,7 +42,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_02.txt",
+      "id": "PBFTByzantine_02",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -61,7 +61,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_03.txt",
+      "id": "PBFTByzantine_03",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -80,7 +80,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_04.txt",
+      "id": "PBFTByzantine_04",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -99,7 +99,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_05.txt",
+      "id": "PBFTByzantine_05",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -118,7 +118,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_06.txt",
+      "id": "PBFTByzantine_06",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -137,7 +137,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_07.txt",
+      "id": "PBFTByzantine_07",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -156,7 +156,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_08.txt",
+      "id": "PBFTByzantine_08",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -175,7 +175,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_09.txt",
+      "id": "PBFTByzantine_09",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -194,7 +194,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_10.txt",
+      "id": "PBFTByzantine_10",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -213,7 +213,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_11.txt",
+      "id": "PBFTByzantine_11",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -232,7 +232,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_12.txt",
+      "id": "PBFTByzantine_12",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -251,7 +251,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_13.txt",
+      "id": "PBFTByzantine_13",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -270,7 +270,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_14.txt",
+      "id": "PBFTByzantine_14",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -289,7 +289,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_15.txt",
+      "id": "PBFTByzantine_15",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -308,7 +308,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_16.txt",
+      "id": "PBFTByzantine_16",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -327,7 +327,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_17.txt",
+      "id": "PBFTByzantine_17",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -346,7 +346,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_18.txt",
+      "id": "PBFTByzantine_18",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -365,7 +365,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_19.txt",
+      "id": "PBFTByzantine_19",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -384,7 +384,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_20.txt",
+      "id": "PBFTByzantine_20",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -403,7 +403,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_21.txt",
+      "id": "PBFTByzantine_21",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -422,7 +422,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_22.txt",
+      "id": "PBFTByzantine_22",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -441,7 +441,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_23.txt",
+      "id": "PBFTByzantine_23",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -460,7 +460,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_24.txt",
+      "id": "PBFTByzantine_24",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -479,7 +479,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_25.txt",
+      "id": "PBFTByzantine_25",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -498,7 +498,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_26.txt",
+      "id": "PBFTByzantine_26",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -517,7 +517,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_27.txt",
+      "id": "PBFTByzantine_27",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -536,7 +536,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_28.txt",
+      "id": "PBFTByzantine_28",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -555,7 +555,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_29.txt",
+      "id": "PBFTByzantine_29",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -574,7 +574,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_30.txt",
+      "id": "PBFTByzantine_30",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -593,7 +593,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_31.txt",
+      "id": "PBFTByzantine_31",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -612,7 +612,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_32.txt",
+      "id": "PBFTByzantine_32",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -631,7 +631,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_33.txt",
+      "id": "PBFTByzantine_33",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -650,7 +650,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_34.txt",
+      "id": "PBFTByzantine_34",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -669,7 +669,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_35.txt",
+      "id": "PBFTByzantine_35",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -688,7 +688,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_36.txt",
+      "id": "PBFTByzantine_36",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -707,7 +707,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_37.txt",
+      "id": "PBFTByzantine_37",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -726,7 +726,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_38.txt",
+      "id": "PBFTByzantine_38",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -745,7 +745,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_39.txt",
+      "id": "PBFTByzantine_39",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -764,7 +764,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_40.txt",
+      "id": "PBFTByzantine_40",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -783,7 +783,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_41.txt",
+      "id": "PBFTByzantine_41",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -802,7 +802,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_42.txt",
+      "id": "PBFTByzantine_42",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -821,7 +821,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_43.txt",
+      "id": "PBFTByzantine_43",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -840,7 +840,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_44.txt",
+      "id": "PBFTByzantine_44",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -859,7 +859,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_45.txt",
+      "id": "PBFTByzantine_45",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -878,7 +878,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_46.txt",
+      "id": "PBFTByzantine_46",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -897,7 +897,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_47.txt",
+      "id": "PBFTByzantine_47",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -916,7 +916,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_48.txt",
+      "id": "PBFTByzantine_48",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -935,7 +935,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_49.txt",
+      "id": "PBFTByzantine_49",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -954,7 +954,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_50.txt",
+      "id": "PBFTByzantine_50",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -973,7 +973,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_51.txt",
+      "id": "PBFTByzantine_51",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -992,7 +992,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_52.txt",
+      "id": "PBFTByzantine_52",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1011,7 +1011,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_53.txt",
+      "id": "PBFTByzantine_53",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1030,7 +1030,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_54.txt",
+      "id": "PBFTByzantine_54",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1049,7 +1049,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_55.txt",
+      "id": "PBFTByzantine_55",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1068,7 +1068,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_56.txt",
+      "id": "PBFTByzantine_56",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1087,7 +1087,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_57.txt",
+      "id": "PBFTByzantine_57",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1106,7 +1106,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_58.txt",
+      "id": "PBFTByzantine_58",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1125,7 +1125,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_59.txt",
+      "id": "PBFTByzantine_59",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1144,7 +1144,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_60.txt",
+      "id": "PBFTByzantine_60",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1163,7 +1163,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_61.txt",
+      "id": "PBFTByzantine_61",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1182,7 +1182,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_62.txt",
+      "id": "PBFTByzantine_62",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1201,7 +1201,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_63.txt",
+      "id": "PBFTByzantine_63",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1220,7 +1220,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_64.txt",
+      "id": "PBFTByzantine_64",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1239,7 +1239,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_65.txt",
+      "id": "PBFTByzantine_65",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1258,7 +1258,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_66.txt",
+      "id": "PBFTByzantine_66",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1277,7 +1277,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_67.txt",
+      "id": "PBFTByzantine_67",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -1296,7 +1296,7 @@
       "rounds": 1000
     },
     {
-      "logFile": "PBFTByzantine_68.txt",
+      "id": "PBFTByzantine_68",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",

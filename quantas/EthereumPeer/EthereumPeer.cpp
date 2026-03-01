@@ -24,7 +24,7 @@ QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #include "EthereumPeer.hpp"
 #include "PoWEthereum.hpp"
 #include "../Common/Committee.hpp"
-#include "../Common/LogWriter.hpp"
+#include "../Common/OutputWriter.hpp"
 #include "../Common/ParasiteFault.hpp"
 #include "../Common/RandomUtil.hpp"
 #include "../Common/RoundManager.hpp"
@@ -72,13 +72,11 @@ void EthereumPeer::runProtocolStep(const std::vector<std::string>& overrideParen
     }
 
     const int minedRound = static_cast<int>(RoundManager::currentRound());
-    std::string hash = std::to_string(publicId()) + ":" + std::to_string(pending.id) + ":" + std::to_string(minedRound);
+    std::string hash = std::to_string(publicId()) + ":" + std::to_string(_blocksMined++) + ":" + std::to_string(pending.id) + ":" + std::to_string(minedRound);
 
     PoW::BlockRecord record = group->registerBlock(hash,
                                                       parents,
                                                       publicId(),
-                                                      static_cast<int>(RoundManager::currentRound()),
-                                                      minedRound,
                                                       !overrideParents.empty());
 
     broadcast(buildBlockMessage(record, record.parents, minedRound, pending));
@@ -171,258 +169,262 @@ void EthereumPeer::initParameters(const std::vector<Peer*>& _peers, json paramet
     }
 }
 
-void EthereumPeer::endOfRound(std::vector<Peer*>& _peers) {
+void EthereumPeer::endOfExperiment(std::vector<Peer*>& _peers) {
     const std::vector<EthereumPeer*>& peers = reinterpret_cast<const std::vector<EthereumPeer*>&>(_peers);
     
     if (peers.empty()) return;
 
-    // Log only on the final round to reduce overhead
-    // Can be changed to log every round by commenting out
-    if (RoundManager::lastRound() > RoundManager::currentRound()) return;
-
-    std::unordered_set<PoW*> uniqueLedgers;
-    std::vector<PoW*> ledgers;
+    std::vector<json> ledgers;
     ledgers.reserve(peers.size());
     for (auto* peerPtr : peers) {
-        PoW* ledger = peerPtr->pow();
-        if (!ledger) continue;
-        if (uniqueLedgers.insert(ledger).second) {
-            ledgers.push_back(ledger);
-        }
+        ledgers.push_back(peerPtr->pow()->allBlocks());
     }
     if (ledgers.empty()) return;
+    OutputWriter::pushValue("ledgers", ledgers);
 
-    struct BlockAggregate {
-        std::string hash;
-        std::vector<std::string> parents;
-        bool parasite = false;
-        size_t seen = 0;
-    };
+    // std::unordered_set<PoW*> uniqueLedgers;
+    // std::vector<PoW*> ledgers;
+    // ledgers.reserve(peers.size());
+    // for (auto* peerPtr : peers) {
+    //     PoW* ledger = peerPtr->pow();
+    //     if (!ledger) continue;
+    //     if (uniqueLedgers.insert(ledger).second) {
+    //         ledgers.push_back(ledger);
+    //     }
+    // }
+    // if (ledgers.empty()) return;
 
-    std::unordered_map<std::string, BlockAggregate> aggregatedBlocks;
-    std::unordered_map<std::string, std::unordered_set<std::string>> aggregatedChildren;
+    // struct BlockAggregate {
+    //     std::string hash;
+    //     std::vector<std::string> parents;
+    //     bool parasite = false;
+    //     size_t seen = 0;
+    // };
 
-    const size_t ledgerCount = ledgers.size();
+    // std::unordered_map<std::string, BlockAggregate> aggregatedBlocks;
+    // std::unordered_map<std::string, std::unordered_set<std::string>> aggregatedChildren;
 
-    for (auto* ledger : ledgers) {
-        for (const auto& record : ledger->allBlocks()) {
-            auto& aggregate = aggregatedBlocks[record.hash];
-            if (aggregate.seen == 0) {
-                aggregate.hash = record.hash;
-                aggregate.parents = record.parents;
-            } else {
-                for (const auto& parent : record.parents) {
-                    if (std::find(aggregate.parents.begin(), aggregate.parents.end(), parent) == aggregate.parents.end()) {
-                        aggregate.parents.push_back(parent);
-                    }
-                }
-            }
-            aggregate.parasite = aggregate.parasite || record.parasite;
-            ++aggregate.seen;
+    // const size_t ledgerCount = ledgers.size();
 
-            aggregatedChildren[record.hash];
-            for (const auto& parent : record.parents) {
-                aggregatedChildren[parent].insert(record.hash);
-            }
-        }
-    }
+    // for (auto* ledger : ledgers) {
+    //     for (const auto& record : ledger->allBlocks()) {
+    //         auto& aggregate = aggregatedBlocks[record.hash];
+    //         if (aggregate.seen == 0) {
+    //             aggregate.hash = record.hash;
+    //             aggregate.parents = record.parents;
+    //         } else {
+    //             for (const auto& parent : record.parents) {
+    //                 if (std::find(aggregate.parents.begin(), aggregate.parents.end(), parent) == aggregate.parents.end()) {
+    //                     aggregate.parents.push_back(parent);
+    //                 }
+    //             }
+    //         }
+    //         aggregate.parasite = aggregate.parasite || record.parasite;
+    //         ++aggregate.seen;
+
+    //         aggregatedChildren[record.hash];
+    //         for (const auto& parent : record.parents) {
+    //             aggregatedChildren[parent].insert(record.hash);
+    //         }
+    //     }
+    // }
 
 
-    if (!aggregatedBlocks.count("GENESIS")) {
-        BlockAggregate genesis;
-        genesis.hash = "GENESIS";
-        genesis.seen = ledgerCount;
-        aggregatedBlocks.emplace("GENESIS", std::move(genesis));
-    }
-    aggregatedChildren["GENESIS"];
+    // if (!aggregatedBlocks.count("GENESIS")) {
+    //     BlockAggregate genesis;
+    //     genesis.hash = "GENESIS";
+    //     genesis.seen = ledgerCount;
+    //     aggregatedBlocks.emplace("GENESIS", std::move(genesis));
+    // }
+    // aggregatedChildren["GENESIS"];
 
-    std::unordered_map<std::string, int> computedHeight;
-    std::deque<std::string> queue;
-    queue.push_back("GENESIS");
-    computedHeight["GENESIS"] = 0;
+    // std::unordered_map<std::string, int> computedHeight;
+    // std::deque<std::string> queue;
+    // queue.push_back("GENESIS");
+    // computedHeight["GENESIS"] = 0;
 
-    while (!queue.empty()) {
-        const std::string current = queue.front();
-        queue.pop_front();
-        const int baseHeight = computedHeight[current];
-        auto childIt = aggregatedChildren.find(current);
-        if (childIt == aggregatedChildren.end()) continue;
-        for (const auto& child : childIt->second) {
-            if (!aggregatedBlocks.count(child)) continue;
-            const int candidateHeight = baseHeight + 1;
-            auto [entry, inserted] = computedHeight.emplace(child, candidateHeight);
-            if (inserted) {
-                queue.push_back(child);
-            } else if (candidateHeight > entry->second) {
-                entry->second = candidateHeight;
-                queue.push_back(child);
-            }
-        }
-    }
+    // while (!queue.empty()) {
+    //     const std::string current = queue.front();
+    //     queue.pop_front();
+    //     const int baseHeight = computedHeight[current];
+    //     auto childIt = aggregatedChildren.find(current);
+    //     if (childIt == aggregatedChildren.end()) continue;
+    //     for (const auto& child : childIt->second) {
+    //         if (!aggregatedBlocks.count(child)) continue;
+    //         const int candidateHeight = baseHeight + 1;
+    //         auto [entry, inserted] = computedHeight.emplace(child, candidateHeight);
+    //         if (inserted) {
+    //             queue.push_back(child);
+    //         } else if (candidateHeight > entry->second) {
+    //             entry->second = candidateHeight;
+    //             queue.push_back(child);
+    //         }
+    //     }
+    // }
 
-    // Pre-compute subtree weights for GHOST decisions.
-    std::unordered_map<std::string, int> weightMemo;
-    std::unordered_set<std::string> weightActive;
-    std::function<int(const std::string&)> subtreeWeight = [&](const std::string& hash) -> int {
-        if (weightActive.count(hash)) {
-            return 0;
-        }
-        auto it = weightMemo.find(hash);
-        if (it != weightMemo.end()) return it->second;
-        weightActive.insert(hash);
-        int total = 1;
-        auto childIt = aggregatedChildren.find(hash);
-        if (childIt != aggregatedChildren.end()) {
-            for (const auto& child : childIt->second) {
-                if (!aggregatedBlocks.count(child)) continue;
-                total += subtreeWeight(child);
-            }
-        }
-        weightActive.erase(hash);
-        weightMemo[hash] = total;
-        return total;
-    };
+    // // Pre-compute subtree weights for GHOST decisions.
+    // std::unordered_map<std::string, int> weightMemo;
+    // std::unordered_set<std::string> weightActive;
+    // std::function<int(const std::string&)> subtreeWeight = [&](const std::string& hash) -> int {
+    //     if (weightActive.count(hash)) {
+    //         return 0;
+    //     }
+    //     auto it = weightMemo.find(hash);
+    //     if (it != weightMemo.end()) return it->second;
+    //     weightActive.insert(hash);
+    //     int total = 1;
+    //     auto childIt = aggregatedChildren.find(hash);
+    //     if (childIt != aggregatedChildren.end()) {
+    //         for (const auto& child : childIt->second) {
+    //             if (!aggregatedBlocks.count(child)) continue;
+    //             total += subtreeWeight(child);
+    //         }
+    //     }
+    //     weightActive.erase(hash);
+    //     weightMemo[hash] = total;
+    //     return total;
+    // };
 
-    // Build the GHOST chain (heaviest subtree at every fork).
-    std::vector<std::string> ghostPath;
-    ghostPath.push_back("GENESIS");
-    std::string cursor = "GENESIS";
-    while (true) {
-        auto it = aggregatedChildren.find(cursor);
-        if (it == aggregatedChildren.end() || it->second.empty()) break;
-        std::string bestChild;
-        int bestWeight = -1;
-        int bestHeight = -1;
-        for (const auto& child : it->second) {
-            if (!aggregatedBlocks.count(child)) continue;
-            int weight = subtreeWeight(child);
-            int height = 0;
-            if (auto hIt = computedHeight.find(child); hIt != computedHeight.end()) {
-                height = hIt->second;
-            }
-            if (weight > bestWeight ||
-                (weight == bestWeight && height > bestHeight) ||
-                (weight == bestWeight && height == bestHeight && child < bestChild)) {
-                bestChild = child;
-                bestWeight = weight;
-                bestHeight = height;
-            }
-        }
-        if (bestChild.empty()) break;
-        ghostPath.push_back(bestChild);
-        cursor = bestChild;
-    }
+    // // Build the GHOST chain (heaviest subtree at every fork).
+    // std::vector<std::string> ghostPath;
+    // ghostPath.push_back("GENESIS");
+    // std::string cursor = "GENESIS";
+    // while (true) {
+    //     auto it = aggregatedChildren.find(cursor);
+    //     if (it == aggregatedChildren.end() || it->second.empty()) break;
+    //     std::string bestChild;
+    //     int bestWeight = -1;
+    //     int bestHeight = -1;
+    //     for (const auto& child : it->second) {
+    //         if (!aggregatedBlocks.count(child)) continue;
+    //         int weight = subtreeWeight(child);
+    //         int height = 0;
+    //         if (auto hIt = computedHeight.find(child); hIt != computedHeight.end()) {
+    //             height = hIt->second;
+    //         }
+    //         if (weight > bestWeight ||
+    //             (weight == bestWeight && height > bestHeight) ||
+    //             (weight == bestWeight && height == bestHeight && child < bestChild)) {
+    //             bestChild = child;
+    //             bestWeight = weight;
+    //             bestHeight = height;
+    //         }
+    //     }
+    //     if (bestChild.empty()) break;
+    //     ghostPath.push_back(bestChild);
+    //     cursor = bestChild;
+    // }
 
-    const int longestChain = static_cast<int>(ghostPath.size()) - 1;
-    const std::string bestHash = ghostPath.back();
+    // const int longestChain = static_cast<int>(ghostPath.size()) - 1;
+    // const std::string bestHash = ghostPath.back();
 
-    std::string commonRoot = "GENESIS";
-    int commonRootHeight = 0;
-    for (const auto& [hash, aggregate] : aggregatedBlocks) {
-        if (aggregate.seen != ledgerCount) continue;
-        auto itHeight = computedHeight.find(hash);
-        if (itHeight == computedHeight.end()) continue;
-        if (itHeight->second > commonRootHeight ||
-            (itHeight->second == commonRootHeight && hash < commonRoot)) {
-            commonRoot = hash;
-            commonRootHeight = itHeight->second;
-        }
-    }
+    // std::string commonRoot = "GENESIS";
+    // int commonRootHeight = 0;
+    // for (const auto& [hash, aggregate] : aggregatedBlocks) {
+    //     if (aggregate.seen != ledgerCount) continue;
+    //     auto itHeight = computedHeight.find(hash);
+    //     if (itHeight == computedHeight.end()) continue;
+    //     if (itHeight->second > commonRootHeight ||
+    //         (itHeight->second == commonRootHeight && hash < commonRoot)) {
+    //         commonRoot = hash;
+    //         commonRootHeight = itHeight->second;
+    //     }
+    // }
 
-    size_t parasitesOnCommonPath = 0;
-    if (!ghostPath.empty()) {
-        for (size_t idx = 1; idx < ghostPath.size(); ++idx) {
-            const auto& current = ghostPath[idx];
-            auto itBlock = aggregatedBlocks.find(current);
-            if (itBlock != aggregatedBlocks.end() && itBlock->second.parasite) {
-                ++parasitesOnCommonPath;
-            }
-        }
-    }
+    // size_t parasitesOnCommonPath = 0;
+    // if (!ghostPath.empty()) {
+    //     for (size_t idx = 1; idx < ghostPath.size(); ++idx) {
+    //         const auto& current = ghostPath[idx];
+    //         auto itBlock = aggregatedBlocks.find(current);
+    //         if (itBlock != aggregatedBlocks.end() && itBlock->second.parasite) {
+    //             ++parasitesOnCommonPath;
+    //         }
+    //     }
+    // }
 
-    const int longestFromCommonRoot = std::max(0, longestChain - commonRootHeight);
+    // const int longestFromCommonRoot = std::max(0, longestChain - commonRootHeight);
 
-    size_t totalBlocks = aggregatedBlocks.size();
-    if (aggregatedBlocks.count("GENESIS") && totalBlocks > 0) {
-        --totalBlocks;
-    }
+    // size_t totalBlocks = aggregatedBlocks.size();
+    // if (aggregatedBlocks.count("GENESIS") && totalBlocks > 0) {
+    //     --totalBlocks;
+    // }
 
-    size_t forkPoints = 0;
-    std::unordered_map<int, size_t> forkLengthCounts;
-    json forkLocations = json::array();
-    std::unordered_map<std::string, int> depthMemo;
-    std::unordered_set<std::string> depthActive;
+    // size_t forkPoints = 0;
+    // std::unordered_map<int, size_t> forkLengthCounts;
+    // json forkLocations = json::array();
+    // std::unordered_map<std::string, int> depthMemo;
+    // std::unordered_set<std::string> depthActive;
 
-    std::function<int(const std::string&)> longestDepthFrom = [&](const std::string& hash) -> int {
-        if (depthActive.count(hash)) {
-            return 0;
-        }
-        auto memoIt = depthMemo.find(hash);
-        if (memoIt != depthMemo.end()) return memoIt->second;
+    // std::function<int(const std::string&)> longestDepthFrom = [&](const std::string& hash) -> int {
+    //     if (depthActive.count(hash)) {
+    //         return 0;
+    //     }
+    //     auto memoIt = depthMemo.find(hash);
+    //     if (memoIt != depthMemo.end()) return memoIt->second;
 
-        depthActive.insert(hash);
-        int best = 0;
-        auto childIt = aggregatedChildren.find(hash);
-        if (childIt != aggregatedChildren.end()) {
-            for (const auto& child : childIt->second) {
-                if (!computedHeight.count(child)) continue;
-                best = std::max(best, 1 + longestDepthFrom(child));
-            }
-        }
-        depthActive.erase(hash);
-        depthMemo[hash] = best;
-        return best;
-    };
+    //     depthActive.insert(hash);
+    //     int best = 0;
+    //     auto childIt = aggregatedChildren.find(hash);
+    //     if (childIt != aggregatedChildren.end()) {
+    //         for (const auto& child : childIt->second) {
+    //             if (!computedHeight.count(child)) continue;
+    //             best = std::max(best, 1 + longestDepthFrom(child));
+    //         }
+    //     }
+    //     depthActive.erase(hash);
+    //     depthMemo[hash] = best;
+    //     return best;
+    // };
 
-    for (const auto& [hash, children] : aggregatedChildren) {
-        if (children.size() <= 1) continue;
-        auto baseHeightIt = computedHeight.find(hash);
-        if (baseHeightIt == computedHeight.end()) continue;
+    // for (const auto& [hash, children] : aggregatedChildren) {
+    //     if (children.size() <= 1) continue;
+    //     auto baseHeightIt = computedHeight.find(hash);
+    //     if (baseHeightIt == computedHeight.end()) continue;
 
-        std::vector<std::pair<std::string, int>> branchLengths;
-        branchLengths.reserve(children.size());
-        for (const auto& child : children) {
-            if (!computedHeight.count(child)) continue;
-            const int branchLen = 1 + longestDepthFrom(child);
-            branchLengths.emplace_back(child, branchLen);
-        }
-        if (branchLengths.size() <= 1) {
-            continue;
-        }
+    //     std::vector<std::pair<std::string, int>> branchLengths;
+    //     branchLengths.reserve(children.size());
+    //     for (const auto& child : children) {
+    //         if (!computedHeight.count(child)) continue;
+    //         const int branchLen = 1 + longestDepthFrom(child);
+    //         branchLengths.emplace_back(child, branchLen);
+    //     }
+    //     if (branchLengths.size() <= 1) {
+    //         continue;
+    //     }
 
-        ++forkPoints;
-        int bestWeight = -1;
-        for (const auto& entry : branchLengths) {
-            bestWeight = std::max(bestWeight, subtreeWeight(entry.first));
-        }
+    //     ++forkPoints;
+    //     int bestWeight = -1;
+    //     for (const auto& entry : branchLengths) {
+    //         bestWeight = std::max(bestWeight, subtreeWeight(entry.first));
+    //     }
 
-        for (const auto& entry : branchLengths) {
-            const std::string& child = entry.first;
-            const int len = entry.second;
-            const int weight = subtreeWeight(child);
-            if (weight >= bestWeight) continue;
-            forkLengthCounts[len]++;
-            forkLocations.push_back({
-                {"height", baseHeightIt->second},
-                {"length", len}
-            });
-        }
-    }
+    //     for (const auto& entry : branchLengths) {
+    //         const std::string& child = entry.first;
+    //         const int len = entry.second;
+    //         const int weight = subtreeWeight(child);
+    //         if (weight >= bestWeight) continue;
+    //         forkLengthCounts[len]++;
+    //         forkLocations.push_back({
+    //             {"height", baseHeightIt->second},
+    //             {"length", len}
+    //         });
+    //     }
+    // }
 
-    json forkSummary = json::object();
-    for (const auto& [length, count] : forkLengthCounts) {
-        forkSummary[std::to_string(length)] = count;
-    }
+    // json forkSummary = json::object();
+    // for (const auto& [length, count] : forkLengthCounts) {
+    //     forkSummary[std::to_string(length)] = count;
+    // }
 
-    LogWriter::pushValue("minedBlocks", static_cast<double>(totalBlocks));
-    LogWriter::pushValue("dagLongestChainLength", static_cast<double>(longestChain));
-    LogWriter::pushValue("dagCommonRootHeight", static_cast<double>(commonRootHeight));
-    LogWriter::pushValue("dagCommonRootParasites", static_cast<double>(parasitesOnCommonPath));
-    LogWriter::pushValue("dagTotalForkPoints", static_cast<double>(forkPoints));
-    LogWriter::pushValue("dagForks", forkSummary);
-    if (!forkLocations.empty()) {
-        LogWriter::pushValue("dagForkLocations", forkLocations);
-    }
+    // OutputWriter::pushValue("minedBlocks", static_cast<double>(totalBlocks));
+    // OutputWriter::pushValue("dagLongestChainLength", static_cast<double>(longestChain));
+    // OutputWriter::pushValue("dagCommonRootHeight", static_cast<double>(commonRootHeight));
+    // OutputWriter::pushValue("dagCommonRootParasites", static_cast<double>(parasitesOnCommonPath));
+    // OutputWriter::pushValue("dagTotalForkPoints", static_cast<double>(forkPoints));
+    // OutputWriter::pushValue("dagForks", forkSummary);
+    // if (!forkLocations.empty()) {
+    //     OutputWriter::pushValue("dagForkLocations", forkLocations);
+    // }
 }
 
 void EthereumPeer::checkInStrm() {
@@ -468,8 +470,6 @@ void EthereumPeer::checkInStrm() {
             group->registerBlock(hash,
                                  parents,
                                  miner,
-                                 static_cast<int>(RoundManager::currentRound()),
-                                 minedRound,
                                  blkJson.value("parasite", false));
 
             if (blkJson.contains("transaction")) {

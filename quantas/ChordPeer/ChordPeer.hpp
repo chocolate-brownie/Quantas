@@ -7,8 +7,8 @@ QUANTAS is distributed in the hope that it will be useful, but WITHOUT ANY WARRA
 You should have received a copy of the GNU General Public License along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef LINEARCHORDPEER_HPP
-#define LINEARCHORDPEER_HPP
+#ifndef CHORDPEER_HPP
+#define CHORDPEER_HPP
 
 #include <set>
 #include <unordered_map>
@@ -18,11 +18,11 @@ You should have received a copy of the GNU General Public License along with QUA
 
 namespace quantas {
 
-class LinearChordPeer : public Peer {
+class ChordPeer : public Peer {
 public:
-    LinearChordPeer(NetworkInterface* interfacePtr);
-    LinearChordPeer(const LinearChordPeer& rhs);
-    ~LinearChordPeer() override = default;
+    ChordPeer(NetworkInterface* interfacePtr);
+    ChordPeer(const ChordPeer& rhs);
+    ~ChordPeer() override = default;
 
     void initParameters(const std::vector<Peer*>& peers, json parameters) override;
     void performComputation() override;
@@ -61,4 +61,4 @@ private:
 
 }
 
-#endif // LINEARCHORDPEER_HPP
+#endif // CHORDPEER_HPP

@@ -20,9 +20,10 @@ You should have received a copy of the GNU General Public License along with QUA
 #include <fstream>
 
 #include "Network.hpp"
-#include "../LogWriter.hpp"
+#include "../OutputWriter.hpp"
 #include "../BS_thread_pool.hpp"
 #include "../memoryUtil.hpp"
+#include "../Logger.hpp"
 
 using std::ofstream;
 using std::thread;
@@ -35,15 +36,12 @@ namespace quantas {
 
 		static size_t _peakMemoryKB;
 	public:
-		inline void run(json config);
+		inline void run(const json& config);
 	};
 
 	size_t Simulation::_peakMemoryKB = 0;
 
-	inline void Simulation::run(json config) {
-		std::string logFile = config.value("logFile", "cout");
-		LogWriter::setLogFile(logFile); // Set the log file to the console
-
+	inline void Simulation::run(const json& config) {
 		std::chrono::time_point<std::chrono::high_resolution_clock> startTime, endTime; // chrono time points
    		std::chrono::duration<double> duration; // chrono time interval
 		startTime = std::chrono::high_resolution_clock::now();
@@ -57,7 +55,8 @@ namespace quantas {
 		
 		BS::thread_pool pool(_threadCount);
 		for (int i = 0; i < config["tests"]; i++) {
-			LogWriter::instance()->setTest(i);
+			QUANTAS_LOG_INFO("runner") << "starting test " << i;
+			OutputWriter::instance()->setTest(i);
 			RoundManager::instance()->setCurrentRound(0);
 			RoundManager::instance()->setLastRound(config["rounds"]);
 			// Configure the delay properties and initial topology of the network
@@ -70,9 +69,8 @@ namespace quantas {
 				system.initParameters(empty);
 			}
 			
-			//std::cout << "Test " << i + 1 << std::endl;
 			for (int j = 0; j < config["rounds"]; j++) {
-				// std::cout << "ROUND " << j + 1 << std::endl;
+				QUANTAS_LOG_INFO("runner") << "starting round " << j;
 				RoundManager::incrementRound();
 
 				// do the receive phase of the round
@@ -84,21 +82,22 @@ namespace quantas {
 
 				system.endOfRound(); // do any end of round computations
 			}
+			system.endOfExperiment();
 		}
 		
 		endTime = std::chrono::high_resolution_clock::now();
    		duration = endTime - startTime;
-		LogWriter::setValue("RunTime", double(duration.count()));
+		OutputWriter::setValue("RunTime", double(duration.count()));
 
 		size_t peakMemoryKB = getPeakMemoryKB();
 		if (_peakMemoryKB < peakMemoryKB) {
 			_peakMemoryKB = peakMemoryKB;
-			LogWriter::setValue("Peak Memory KB", peakMemoryKB);
+			OutputWriter::setValue("Peak Memory KB", peakMemoryKB);
 		} else {
-			LogWriter::setValue("Previous Peak Memory KB", peakMemoryKB);
+			OutputWriter::setValue("Previous Peak Memory KB", peakMemoryKB);
 		}
 
-		LogWriter::print();
+		OutputWriter::print();
 	}
 
 	

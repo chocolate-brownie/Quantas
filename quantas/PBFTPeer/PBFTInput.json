@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "PBFTDelay1.txt",
+      "id": "PBFTDelay1",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",

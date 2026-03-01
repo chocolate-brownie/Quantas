@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "bitcoinspeedtest.txt",
+      "id": "bitcoinspeedtest",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",

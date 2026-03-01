@@ -42,7 +42,9 @@ public:
         static RoundManager s;
         return &s;
     }
-
+    /// @brief Returns the current round. 
+    /// @brief If using synchronous it is an incremented int. 
+    /// @brief Otherwise the number of milliseconds since the start of the simulation
     static size_t currentRound() { 
         RoundManager* inst = instance();
         if (inst->_synchronous) {

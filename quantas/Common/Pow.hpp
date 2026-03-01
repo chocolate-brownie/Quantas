@@ -33,12 +33,24 @@ namespace quantas {
 class PoW {
 public:
     // Minimal snapshot of a block that higher layers can inspect.
-    struct BlockRecord {
+    class BlockRecord {
+    public:
         std::string hash;
         std::vector<std::string> parents;
         interfaceId miner = NO_PEER_ID;
         int height = 0;
-        bool parasite = false; // informational flag carried by miners; not interpreted here
+        bool parasite = false;
+
+        json toJson() const {
+            json output = json::object();
+            output["hash"] = hash;
+            output["parents"] = parents;
+            output["miner"] = miner;
+            output["height"] = height;
+            output["parasite"] = parasite;
+            
+            return output;
+        }
     };
 
     PoW(Committee* committee)
@@ -65,8 +77,6 @@ public:
     BlockRecord registerBlock(const std::string& hash,
                               const std::vector<std::string>& parents,
                               interfaceId miner,
-                              int /*seenRound*/,
-                              int /*minedRound*/,
                               bool parasiteFlag = false) {
         auto existing = _blocks.find(hash);
         if (existing != _blocks.end()) {
@@ -119,12 +129,10 @@ public:
         return selectParentsForNextBlock(bestTip());
     }
 
-    std::vector<BlockRecord> allBlocks() const {
-        std::vector<BlockRecord> records;
-        records.reserve(_blocks.size());
-
+    json allBlocks() const {
+        json records = json::array();
         for (const auto& entry : _blocks) {
-            records.push_back(entry.second);
+            records.push_back(entry.second.toJson());
         }
         return records;
     }

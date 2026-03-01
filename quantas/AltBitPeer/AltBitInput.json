@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "AltBitdropProb0.txt",
+      "id": "AltBitdropProb0",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -23,7 +23,7 @@
       "rounds": 100
     },
     {
-      "logFile": "AltBitdropProb10.txt",
+      "id": "AltBitdropProb10",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -42,7 +42,7 @@
       "rounds": 100
     },
     {
-      "logFile": "AltBitdropProb25.txt",
+      "id": "AltBitdropProb25",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -61,7 +61,7 @@
       "rounds": 100
     },
     {
-      "logFile": "AltBitdropProb50.txt",
+      "id": "AltBitdropProb50",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",

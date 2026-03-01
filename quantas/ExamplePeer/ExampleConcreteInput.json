@@ -3,15 +3,21 @@
     "ExamplePeer/ExamplePeer.cpp",
     "ExamplePeer/ExamplePeer2.cpp"
   ],
+  "concrete": {
+    "leader": { "id": 0, "ip": "10.37.7.222", "port": 5000 },
+    "peersPerProcess": 2,
+    "stopCondition": { "type": "time", "milliseconds": 50 }
+  },
   "logging_level": "trace",
   "experiments": [
     {
       "id": "example1",
+      "logging_level": "trace",
       "threadCount": 1,
       "parameters": {
         "parameter1": 100,
         "parameter2": "world",
-        "changePeerType": true
+        "changePeerType": false
       },
       "distribution": {
         "type": "uniform",
@@ -20,50 +26,33 @@
       },
       "topology": {
         "type": "complete",
-        "initialPeers": 5,
+        "initialPeers": 2,
         "initialPeerType": "ExamplePeer"
       },
       "tests": 1,
       "rounds": 5
     },
     {
-      "id": "example2",
-      "threadCount": 1,
+      "id": "example1",
+      "logging_level": "trace",
+      "threadCount": 2,
       "parameters": {
-        "parameter1": 3.14159,
-        "parameter2": "hello",
+        "parameter1": 100,
+        "parameter2": "world",
         "changePeerType": false
       },
       "distribution": {
         "type": "uniform",
-        "maxDelay": 1
-      },
-      "topology": {
-        "type": "userList",
-        "initialPeers": 3,
-        "list": {
-          "0": [ 1, 2 ],
-          "1": [ 2 ]
-        },
-        "initialPeerType": "ExamplePeer"
-      },
-      "tests": 1,
-      "rounds": 3
-    },
-    {
-      "id": "example3",
-      "threadCount": 1,
-      "distribution": {
-        "type": "uniform",
-        "maxDelay": 3
+        "maxDelay": 3,
+        "maxMsgsRec": 10
       },
       "topology": {
         "type": "complete",
-        "initialPeers": 3,
+        "initialPeers": 2,
         "initialPeerType": "ExamplePeer"
       },
-      "tests": 2,
-      "rounds": 3
+      "tests": 1,
+      "rounds": 1000
     }
   ]
 }

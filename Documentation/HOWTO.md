@@ -1,12 +1,12 @@
 # QUANTAS Tutorial
 
-This guide walks through the workflow for adding a new abstract-simulator algorithm to QUANTAS. We use the Alternating Bit Protocol (ABP) – a minimal reliable data-transfer scheme – as the concrete example. By the end you will know how to:
+This guide walks through the workflow for adding a new abstract-simulator algorithm to QUANTAS. We use the Alternating Bit Protocol (ABP) – a minimal reliable data-transfer scheme – as the example. By the end you will know how to:
 
 - Declare a peer type that derives from `quantas::Peer`.
 - Register that type with `PeerRegistry` so the simulator can instantiate it from JSON.
 - Implement round-by-round behaviour, parameter initialisation, and metric logging.
 - Configure, build, and run an experiment that uses your new peer.
-- Reuse the common runtime utilities (`RoundManager`, `LogWriter`, etc.) that most algorithms depend on.
+- Reuse the common runtime utilities (`RoundManager`, `OutputWriter`, etc.) that most algorithms depend on.
 
 ## Alternating Bit Protocol at a Glance
 
@@ -31,7 +31,7 @@ public:
     ~AltBitPeer() override;
 
     void performComputation() override;           // core per-round logic
-    void endOfRound(std::vector<Peer*>& peers) override;
+    void endOfExperiment(std::vector<Peer*>& peers) override;
     void initParameters(const std::vector<Peer*>& peers,
                         json parameters) override;
 
@@ -161,22 +161,20 @@ void AltBitPeer::initParameters(const std::vector<Peer*>& peers, json parameters
 }
 ```
 
-At the end of a round, you can aggregate statistics across all peers and push them into `LogWriter`. Values are emitted when the experiment finishes.
+At the end of a round, you can aggregate statistics across all peers and push them into `OutputWriter`. Values are emitted when the experiment finishes.
 
 ```cpp
-void AltBitPeer::endOfRound(std::vector<Peer*>& peers) {
-    if (RoundManager::currentRound() >= RoundManager::lastRound()) {
-        double throughput = 0.0;
-        double networkCost = 0.0;
-        for (const auto* peer : reinterpret_cast<const std::vector<AltBitPeer*>&>(peers)) {
-            throughput += peer->requestsSatisfied;
-            networkCost += peer->messagesSent;
-        }
-        const double utility = (networkCost > 0.0) ? (throughput / networkCost) * 100.0 : 0.0;
-        LogWriter::pushValue("utility", utility);
-        LogWriter::pushValue("messages", networkCost);
-        LogWriter::pushValue("throughput", throughput);
-    }
+void AltBitPeer::endOfExperiment(std::vector<Peer*>& peers) {
+      double throughput = 0.0;
+      double networkCost = 0.0;
+      for (const auto* peer : reinterpret_cast<const std::vector<AltBitPeer*>&>(peers)) {
+          throughput += peer->requestsSatisfied;
+          networkCost += peer->messagesSent;
+      }
+      const double utility = (networkCost > 0.0) ? (throughput / networkCost) * 100.0 : 0.0;
+      OutputWriter::pushValue("utility", utility);
+      OutputWriter::pushValue("messages", networkCost);
+      OutputWriter::pushValue("throughput", throughput);
 }
 ```
 
@@ -191,7 +189,7 @@ Experiment files live under `quantas/<Algorithm>/`. A minimal configuration for 
   ],
   "experiments": [
     {
-      "logFile": "AltBitStats.txt",
+      "id": "AltBitStats",
       "threadCount": 1,
       "distribution": {
         "type": "UNIFORM",
@@ -237,7 +235,7 @@ make release                     # or make debug for asserts and instrumentation
 make run                          # executes every experiment listed in the JSON
 ```
 
-Metrics appear either on stdout (`"logFile": "cout"`) or in the named log file. For the sample above, expect final entries similar to:
+Metrics appear either on stdout (`"id": "cout"`) or in the named log file. For the sample above, expect final entries similar to:
 
 ```json
 {
@@ -262,10 +260,10 @@ Most QUANTAS algorithms reuse a collection of helper classes. Understanding them
   - `RoundManager::incrementRound()` – advanced internally by the simulator at the end of each round.
   - Use it for timeouts, phased logic, and statistics keyed by round numbers.
 
-- **`LogWriter` (`quantas/Common/LogWriter.hpp`)**
-  - `LogWriter::setLogFile(file)` – set per-experiment destination (`"cout"` or filename).
-  - `LogWriter::pushValue(key, value)` – queue a metric for the current round/test.
-  - `LogWriter::print()` – emit accumulated metrics (called automatically when a test ends).
+- **`OutputWriter` (`quantas/Common/OutputWriter.hpp`)**
+  - `OutputWriter::setLogFile(file)` – set per-experiment destination (`"cout"` or filename).
+  - `OutputWriter::pushValue(key, value)` – queue a metric for the current round/test.
+  - `OutputWriter::print()` – emit accumulated metrics (called automatically when a test ends).
 
 - **`NetworkInterface` & messaging helpers**
   - The abstract simulator wires peers together using `NetworkInterfaceAbstract` and `Channel` objects.

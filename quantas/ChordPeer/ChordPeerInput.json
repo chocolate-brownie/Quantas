@@ -1,10 +1,10 @@
 {
   "algorithms": [
-    "LinearChordPeer/LinearChordPeer.cpp"
+    "ChordPeer/ChordPeer.cpp"
   ],
   "experiments": [
     {
-      "logFile": "LinearChordScale16.txt",
+      "id": "ChordScale16",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -13,13 +13,13 @@
       "topology": {
         "type": "complete",
         "initialPeers": 16,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100
     },
     {
-      "logFile": "LinearChordScale32.txt",
+      "id": "ChordScale32",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -28,13 +28,13 @@
       "topology": {
         "type": "complete",
         "initialPeers": 32,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100
     },
     {
-      "logFile": "LinearChordScale64.txt",
+      "id": "ChordScale64",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -43,13 +43,13 @@
       "topology": {
         "type": "complete",
         "initialPeers": 64,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100
     },
     {
-      "logFile": "LinearChordScale128.txt",
+      "id": "ChordScale128",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -58,7 +58,7 @@
       "topology": {
         "type": "complete",
         "initialPeers": 128,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100

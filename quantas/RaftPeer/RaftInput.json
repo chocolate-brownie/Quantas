@@ -5,7 +5,7 @@
   "experiments": [
     {
       "algorithm": "RaftPeer",
-      "logFile": "RaftDelay1Crashes.txt",
+      "id": "RaftDelay1Crashes",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -31,7 +31,7 @@
     },
     {
       "algorithm": "RaftPeer",
-      "logFile": "RaftDelay1CrashOdds.01.txt",
+      "id": "RaftDelay1CrashOdds.01",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -57,7 +57,7 @@
     },
     {
       "algorithm": "RaftPeer",
-      "logFile": "RaftDelay1NoCrashes.txt",
+      "id": "RaftDelay1NoCrashes",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
@@ -79,7 +79,7 @@
     },
     {
       "algorithm": "RaftPeer",
-      "logFile": "RaftDelay1CrashOdds.05.txt",
+      "id": "RaftDelay1CrashOdds.05",
       "threadCount":48,
       "distribution": {
         "type": "uniform",

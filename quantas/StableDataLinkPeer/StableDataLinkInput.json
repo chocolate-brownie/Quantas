@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "StableDataLinkFaultsDelay3.txt",
+      "id": "StableDataLinkFaultsDelay3",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -24,7 +24,7 @@
       "rounds": 100
     },
     {
-      "logFile": "StableDataLinkNoFaultDelay3.txt",
+      "id": "StableDataLinkNoFaultDelay3",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -44,7 +44,7 @@
       "rounds": 100
     },
     {
-      "logFile": "StableDataLinkNoFaultDelay1.txt",
+      "id": "StableDataLinkNoFaultDelay1",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",

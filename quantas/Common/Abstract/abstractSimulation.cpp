@@ -20,9 +20,13 @@
 #include <chrono>
 #include <random>
 #include <filesystem>
+#include <optional>
 
 #include "Network.hpp"
 #include "Simulation.hpp"
+#include "../LoggingSupport.hpp"
+#include "../Logger.hpp"
+#include "../OutputWriter.hpp"
 #include "../NetworkInterface.hpp"
 #include "../Json.hpp"
 
@@ -45,9 +49,31 @@ int main(int argc, const char* argv[]) {
    inFile >> config;
 
    for (int i = 0; i < config["experiments"].size(); ++i) {
-      json input = config["experiments"][i];
+      json experiment = config["experiments"][i];
+
+      const std::string logFileBase = quantas::chooseLogFileBase(config, experiment);
+      const std::string metricsFile = quantas::makeExperimentFileName(logFileBase,
+                                                                      static_cast<size_t>(i),
+                                                                      std::nullopt,
+                                                                      ".txt");
+      quantas::OutputWriter::setLogFile(metricsFile);
+
+      auto loggerActivation = quantas::configureLoggerForExperiment(config,
+                                                                    experiment,
+                                                                    static_cast<size_t>(i),
+                                                                    logFileBase,
+                                                                    std::nullopt);
+      if (loggerActivation.enabled) {
+         QUANTAS_LOG_DEBUG("runner") << "log destination set to "
+                                     << (loggerActivation.destination.empty() ? "disabled" : loggerActivation.destination);
+      }
+
+      QUANTAS_LOG_INFO("runner") << "starting experiment " << i;
+
       quantas::Simulation sim;
-	   sim.run(input);
+	   sim.run(experiment);
+
+      QUANTAS_LOG_INFO("runner") << "experiment complete";
    }
 
    return 0;

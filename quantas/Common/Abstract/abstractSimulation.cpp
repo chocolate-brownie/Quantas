@@ -55,7 +55,7 @@ int main(int argc, const char* argv[]) {
       const std::string metricsFile = quantas::makeExperimentFileName(logFileBase,
                                                                       static_cast<size_t>(i),
                                                                       std::nullopt,
-                                                                      ".txt");
+                                                                      ".json");
       quantas::OutputWriter::setLogFile(metricsFile);
 
       auto loggerActivation = quantas::configureLoggerForExperiment(config,

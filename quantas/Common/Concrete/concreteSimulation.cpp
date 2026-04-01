@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        const std::string metricsFile = makeExperimentFileName(logFileBase, expIndex, portForLog, ".txt");
+        const std::string metricsFile = makeExperimentFileName(logFileBase, expIndex, portForLog, ".json");
         OutputWriter::setLogFile(metricsFile);
 
         QUANTAS_LOG_INFO("runner") << "starting experiment " << expIndex;
@@ -152,14 +152,59 @@ int main(int argc, char** argv) {
         coordinator.markReady();
         coordinator.waitForStartSignal();
         QUANTAS_LOG_INFO("runner") << "start signal acknowledged.";
+        bool stopObserved = false;
+        size_t loopCount = 0;
         while (!coordinator.shouldStop()) {
+            const auto loopStart = std::chrono::steady_clock::now();
+            auto receiveDuration = std::chrono::steady_clock::duration::zero();
+            auto computeDuration = std::chrono::steady_clock::duration::zero();
             for (Peer* peer : localPeers) {
                 if (!peer->isCrashed()) {
+                    const auto receiveStart = std::chrono::steady_clock::now();
                     peer->receive();
+                    const auto peerReceiveDuration = std::chrono::steady_clock::now() - receiveStart;
+                    receiveDuration += peerReceiveDuration;
+                    const auto computeStart = std::chrono::steady_clock::now();
                     peer->tryPerformComputation();
+                    const auto peerComputeDuration = std::chrono::steady_clock::now() - computeStart;
+                    computeDuration += peerComputeDuration;
+
+                    const auto receiveMs =
+                        std::chrono::duration_cast<std::chrono::milliseconds>(peerReceiveDuration).count();
+                    const auto computeMs =
+                        std::chrono::duration_cast<std::chrono::milliseconds>(peerComputeDuration).count();
+                    if (receiveMs >= 1000 || computeMs >= 1000) {
+                        QUANTAS_LOG_DEBUG("runner") << "loop " << (loopCount + 1)
+                                                    << " peer " << peer->publicId()
+                                                    << " slow path: receive=" << receiveMs
+                                                    << "ms compute=" << computeMs
+                                                    << "ms neighbors=" << peer->neighbors().size();
+                    }
                 }
             }
+            const auto endRoundStart = std::chrono::steady_clock::now();
             localPeers.front()->endOfRound(localPeers);
+            const auto endRoundDuration = std::chrono::steady_clock::now() - endRoundStart;
+            const auto loopDuration = std::chrono::steady_clock::now() - loopStart;
+            ++loopCount;
+
+            if (loopCount <= 3 || coordinator.shouldStop()) {
+                QUANTAS_LOG_DEBUG("runner") << "loop " << loopCount
+                                            << " durations: receive="
+                                            << std::chrono::duration_cast<std::chrono::milliseconds>(receiveDuration).count()
+                                            << "ms compute="
+                                            << std::chrono::duration_cast<std::chrono::milliseconds>(computeDuration).count()
+                                            << "ms endOfRound="
+                                            << std::chrono::duration_cast<std::chrono::milliseconds>(endRoundDuration).count()
+                                            << "ms total="
+                                            << std::chrono::duration_cast<std::chrono::milliseconds>(loopDuration).count()
+                                            << "ms";
+            }
+
+            if (coordinator.shouldStop() && !stopObserved) {
+                stopObserved = true;
+                QUANTAS_LOG_INFO("runner") << "stop observed after loop " << loopCount;
+            }
         }
 
         localPeers.front()->endOfExperiment(localPeers);

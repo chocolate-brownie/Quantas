@@ -1,0 +1,58 @@
+{
+  "algorithms": [
+    "ExamplePeer/ExamplePeer.cpp",
+    "ExamplePeer/ExamplePeer2.cpp"
+  ],
+  "concrete": {
+    "leader": { "id": 0, "ip": "10.37.7.31", "port": 5000 },
+    "peersPerProcess": 10,
+    "stopCondition": { "type": "time", "milliseconds": 5000 }
+  },
+  "logging_level": "trace",
+  "experiments": [
+    {
+      "id": "example2",
+      "logging_level": "trace",
+      "threadCount": 10,
+      "parameters": {
+        "parameter1": 100,
+        "parameter2": "world",
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 3,
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 100,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 5
+    },
+    {
+      "id": "example1",
+      "logging_level": "trace",
+      "threadCount": 10,
+      "parameters": {
+        "parameter1": 100,
+        "parameter2": "world",
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 3,
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 100,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 1000
+    }
+  ]
+}

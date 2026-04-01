@@ -4,7 +4,7 @@
     "ExamplePeer/ExamplePeer2.cpp"
   ],
   "concrete": {
-    "leader": { "id": 0, "ip": "10.37.7.222", "port": 5000 },
+    "leader": { "id": 0, "ip": "10.37.7.31", "port": 5000 },
     "peersPerProcess": 1,
     "stopCondition": { "type": "time", "milliseconds": 50 }
   },

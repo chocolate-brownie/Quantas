@@ -252,9 +252,9 @@ clean:
 	@$(RM) **/*.tmp
 	@$(RM) **/*.exe
 
-clean_txt: SHELL := /bin/bash -O globstar
-clean_txt:
-	@$(RM) **/*.txt
+clean_logs: SHELL := /bin/bash -O globstar
+clean_logs:
+	@$(RM) **/experiments/*
 
 # -include $(OBJS:.o=.d)
 

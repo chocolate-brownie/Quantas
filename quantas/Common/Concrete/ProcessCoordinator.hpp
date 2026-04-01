@@ -4,8 +4,10 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <set>
@@ -98,8 +100,14 @@ private:
         bool ready{false};
     };
 
+    struct OutboundConnection {
+        int fd{-1};
+        std::mutex mutex;
+    };
+
     void ensureListenerStarted();
     void listenerLoop();
+    void connectionLoop(int clientFd, const std::string& remoteIp, int remotePort);
     void processMessage(const std::string& remoteIp, int remotePort, const nlohmann::json& msg);
 
     // leader message handlers
@@ -117,6 +125,10 @@ private:
     void handleInboundMessage(const nlohmann::json& msg);
 
     void sendJson(const std::string& ip, int port, const nlohmann::json& msg);
+    void sendRegistrationToLeader();
+    std::shared_ptr<OutboundConnection> getOrCreateOutboundConnection(const std::string& ip, int port);
+    void closeOutboundConnection(const std::string& key);
+    void closeAllConnections();
 
     std::string processKey(const std::string& ip, int port) const;
 
@@ -133,6 +145,7 @@ private:
     std::string _leaderIp;
     int _leaderPort{-1};
     interfaceId _leaderId{0};
+    size_t _experimentIndex{0};
     int _totalPeers{0};
     int _peersPerProcess{1};
     bool _isLeader{false};
@@ -147,6 +160,10 @@ private:
     bool _listenerStarted{false};
     int _serverFd{-1};
     std::thread _listenerThread;
+    std::mutex _outboundMutex;
+    std::unordered_map<std::string, std::shared_ptr<OutboundConnection>> _outboundConnections;
+    std::mutex _inboundConnectionMutex;
+    std::unordered_set<int> _inboundConnectionFds;
 
     // state
     std::atomic<bool> _assignmentsReady{false};
@@ -167,6 +184,7 @@ private:
     std::mutex _processMutex;
     std::unordered_map<std::string, ProcessRecord> _processes;
     std::vector<std::string> _registrationOrder;
+    std::mutex _configurationMutex;
 
     std::mutex _endpointMutex;
     std::unordered_map<interfaceId, PeerEndpoint> _allPeers;

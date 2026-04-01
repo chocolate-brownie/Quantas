@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <chrono>
 #include <numeric>
@@ -30,6 +31,25 @@ constexpr const char* kTypeStart = "start";
 constexpr const char* kTypeStop = "stop";
 constexpr const char* kTypePeerDone = "peer_done";
 constexpr const char* kTypeMessage = "message";
+
+std::string localHostname() {
+    char buffer[256]{};
+    if (gethostname(buffer, sizeof(buffer) - 1) != 0) {
+        return "unknown-host";
+    }
+    return std::string(buffer);
+}
+
+std::string getenvOrFallback(const char* name, const std::string& fallback) {
+    if (name == nullptr) {
+        return fallback;
+    }
+    const char* value = std::getenv(name);
+    if (value == nullptr || *value == '\0') {
+        return fallback;
+    }
+    return std::string(value);
+}
 
 std::string readSocketMessage(int socketFd) {
     std::string data;
@@ -196,7 +216,7 @@ ProcessCoordinator& ProcessCoordinator::instance() {
 ProcessCoordinator::ProcessCoordinator() = default;
 
 ProcessCoordinator::~ProcessCoordinator() {
-    _stopSignal = true;
+    _shutdownRequested = true;
     if (_serverFd >= 0) {
         close(_serverFd);
     }
@@ -285,12 +305,31 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
 
     if (explicitPort.has_value()) {
         _myPort = explicitPort.value();
+    } else if (_myPort > 0) {
+        // Reuse the existing listener port across experiments so remote peers
+        // keep a stable endpoint for this process.
     } else {
         _myPort = get_unused_port();
     }
 
     if (_myPort <= 0) {
         throw std::runtime_error("Unable to determine listening port for process.");
+    }
+
+    _isLeader = isLeader;
+    if (!_leaderIp.empty() && _myIp == _leaderIp && _myPort == _leaderPort) {
+        _isLeader = true;
+    }
+
+    const std::string hostname = getenvOrFallback("QUANTAS_HOSTNAME", localHostname());
+    const std::string ipForLogs = getenvOrFallback("QUANTAS_MACHINE_IP", _myIp);
+    const std::string roleForLogs = getenvOrFallback("QUANTAS_PROCESS_ROLE", _isLeader ? "leader" : "follower");
+    setenv("QUANTAS_MACHINE_IP", ipForLogs.c_str(), 1);
+    setenv("QUANTAS_HOSTNAME", hostname.c_str(), 1);
+    setenv("QUANTAS_PROCESS_ROLE", roleForLogs.c_str(), 1);
+    {
+        const std::string portValue = std::to_string(_myPort);
+        setenv("QUANTAS_PROCESS_PORT", portValue.c_str(), 1);
     }
 
     std::optional<int> loggerPort;
@@ -306,19 +345,20 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
         QUANTAS_LOG_DEBUG("coord") << "log destination set to "
                                    << (activation.destination.empty() ? "disabled" : activation.destination);
     }
+    const std::string runDirectory = getenvOrFallback("QUANTAS_RUN_DIR", "");
+    QUANTAS_LOG_DEBUG("coord") << "run directory = "
+                               << (runDirectory.empty() ? "<unset>" : runDirectory);
 
     QUANTAS_LOG_INFO("coord") << "configuring process. totalPeers=" << _totalPeers
                               << " peersPerProcess=" << _peersPerProcess;
     QUANTAS_LOG_DEBUG("coord") << "local IP resolved to " << _myIp;
     QUANTAS_LOG_INFO("coord") << "binding listener on port " << _myPort;
 
-    _isLeader = isLeader;
-    if (!_leaderIp.empty() && _myIp == _leaderIp && _myPort == _leaderPort) {
-        _isLeader = true;
-    }
-
     QUANTAS_LOG_INFO("coord") << "role = " << (_isLeader ? "leader" : "follower")
-                              << " (leader ip=" << _leaderIp << " port=" << _leaderPort << ")";
+                              << " (host=" << hostname
+                              << ", ip=" << ipForLogs
+                              << ", leader ip=" << _leaderIp
+                              << " port=" << _leaderPort << ")";
 
     {
         std::scoped_lock lock(_processMutex);
@@ -335,6 +375,7 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
     _assignmentsReady = false;
     _startSignal = false;
     _stopSignal = false;
+    _shutdownRequested = false;
     _completedPeers.clear();
 
     ensureListenerStarted();
@@ -357,7 +398,12 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
 
 void ProcessCoordinator::ensureListenerStarted() {
     std::scoped_lock lock(_listenerMutex);
-    if (_listenerStarted) return;
+    if (_listenerStarted) {
+        if (_listenerThread.joinable()) {
+            return;
+        }
+        _listenerStarted = false;
+    }
 
     _serverFd = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFd < 0) {
@@ -388,12 +434,12 @@ void ProcessCoordinator::ensureListenerStarted() {
 }
 
 void ProcessCoordinator::listenerLoop() {
-    while (!_stopSignal.load()) {
+    while (!_shutdownRequested.load()) {
         sockaddr_in clientAddr{};
         socklen_t addrLen = sizeof(clientAddr);
         int clientFd = accept(_serverFd, reinterpret_cast<sockaddr*>(&clientAddr), &addrLen);
         if (clientFd < 0) {
-            if (_stopSignal.load()) {
+            if (_shutdownRequested.load()) {
                 break;
             }
             continue;
@@ -941,7 +987,7 @@ void ProcessCoordinator::shutdown() {
         }
     }
 
-    _stopSignal = true;
+    _shutdownRequested = true;
 
     int serverFdCopy = -1;
     {

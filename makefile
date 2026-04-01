@@ -20,7 +20,7 @@
 # Configure this for the specific input file.
 # Make sure to include the path to the input file 
 
-# INPUTFILE := quantas/ExamplePeer/ExampleInput.json
+INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 # INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput.json
 
 # INPUTFILE := quantas/AltBitPeer/AltBitInput.json
@@ -28,7 +28,7 @@
 # INPUTFILE := quantas/PBFTPeer/PBFTInput.json
 
 # INPUTFILE := quantas/BitcoinPeer/BitcoinPeerInput.json
-INPUTFILE := quantas/BitcoinPeer/BitcoinConcreteInput.json
+# INPUTFILE := quantas/BitcoinPeer/BitcoinConcreteInput.json
 
 # INPUTFILE := quantas/EthereumPeer/EthereumPeerInput.json
 
@@ -92,7 +92,11 @@ clang: release
 # When running on Linux use make run
 run: release
 	
-	@if [ -n "$(PORT)" ]; then \
+	@if [ -n "$(RUN_DIR)" ]; then \
+		mkdir -p "$(RUN_DIR)"; \
+		export QUANTAS_RUN_DIR="$(RUN_DIR)"; \
+	fi; \
+	if [ -n "$(PORT)" ]; then \
 		echo running with input: $(INPUTFILE) on port $(PORT); \
 		./$(EXE) $(INPUTFILE) $(PORT); \
 	else \

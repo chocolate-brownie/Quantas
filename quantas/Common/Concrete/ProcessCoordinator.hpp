@@ -152,6 +152,7 @@ private:
     std::atomic<bool> _assignmentsReady{false};
     std::atomic<bool> _startSignal{false};
     std::atomic<bool> _stopSignal{false};
+    std::atomic<bool> _shutdownRequested{false};
 
     std::mutex _assignmentMutex;
     std::condition_variable _assignmentCv;

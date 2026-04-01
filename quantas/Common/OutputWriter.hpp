@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 #include <mutex>
 #include "Json.hpp"
 
@@ -34,6 +35,11 @@ namespace quantas {
             if (path == "cerr") {
                 inst->_log_stream = &std::cerr;
                 return;
+            }
+            std::filesystem::path destination(path);
+            if (destination.has_parent_path()) {
+                std::error_code ec;
+                std::filesystem::create_directories(destination.parent_path(), ec);
             }
             inst->_file_stream.open(path);
 

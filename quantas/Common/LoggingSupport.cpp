@@ -1,5 +1,6 @@
 #include "LoggingSupport.hpp"
 
+#include <cstdlib>
 #include <filesystem>
 #include <sstream>
 
@@ -17,6 +18,73 @@ struct LoggingOverrides {
     bool hasCategories{false};
     bool specified{false};
 };
+
+std::string getenvOrEmpty(const char* name) {
+    if (name == nullptr) {
+        return {};
+    }
+    const char* value = std::getenv(name);
+    if (value == nullptr) {
+        return {};
+    }
+    return value;
+}
+
+std::string sanitizePathComponent(std::string value) {
+    for (char& ch : value) {
+        const bool valid = (ch >= 'a' && ch <= 'z')
+                        || (ch >= 'A' && ch <= 'Z')
+                        || (ch >= '0' && ch <= '9')
+                        || ch == '.'
+                        || ch == '-'
+                        || ch == '_';
+        if (!valid) {
+            ch = '_';
+        }
+    }
+    if (value.empty()) {
+        value = "unknown";
+    }
+    return value;
+}
+
+std::filesystem::path experimentOutputDirectory() {
+    std::string runDir = getenvOrEmpty("QUANTAS_RUN_DIR");
+    if (runDir.empty()) {
+        return {};
+    }
+
+    std::string host = sanitizePathComponent(getenvOrEmpty("QUANTAS_HOSTNAME"));
+    std::string ip = sanitizePathComponent(getenvOrEmpty("QUANTAS_MACHINE_IP"));
+    std::string role = sanitizePathComponent(getenvOrEmpty("QUANTAS_PROCESS_ROLE"));
+
+    std::filesystem::path dir(runDir);
+    dir /= "quantas";
+    dir /= role + "__" + host + "__" + ip;
+    return dir;
+}
+
+std::string buildRunAwareStem(const std::filesystem::path& inputPath,
+                              size_t experimentIndex,
+                              std::optional<int> port) {
+    std::ostringstream builder;
+    builder << sanitizePathComponent(inputPath.stem().string())
+            << "_EXP" << (experimentIndex + 1);
+
+    const std::string role = sanitizePathComponent(getenvOrEmpty("QUANTAS_PROCESS_ROLE"));
+    const std::string host = sanitizePathComponent(getenvOrEmpty("QUANTAS_HOSTNAME"));
+    const std::string ip = sanitizePathComponent(getenvOrEmpty("QUANTAS_MACHINE_IP"));
+
+    builder << "__" << role
+            << "__" << host
+            << "__" << ip;
+
+    if (port.has_value()) {
+        builder << "__p" << *port;
+    }
+
+    return builder.str();
+}
 
 void mergeLoggingOverrides(const nlohmann::json& node, LoggingOverrides& overrides) {
     if (!node.is_object()) {
@@ -88,14 +156,28 @@ std::string makeExperimentFileName(const std::string& base,
         extension.insert(extension.begin(), '.');
     }
 
-    std::ostringstream nameBuilder;
-    nameBuilder << stem << "_EXP" << (experimentIndex + 1);
-    if (port.has_value()) {
-        nameBuilder << "_p" << *port;
+    std::filesystem::path finalPath = path;
+    const std::filesystem::path runDir = experimentOutputDirectory();
+    if (!runDir.empty()) {
+        std::filesystem::path basePath = path.filename();
+        if (basePath.empty()) {
+            basePath = std::filesystem::path(stem + extension);
+        }
+        finalPath = runDir / basePath;
+        finalPath.replace_filename(buildRunAwareStem(path, experimentIndex, port) + extension);
+    } else {
+        std::ostringstream nameBuilder;
+        nameBuilder << stem << "_EXP" << (experimentIndex + 1);
+        if (port.has_value()) {
+            nameBuilder << "_p" << *port;
+        }
+        finalPath.replace_filename(nameBuilder.str() + extension);
     }
 
-    std::filesystem::path finalPath = path;
-    finalPath.replace_filename(nameBuilder.str() + extension);
+    if (finalPath.has_parent_path()) {
+        std::error_code ec;
+        std::filesystem::create_directories(finalPath.parent_path(), ec);
+    }
     return finalPath.string();
 }
 

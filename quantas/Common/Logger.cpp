@@ -3,6 +3,7 @@
 #include <cctype>
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <streambuf>
@@ -89,6 +90,12 @@ void Logger::setDestination(const std::string& path, bool append) {
 
     std::ios::openmode mode = std::ios::out | std::ios::binary;
     mode |= append ? std::ios::app : std::ios::trunc;
+
+    std::filesystem::path destination(path);
+    if (destination.has_parent_path()) {
+        std::error_code ec;
+        std::filesystem::create_directories(destination.parent_path(), ec);
+    }
 
     inst._fileStream.open(path, mode);
     if (inst._fileStream.is_open()) {

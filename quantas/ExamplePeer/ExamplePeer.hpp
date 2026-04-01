@@ -32,6 +32,7 @@ public:
     void initParameters(std::vector<Peer*>& peers, json parameters);
     void performComputation() override;
     void endOfRound(std::vector<Peer*>& peers) override;
+    void endOfExperiment(std::vector<Peer*>& _peers) override;
 
     NetworkInterface* releaseNetworkInterface();
 

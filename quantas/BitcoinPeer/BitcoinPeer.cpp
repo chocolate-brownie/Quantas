@@ -400,6 +400,7 @@ void BitcoinPeer::endOfExperiment(std::vector<Peer*>& _peers) {
     ledgers.reserve(peers.size());
     for (auto* peerPtr : peers) {
         ledgers.push_back(peerPtr->pow()->allBlocks());
+        OutputWriter::pushValue("MineAttempts", peerPtr->mineAttempts);
     }
     if (ledgers.empty()) return;
     OutputWriter::setValue("ledgers", ledgers);
@@ -485,8 +486,9 @@ bool BitcoinPeer::guardSubmit() const {
 }
 
 
-bool BitcoinPeer::guardMine() const {
+bool BitcoinPeer::guardMine() {
     auto* iface = dynamic_cast<NetworkInterfaceConcrete*>(getNetworkInterface());
+    ++mineAttempts;
     if (!iface) {
         if (_mineRate <= 0) return false;
         if (_mineDenominator <= 0) return false;

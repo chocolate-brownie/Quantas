@@ -86,18 +86,18 @@ void ExamplePeer::endOfRound(std::vector<Peer*>& peers) {
             example->changePeerType = false;
         }
     }
+}
 
-    if (RoundManager::lastRound() <= RoundManager::currentRound()) {
-        int total = 0;
-        for (Peer* peerPtr : peers) {
-            if (auto* first = dynamic_cast<ExamplePeer*>(peerPtr)) {
-                total += first->msgsSent;
-            } else if (auto* second = dynamic_cast<ExamplePeer2*>(peerPtr)) {
-                total += second->msgsSent;
-            }
+void ExamplePeer::endOfExperiment(std::vector<Peer*>& _peers) {
+    int total = 0;
+    for (Peer* peerPtr : _peers) {
+        if (auto* first = dynamic_cast<ExamplePeer*>(peerPtr)) {
+            total += first->msgsSent;
+        } else if (auto* second = dynamic_cast<ExamplePeer2*>(peerPtr)) {
+            total += second->msgsSent;
         }
-        OutputWriter::pushValue("finalMessageCount", total);
     }
+    OutputWriter::pushValue("finalMessageCount", total);
 }
 
 NetworkInterface* ExamplePeer::releaseNetworkInterface() {

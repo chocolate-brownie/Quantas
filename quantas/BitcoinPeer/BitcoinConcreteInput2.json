@@ -4,7 +4,7 @@
   ],
   "concrete": {
     "leader": { "id": 0, "ip": "10.37.7.31", "port": 5000 },
-    "peersPerProcess": 5,
+    "peersPerProcess": 100,
     "stopCondition": { "type": "time", "milliseconds": 2000 }
   },
   "logging_level": "trace",
@@ -19,13 +19,13 @@
       },
       "topology": {
         "type": "complete",
-        "initialPeers": 10,
+        "initialPeers": 1000,
         "initialPeerType": "BitcoinPeer"
       },
       "parameters": {
-        "submitRate": 10,
+        "submitRate": 1,
         "defaultMineRate": 1,
-        "mineScaler": 1,
+        "mineScaler": 100,
         "parasiteFault": {
           "leadThreshold": 2,
           "peerIndices": [0]

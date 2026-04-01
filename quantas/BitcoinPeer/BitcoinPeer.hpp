@@ -48,7 +48,7 @@ private:
 
     void checkInStrm();
     bool guardSubmit() const;
-    bool guardMine() const;
+    bool guardMine();
     std::vector<std::string> getParents(const PoW& group) const;
     PendingTx makeTransaction();
     // turns contents into a sendable json format
@@ -66,6 +66,7 @@ private:
     std::set<std::pair<interfaceId, int>> _knownTransactions; // all known transactions (kept to ensure consistency with the pending queue)
     int _localSubmitted = 0; // transaction id counter
     int minedBlocks = 0; // total blocks mined by this peer
+    long mineAttempts = 0; // total number of attempts to mine a block
 };
 
 }

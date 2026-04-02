@@ -52,7 +52,8 @@ inline void Simulation::run(json config) {
     LogWriter::setLogFile(logFile); // Set the log file to the console
 
     std::chrono::time_point<std::chrono::high_resolution_clock> startTime,
-        endTime;                            // chrono time points
+        endTime; // chrono time points
+
     std::chrono::duration<double> duration; // chrono time interval
     startTime = std::chrono::high_resolution_clock::now();
 

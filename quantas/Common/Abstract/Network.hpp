@@ -20,13 +20,6 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #define NETWORK_HPP
 
 #include <vector>
-#include <string>
-#include <random>
-#include <limits>
-#include <iostream>
-#include <algorithm>
-#include <memory>
-#include <deque>
 #include <climits>
 #include "../Peer.hpp"
 #include "../Json.hpp"

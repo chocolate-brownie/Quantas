@@ -27,3 +27,5 @@ quantas/TrailPeer/*Log.json
 quantas/TrailPeer/*logs*/**/*
 quantas/TrailPeer/*Logs*/**/*
 CLAUDE.md
+.codex/
+.claude/

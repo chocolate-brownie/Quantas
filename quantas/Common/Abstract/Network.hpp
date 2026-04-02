@@ -19,30 +19,30 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #ifndef NETWORK_HPP
 #define NETWORK_HPP
 
-#include <vector>
-#include <climits>
-#include "../Peer.hpp"
 #include "../Json.hpp"
+#include "../Peer.hpp"
+#include <climits>
+#include <vector>
 
 namespace quantas {
 
 using nlohmann::json;
 
 class Network {
-private:
-    std::vector<Peer*>  _peers;
+  private:
+    std::vector<Peer *> _peers;
 
     json _distribution;
-    Network& operator=(const Network &rhs) = delete;
+    Network &operator=(const Network &rhs) = delete;
     Network(const Network &rhs) = delete;
 
     void clearExisting();
 
-public:
+  public:
     Network();
     ~Network();
-    
-    void setDistribution (json distribution) {_distribution = distribution;}
+
+    void setDistribution(json distribution) { _distribution = distribution; }
     // -------------- TOPOLOGY INIT --------------
     // This can create the peers, set up neighbors, etc.
     void initNetwork(json topology);
@@ -66,15 +66,15 @@ public:
 
     // -------------- Simulation loop --------------
     // call each peer's receive, tryPerformComputation.
-    void receive(int begin, int end);    
+    void receive(int begin, int end);
     void tryPerformComputation(int begin, int end);
 
-    void endOfRound() {_peers[0]->endOfRound(_peers); }
+    void endOfRound() { _peers[0]->endOfRound(_peers); }
 
     // -------------- Access by index --------------
     // (Might be optional if you rarely do random access.)
-    Peer*       operator[](int i)       { return _peers[i]; }
-    const Peer* operator[](int i) const { return _peers[i]; }
+    Peer *operator[](int i) { return _peers[i]; }
+    const Peer *operator[](int i) const { return _peers[i]; }
 };
 } // namespace quantas
 

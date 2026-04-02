@@ -14,41 +14,36 @@
 
 */
 
-#include <iostream>
 #include <fstream>
-#include <set>
-#include <chrono>
-#include <random>
-#include <filesystem>
+#include <iostream>
 
+#include "../Json.hpp"
 #include "Network.hpp"
 #include "Simulation.hpp"
-#include "../NetworkInterface.hpp"
-#include "../Json.hpp"
 
 using nlohmann::json;
 
-int main(int argc, const char* argv[]) {
-   if (argc < 2) {
-      std::cerr << "usage: " << argv[0] << " inputFileName "<< std::endl;
-      return 1;
-   }
+int main(int argc, const char *argv[]) {
+    if (argc < 2) {
+        std::cerr << "usage: " << argv[0] << " inputFileName " << std::endl;
+        return 1;
+    }
 
-   std::ifstream inFile(argv[1]);
-	
-   if (inFile.fail()) {
-      std::cerr << "error: cannot open input file: " << argv[1] << std::endl;
-      return 1;
-   }
-   
-   json config;
-   inFile >> config;
+    std::ifstream inFile(argv[1]);
 
-   for (int i = 0; i < config["experiments"].size(); ++i) {
-      json input = config["experiments"][i];
-      quantas::Simulation sim;
-	   sim.run(input);
-   }
+    if (inFile.fail()) {
+        std::cerr << "error: cannot open input file: " << argv[1] << std::endl;
+        return 1;
+    }
 
-   return 0;
+    json config;
+    inFile >> config;
+
+    for (int i = 0; i < config["experiments"].size(); ++i) {
+        json input = config["experiments"][i];
+        quantas::Simulation sim;
+        sim.run(input);
+    }
+
+    return 0;
 }

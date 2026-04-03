@@ -80,10 +80,14 @@ inline void Simulation::run(json config) {
         RoundManager::instance()->setLastRound(config["rounds"]);
 
         /* stores the channel config (delay type, drop probability, duplicate
-         * probability, etc.) from the JSON. */
+         * probability, etc.) from the JSON.  All three fields are inside that
+         * one object. When Channel needs them later, it reads individual fields
+         * from it — like _distribution["maxDelay"] or
+         * _distribution["dropProbability"]. But the storage is a single JSON
+         * blob, not three separate variables. */
         system.setDistribution(config["distribution"]);
 
-        /* created all the peers and wires them together based on the topology
+        /* creates all the peers and wires them together based on the topology
            type. So if the JSON says "type": "complete" with 20 peers, it
            creates 20 Peer objects and connects every peer to every other peer
            with channels. This is where the network gets built. */

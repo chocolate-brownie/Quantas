@@ -15,8 +15,8 @@ void Network::clearExisting() {
     _peers.clear();
 }
 
-/* create peers based on "topology" JSON at this stage all public and internal
- * ids are the same and unique across peers */
+
+/* The entire topology JSON object is passed as the json topology parameter to initNetwork(), and it reads the individual fields from it: */
 void Network::initNetwork(json topology) {
     // Clear existing
     clearExisting();

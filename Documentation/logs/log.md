@@ -20,4 +20,5 @@ In this file I document what I do everyday during my internship.
     (fullyConnect, chain, ring, etc.) and calls addNeighbor() on each peer
     3. Create channels (line 66) — createInitialChannels() wires up actual Channel objects between every pair of neighbors
 
+- I have to go in depth of what these three things do
 

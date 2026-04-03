@@ -2,11 +2,9 @@
 
 namespace quantas {
 
-Network::Network(): _peers() {}
+Network::Network() : _peers() {}
 
-Network::~Network() {
-    clearExisting();
-}
+Network::~Network() { clearExisting(); }
 
 void Network::clearExisting() {
     // delete all owned peers
@@ -17,9 +15,8 @@ void Network::clearExisting() {
     _peers.clear();
 }
 
-// create peers based on "topology" JSON
-// at this stage all public and internal 
-// ids are the same and unique across peers
+/* create peers based on "topology" JSON at this stage all public and internal
+ * ids are the same and unique across peers */
 void Network::initNetwork(json topology) {
     // Clear existing
     clearExisting();
@@ -70,24 +67,31 @@ void Network::initNetwork(json topology) {
 }
 
 void Network::createInitialChannels() {
-// For each peer in the network create their channels from their neighbors
-for (auto* peer : _peers) {
-    auto neighbors = peer->neighbors();
-    for (auto nbr : neighbors) {
+    // For each peer in the network create their channels from their neighbors
+    for (auto *peer : _peers) {
+        auto neighbors = peer->neighbors();
+        for (auto nbr : neighbors) {
             auto channelPtr = std::make_shared<Channel>(
-                /* target IDs: */ 
-                _peers[nbr]->publicId(), 
-                _peers[nbr]->internalId(),
+                /* target IDs: */
+                _peers[nbr]->publicId(), _peers[nbr]->internalId(),
                 /* outbound (the remote) IDs: */
-                peer->publicId(),
-                peer->internalId(),
-                _distribution
+                peer->publicId(), peer->internalId(), _distribution
             );
-            if (auto networkInterface = dynamic_cast<NetworkInterfaceAbstract*>(_peers[nbr]->getNetworkInterface())) {
-                networkInterface->addInboundChannel(peer->publicId(), channelPtr);
+            if (auto networkInterface =
+                    dynamic_cast<NetworkInterfaceAbstract *>(
+                        _peers[nbr]->getNetworkInterface()
+                    )) {
+                networkInterface->addInboundChannel(
+                    peer->publicId(), channelPtr
+                );
             }
-            if (auto networkInterface = dynamic_cast<NetworkInterfaceAbstract*>(peer->getNetworkInterface())) {
-                networkInterface->addOutboundChannel(_peers[nbr]->publicId(), channelPtr);
+            if (auto networkInterface =
+                    dynamic_cast<NetworkInterfaceAbstract *>(
+                        peer->getNetworkInterface()
+                    )) {
+                networkInterface->addOutboundChannel(
+                    _peers[nbr]->publicId(), channelPtr
+                );
             }
         }
     }
@@ -123,13 +127,13 @@ void Network::grid(int height, int width) {
             int idx = i * width + j;
             if (j + 1 < width) {
                 // link horizontally
-                _peers[idx]->addNeighbor(_peers[idx+1]->internalId());
-                _peers[idx+1]->addNeighbor(_peers[idx]->internalId());
+                _peers[idx]->addNeighbor(_peers[idx + 1]->internalId());
+                _peers[idx + 1]->addNeighbor(_peers[idx]->internalId());
             }
             if (i + 1 < height) {
                 // link vertically
-                _peers[idx]->addNeighbor(_peers[idx+width]->internalId());
-                _peers[idx+width]->addNeighbor(_peers[idx]->internalId());
+                _peers[idx]->addNeighbor(_peers[idx + width]->internalId());
+                _peers[idx + width]->addNeighbor(_peers[idx]->internalId());
             }
         }
     }
@@ -157,8 +161,8 @@ void Network::torus(int height, int width) {
 void Network::chain(int numberOfPeers) {
     // link each i with i+1
     for (int i = 0; i < numberOfPeers - 1; i++) {
-        _peers[i]->addNeighbor(_peers[i+1]->internalId());
-        _peers[i+1]->addNeighbor(_peers[i]->internalId());
+        _peers[i]->addNeighbor(_peers[i + 1]->internalId());
+        _peers[i + 1]->addNeighbor(_peers[i]->internalId());
     }
 }
 
@@ -174,7 +178,7 @@ void Network::ring(int numberOfPeers) {
 void Network::unidirectionalRing(int numberOfPeers) {
     // link i->(i+1)
     for (int i = 0; i < numberOfPeers - 1; i++) {
-        _peers[i]->addNeighbor(_peers[i+1]->internalId());
+        _peers[i]->addNeighbor(_peers[i + 1]->internalId());
     }
     // last -> first
     if (numberOfPeers > 1) {
@@ -186,7 +190,8 @@ void Network::userList(json topology) {
     // "list": { "0": [1,2], "1":[0], ... }
     // for each peer i, read the adjacency
     int initialPeers = topology.value("initialPeers", 0);
-    if (!topology.contains("list")) return;
+    if (!topology.contains("list"))
+        return;
     json lst = topology["list"];
     for (int i = 0; i < initialPeers; i++) {
         std::string key = std::to_string(i);
@@ -213,4 +218,4 @@ void Network::tryPerformComputation(int begin, int end) {
         _peers[i]->tryPerformComputation();
     }
 }
-}
+} // namespace quantas

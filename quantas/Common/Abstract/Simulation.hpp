@@ -70,12 +70,25 @@ inline void Simulation::run(json config) {
 
     BS::thread_pool pool(_threadCount);
     for (int i = 0; i < config["tests"]; i++) {
+        // Tells LogWriter which test we're on
         LogWriter::instance()->setTest(i);
+
+        // Reset round counter
         RoundManager::instance()->setCurrentRound(0);
+
+        // Set how many rounds to run
         RoundManager::instance()->setLastRound(config["rounds"]);
-        // Configure the delay properties and initial topology of the network
+
+        /* stores the channel config (delay type, drop probability, duplicate
+         * probability, etc.) from the JSON. */
         system.setDistribution(config["distribution"]);
+
+        /* created all the peers and wires them together based on the topology
+           type. So if the JSON says "type": "complete" with 20 peers, it
+           creates 20 Peer objects and connects every peer to every other peer
+           with channels. This is where the network gets built. */
         system.initNetwork(config["topology"]);
+
         if (config.contains("parameters")) {
             system.initParameters(config["parameters"]);
         } else {

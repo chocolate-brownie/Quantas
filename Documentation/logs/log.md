@@ -6,9 +6,9 @@ In this file I document what I do everyday during my internship.
 - Reading the paper about Quantas
 
 ### 02/04/2026
-    - Continuing to read the Quantas paper. Following the sim.run() function at Simulation.hpp file, learning about different components in the JSON files and how they connects with the testing of algorithm.
+- Continuing to read the Quantas paper. Following the sim.run() function at Simulation.hpp file, learning about different components in the JSON files and how they connects with the testing of algorithm.
 - How performance can be enhanced using threads for each peer to run performComputation()
-    - The JSON config doesn't just connect to "testing" — it defines the entire experiment: topology, network conditions, algorithm parameters, and how many repetitions to run. Testing is one use, but so is data collection for research
+- The JSON config doesn't just connect to "testing" — it defines the entire experiment: topology, network conditions, algorithm parameters, and how many repetitions to run. Testing is one use, but so is data collection for research
 
 ### 03/04/2026
 - Continuing to read the Quantas paper, following the code
@@ -18,6 +18,6 @@ In this file I document what I do everyday during my internship.
     instantiate the right peer type from the JSON string
     2. Set up neighbors (lines 42-64) — picks the topology function
     (fullyConnect, chain, ring, etc.) and calls addNeighbor() on each peer
-    3. Create channels (line 66) — createInitialChannels() wires up actual
-    Channel objects between every pair of neighbors
+    3. Create channels (line 66) — createInitialChannels() wires up actual Channel objects between every pair of neighbors
+
 

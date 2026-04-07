@@ -15,8 +15,8 @@ void Network::clearExisting() {
     _peers.clear();
 }
 
-
-/* The entire topology JSON object is passed as the json topology parameter to initNetwork(), and it reads the individual fields from it: */
+/* The entire topology JSON object is passed as the json topology parameter to
+ * initNetwork(), and it reads the individual fields from it: */
 void Network::initNetwork(json topology) {
     // Clear existing
     clearExisting();
@@ -31,6 +31,13 @@ void Network::initNetwork(json topology) {
         _peers.push_back(peer);
     }
 
+    /* With "identifiers": "random", the positions get shuffled, so it might
+     * become: 3→1→4→0→2→3. instead of 0→1→2→3→4 The point is that in some
+     * distributed algorithm research, you want to test whether the algorithm
+     * behaves correctly regardless of which node has which ID. If the algorithm
+     * always works when node 0 is the "first" in the ring, that's not a
+     * rigorous test. Shuffling forces the algorithm to work with arbitrary ID
+     * assignments. */
     if (topology.value("identifiers", "") == "random") {
         static std::mt19937 rng(std::random_device{}());
         std::shuffle(_peers.begin(), _peers.end(), rng);
@@ -39,6 +46,16 @@ void Network::initNetwork(json topology) {
     // pick the topology
     std::string t = topology.value("type", "");
 
+    /* Each topology defines a different pattern of who gets connected to who.
+       - fullyConnect — everyone knows everyone
+       - ring — each peer only knows its left and right neighbor
+       - star — only peer 0 knows everyone, others only know peer 0
+       - chain — like a ring but the ends don't connect
+       - grid — each peer knows its up/down/left/right neighbors
+
+       The job is the same (call addNeighbor()), but which peers get connected
+       to which peers is completely different per topology. That's why you need
+       separate functions — each one encodes a different connection pattern. */
     if (t == "complete") {
         fullyConnect(initialPeers);
     } else if (t == "star") {

@@ -22,3 +22,12 @@ In this file I document what I do everyday during my internship.
 
 - I have to go in depth of what these three things do
 
+### 07/04/2026
+- Continuing to read the Quantas paper and following the code accordingly
+- Today studied `void Network::initNetwork(json topology)` — the function that builds the distributed system for each test run. Understood three things it does in order:
+    1. Creates peer objects using `PeerRegistry::makePeer()` and stores them in `_peers`
+    2. Wires neighbor relationships according to the topology type (e.g. `"complete"` means every peer knows every other peer's ID). At this point peers only know their neighbors' IDs — no communication channels yet.
+    3. Calls `createInitialChannels()` to create the actual Channel objects between neighbors (not yet studied)
+- Also learned that before `main()` runs, each algorithm's `.cpp` file has a `static bool` variable at file scope that C++ initializes automatically at program startup. This calls `PeerRegistry::registerPeerType("AlgoName", factory)`, storing a factory function in a map keyed by the algorithm name. When `makePeer("AlgoName", id)` is called later, it looks up that map and calls the stored factory to create the correct peer type.
+- Tomorrow: study `createInitialChannels()` — how actual Channel objects get wired between neighbors after topology is set up.
+

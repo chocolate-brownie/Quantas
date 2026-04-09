@@ -93,7 +93,7 @@ inline Peer() {}
 
     // Called once after constructing all peers
     // (subclass can parse 'parameters' as needed)
-    virtual void initParameters(const std::vector<Peer*>& peers,
+    virtual void iniParameters(const std::vector<Peer*>& peers,
                                 json parameters) {}
 
     // try to run performComputation though it may not

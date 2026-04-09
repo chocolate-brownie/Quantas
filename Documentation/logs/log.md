@@ -51,6 +51,18 @@ A good free resource is learncpp.com — it's structured, example-driven, and co
 
 ### 09/04/2026
 
-- I have finished studying the `createInitialChannels()`
-- I've understood the bigger picture of the whole function `sim:run()`
-- Currently trying to understand how `rounds` works
+- Finished studying `createInitialChannels()` in full:
+    1. A `shared_ptr<Channel>` is created for each directed peer→neighbor link (one object, shared ownership)
+    2. `dynamic_cast<NetworkInterfaceAbstract*>` is used to convert the base `NetworkInterface*` pointer to the concrete type so we can call `addInboundChannel()` / `addOutboundChannel()`
+    3. The same channel pointer is registered as **inbound** on the receiver's interface and **outbound** on the sender's interface — this is how the "pipe" gets attached to both ends
+    4. For a complete 3-peer network: 6 directed channels total (each peer × 2 neighbors)
+- Studied `initParameters()` — reads algorithm-specific config from JSON and sets it on all peers before rounds start. For AltBit: `timeOutRate = 2` (wait 2 rounds before resending an unacknowledged message)
+- Understood the round loop structure — 4 parts per round:
+    1. `RoundManager::incrementRound()` — tick the global clock by 1
+    2. `receive()` — all peers check inbound channels for arrived packets (parallel)
+    3. `tryPerformComputation()` — all peers run their algorithm logic (parallel)
+    4. `endOfRound()` — collect metrics
+- `RoundManager` is a global counter visible to every part of the simulation — packets use it to check if their delay has elapsed, peers use it to check timeouts
+- Distinction: **tests** (outer loop) = how many times the distributed system is rebuilt; **rounds** (inner loop) = how many times the algorithm runs on one system
+- Supervisor asked to study `LogWriter` next
+- Tomorrow: study `LogWriter` — how metrics are collected and written to output files

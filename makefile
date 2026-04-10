@@ -44,7 +44,10 @@ INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 
 EXE := quantas.exe
 
+ifeq ($(MAKELEVEL),0)
 MAKEFLAGS += -j16
+endif
+.DEFAULT_GOAL := help
 
 # compiles all the cpps in Common and main.cpp
 COMMON_SRCS := $(wildcard quantas/Common/*.cpp)
@@ -93,9 +96,29 @@ clang: release
 run: release
 	
 	@if [ -n "$(RUN_DIR)" ]; then \
-		mkdir -p "$(RUN_DIR)"; \
 		export QUANTAS_RUN_DIR="$(RUN_DIR)"; \
+	elif [ -z "$$QUANTAS_RUN_DIR" ]; then \
+		export QUANTAS_RUN_DIR="$(CURDIR)/experiments/$$(date +%Y%m%d_%H%M%S)"; \
 	fi; \
+	mkdir -p "$$QUANTAS_RUN_DIR"; \
+	if [ -z "$$QUANTAS_HOSTNAME" ]; then \
+		export QUANTAS_HOSTNAME="$$(hostname -f 2>/dev/null || hostname)"; \
+	fi; \
+	if [ -z "$$QUANTAS_MACHINE_IP" ]; then \
+		export QUANTAS_MACHINE_IP="$$(hostname -I 2>/dev/null | awk '{print $$1}')"; \
+	fi; \
+	if [ -z "$$QUANTAS_PROCESS_ROLE" ]; then \
+		if [ "$(MODE)" = "concrete" ]; then \
+			if [ -n "$(PORT)" ]; then \
+				export QUANTAS_PROCESS_ROLE="leader"; \
+			else \
+				export QUANTAS_PROCESS_ROLE="follower"; \
+			fi; \
+		else \
+			export QUANTAS_PROCESS_ROLE="abstract"; \
+		fi; \
+	fi; \
+	if [ -z "$$QUANTAS_MACHINE_IP" ]; then export QUANTAS_MACHINE_IP="unknown"; fi; \
 	if [ -n "$(PORT)" ]; then \
 		echo running with input: $(INPUTFILE) on port $(PORT); \
 		./$(EXE) $(INPUTFILE) $(PORT); \
@@ -106,10 +129,61 @@ run: release
 	exit_code=$$?; \
 	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
 
+# Show commonly used routes when running `make`
+help:
+	@echo "QUANTAS make routes:"
+	@echo "  make run INPUTFILE=<file>                  # Abstract mode"
+	@echo "  make run MODE=concrete INPUTFILE=<file>    # Concrete mode (single machine)"
+	@echo ""
+	@echo "Distributed concrete:"
+	@echo "  make run_distributed_concrete INPUTFILE=<file> HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5"
+	@echo "  make stop_distributed_concrete HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5"
+	@echo ""
+	@echo "Tests:"
+	@echo "  make test                                  # Run test inputs without valgrind"
+	@echo "  make test_with_memory                      # Run memory tests with valgrind"
+	@echo ""
+	@echo "Optional distributed vars:"
+	@echo "  LEADER=<host> FOLLOWERS=<h1,h2,...> LEADER_INDEX=<n> PORT=<p> WORKDIR=<dir> ROOT_DIR=<dir>"
+
+# Wrapper route for scripts/run_distributed_concrete.sh
+# Examples:
+# make run_distributed_concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5
+# make run_distributed_concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json LEADER=eon1 FOLLOWERS=eon2,eon3,eon4
+run_distributed_concrete:
+	@set -e; \
+	args="-i \"$(INPUTFILE)\""; \
+	if [ -n "$(LEADER)" ]; then args="$$args -l \"$(LEADER)\""; fi; \
+	if [ -n "$(FOLLOWERS)" ]; then args="$$args -f \"$(FOLLOWERS)\""; fi; \
+	if [ -n "$(HOSTS_FILE)" ]; then args="$$args --hosts-file \"$(HOSTS_FILE)\""; fi; \
+	if [ -n "$(HOST_COUNT)" ]; then args="$$args --count \"$(HOST_COUNT)\""; fi; \
+	if [ -n "$(LEADER_INDEX)" ]; then args="$$args --leader-index \"$(LEADER_INDEX)\""; fi; \
+	if [ -n "$(PORT)" ]; then args="$$args -p \"$(PORT)\""; fi; \
+	if [ -n "$(WORKDIR)" ]; then args="$$args -w \"$(WORKDIR)\""; fi; \
+	if [ -n "$(ROOT_DIR)" ]; then args="$$args --root-dir \"$(ROOT_DIR)\""; fi; \
+	echo "launching distributed concrete run with input: $(INPUTFILE)"; \
+	eval "env MAKEFLAGS= QUANTAS_RUN_VIA_MAKE=1 bash ./scripts/run_distributed_concrete.sh $$args"
+
+# Wrapper route for scripts/stop_distributed_concrete.sh
+# Examples:
+# make stop_distributed_concrete HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5
+# make stop_distributed_concrete HOSTS=eon1,eon2,eon3
+stop_distributed_concrete:
+	@set -e; \
+	args=""; \
+	if [ -n "$(HOSTS)" ]; then args="$$args -H \"$(HOSTS)\""; fi; \
+	if [ -n "$(HOSTS_FILE)" ]; then args="$$args --hosts-file \"$(HOSTS_FILE)\""; fi; \
+	if [ -n "$(HOST_COUNT)" ]; then args="$$args --count \"$(HOST_COUNT)\""; fi; \
+	if [ -n "$(WORKDIR)" ]; then args="$$args -w \"$(WORKDIR)\""; fi; \
+	eval "env MAKEFLAGS= QUANTAS_RUN_VIA_MAKE=1 bash ./scripts/stop_distributed_concrete.sh $$args"
+
 ############################### Debugging ###############################
 
 # runs the program with full Valgrind to trace memory leaks
-run_memory: debug
+run_memory:
+	@command -v valgrind >/dev/null 2>&1 || { echo "valgrind is required for run_memory. Install it with: sudo apt-get install -y valgrind"; exit 1; }
+	+@$(MAKE) --no-print-directory clean
+	+@$(MAKE) --no-print-directory debug MODE="$(MODE)" INPUTFILE="$(INPUTFILE)"
 	@echo running: $(INPUTFILE) with valgrind
 	@valgrind --leak-check=full \
          --show-leak-kinds=all \
@@ -117,7 +191,10 @@ run_memory: debug
 		 ./$(EXE) $(INPUTFILE)
 
 # runs the program with Valgrind to see if there are any memory leaks
-run_simple_memory: debug
+run_simple_memory:
+	@command -v valgrind >/dev/null 2>&1 || { echo "valgrind is required for run_simple_memory/make test. Install it with: sudo apt-get install -y valgrind"; exit 1; }
+	+@$(MAKE) --no-print-directory clean
+	+@$(MAKE) --no-print-directory debug MODE="$(MODE)" INPUTFILE="$(INPUTFILE)"
 	@echo ""
 	@echo running: $(INPUTFILE) with valgrind
 	@valgrind --leak-check=full ./$(EXE) $(INPUTFILE) 2>&1 \
@@ -125,7 +202,10 @@ run_simple_memory: debug
 	@echo ""
 
 # runs the program with GDB for more advanced error viewing
-run_debug: debug
+run_debug:
+	@command -v gdb >/dev/null 2>&1 || { echo "gdb is required for run_debug. Install it with: sudo apt-get install -y gdb"; exit 1; }
+	+@$(MAKE) --no-print-directory clean
+	+@$(MAKE) --no-print-directory debug MODE="$(MODE)" INPUTFILE="$(INPUTFILE)"
 	@if [ -n "$(PORT)" ]; then \
 		echo debugging with input: $(INPUTFILE) on port $(PORT); \
 		gdb -q -nx \
@@ -195,20 +275,30 @@ statusAll:
 # Test thread based random number generation
 rand_test: quantas/Tests/randtest.cpp
 	@echo "Testing thread based random number generation..."
-	@make --no-print-directory clean
+	+@$(MAKE) --no-print-directory clean
 	@$(CXX) $(CXXFLAGS) $^ -o $@.exe
 	@./$@.exe
 	@echo ""
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
-TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/ChordPeer/ChordPeerInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
+TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitInput.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/ChordPeer/ChordPeerInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
 test: check-version rand_test
-	@make --no-print-directory clean
+	+@$(MAKE) --no-print-directory clean
+	@echo "Running tests on all test inputs (no valgrind)..."
+	@echo ""
+	@set -e; \
+	for file in $(TEST_INPUTS); do \
+		$(MAKE) --no-print-directory run INPUTFILE="$$file"; \
+	done
+
+test_with_memory: check-version rand_test
+	+@$(MAKE) --no-print-directory clean
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
-	@for file in $(TEST_INPUTS); do \
+	@set -e; \
+	for file in $(TEST_INPUTS); do \
 		$(MAKE) --no-print-directory run_simple_memory INPUTFILE="$$file"; \
 	done
 
@@ -241,24 +331,17 @@ $(EXE): $(ALG_OBJS) $(SIM_OBJS)
 
 ############################### Cleanup ###############################
 
-# enables recursive glob patterns for bash to clean out unecessary files
-clean: SHELL := /bin/bash -O globstar
+# clean generated build artifacts
 clean:
-	@$(RM) **/*.out
-	@$(RM) **/*.o
-	@$(RM) **/*.d
-	@$(RM) **/*.dSYM
-	@$(RM) **/*.gch
-	@$(RM) **/*.tmp
-	@$(RM) **/*.exe
+	@find . -type f \( -name '*.out' -o -name '*.o' -o -name '*.d' -o -name '*.dSYM' -o -name '*.gch' -o -name '*.tmp' -o -name '*.exe' \) -delete
 
-clean_logs: SHELL := /bin/bash -O globstar
+# clean run output folders
 clean_logs:
-	@$(RM) **/experiments/*
+	@find . -type d -name experiments -exec sh -c 'rm -rf "$$1"/*' _ {} \;
 
 # -include $(OBJS:.o=.d)
 
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: clean run release debug $(EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test clean_txt
+.PHONY: help clean run release debug $(EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test test_with_memory clean_txt run_distributed_concrete stop_distributed_concrete

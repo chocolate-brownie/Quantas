@@ -300,6 +300,7 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
     {
         std::scoped_lock lock(_endpointMutex);
         _allPeers.clear();
+        _peerRanges.clear();
     }
     {
         std::scoped_lock lock(_interfaceMutex);
@@ -578,17 +579,38 @@ void ProcessCoordinator::handleRegister(const std::string& remoteIp, int remoteP
     record.requestedPeers = msg.value("requestedPeers", _peersPerProcess);
 
     const std::string key = processKey(record.ip, record.port);
+    bool knownProcess = false;
+    bool canResendAssignment = false;
     {
         std::scoped_lock lock(_processMutex);
-        if (_processes.find(key) == _processes.end()) {
+        auto existing = _processes.find(key);
+        if (existing == _processes.end()) {
             _processes.emplace(key, record);
             _registrationOrder.push_back(key);
         } else {
-            _processes[key] = record;
+            knownProcess = true;
+            record.assignedPeers = existing->second.assignedPeers;
+            record.ready = existing->second.ready;
+            existing->second = record;
+            canResendAssignment = !_startSignal.load() &&
+                                  static_cast<int>(_allPeers.size()) >= _totalPeers &&
+                                  !record.assignedPeers.empty();
+        }
+
+        if (!knownProcess) {
+            auto inserted = _processes.find(key);
+            if (inserted != _processes.end()) {
+                inserted->second = record;
+            }
         }
     }
     QUANTAS_LOG_DEBUG("coord") << "registration received from " << key
                                << " requestedPeers=" << record.requestedPeers;
+    if (knownProcess && canResendAssignment) {
+        QUANTAS_LOG_INFO("coord") << "re-sending assignment to " << key;
+        sendAssignmentToProcess(key, record);
+        return;
+    }
     distributeAssignmentsIfReady();
 }
 
@@ -653,12 +675,15 @@ void ProcessCoordinator::distributeAssignmentsIfReady() {
     TopologyResult topology = buildTopology(_experimentConfig["topology"]);
     std::unordered_map<interfaceId, PeerEndpoint> endpoints;
     endpoints.reserve(_totalPeers);
+    std::vector<ProcessEndpointRange> ranges;
+    ranges.reserve(order.size());
 
     int nextId = 0;
     for (const auto& key : order) {
         auto it = snapshot.find(key);
         if (it == snapshot.end()) continue;
         it->second.assignedPeers.clear();
+        const int firstAssigned = nextId;
         int available = std::min(it->second.requestedPeers, _totalPeers - nextId);
         for (int i = 0; i < available; ++i) {
             interfaceId assigned = static_cast<interfaceId>(nextId++);
@@ -668,6 +693,14 @@ void ProcessCoordinator::distributeAssignmentsIfReady() {
             endpoint.ip = it->second.ip;
             endpoint.port = it->second.port;
             endpoints.emplace(endpoint.id, endpoint);
+        }
+        if (available > 0) {
+            ProcessEndpointRange range;
+            range.firstId = static_cast<interfaceId>(firstAssigned);
+            range.lastId = static_cast<interfaceId>(nextId - 1);
+            range.ip = it->second.ip;
+            range.port = it->second.port;
+            ranges.push_back(range);
         }
         if (nextId >= _totalPeers) break;
     }
@@ -686,43 +719,55 @@ void ProcessCoordinator::distributeAssignmentsIfReady() {
     {
         std::scoped_lock lock(_endpointMutex);
         _allPeers = endpoints;
+        _peerRanges = ranges;
     }
-
-    const std::string leaderKey = processKey(_myIp, _myPort);
 
     for (const auto& key : order) {
         auto it = snapshot.find(key);
         if (it == snapshot.end()) continue;
+        sendAssignmentToProcess(key, it->second);
+    }
+}
 
-        nlohmann::json peersJson = nlohmann::json::array();
-        for (interfaceId id : it->second.assignedPeers) {
-            nlohmann::json entry;
-            entry["id"] = id;
-            entry["neighbors"] = topology.assignments[static_cast<size_t>(id)].neighbors;
-            peersJson.push_back(entry);
-        }
+void ProcessCoordinator::sendAssignmentToProcess(const std::string& key, const ProcessRecord& record) {
+    TopologyResult topology = buildTopology(_experimentConfig["topology"]);
 
-        nlohmann::json allPeersJson = nlohmann::json::array();
-        for (const auto& [pid, endpoint] : endpoints) {
-            nlohmann::json e;
-            e["id"] = endpoint.id;
-            e["ip"] = endpoint.ip;
-            e["port"] = endpoint.port;
-            allPeersJson.push_back(e);
-        }
+    std::vector<ProcessEndpointRange> rangeSnapshot;
+    {
+        std::scoped_lock lock(_endpointMutex);
+        rangeSnapshot = _peerRanges;
+    }
 
-        nlohmann::json message = {
-            {"type", kTypeAssignment},
-            {"experimentIndex", _experimentIndex},
-            {"peers", peersJson},
-            {"allPeers", allPeersJson}
-        };
+    nlohmann::json peersJson = nlohmann::json::array();
+    for (interfaceId id : record.assignedPeers) {
+        nlohmann::json entry;
+        entry["id"] = id;
+        entry["neighbors"] = topology.assignments[static_cast<size_t>(id)].neighbors;
+        peersJson.push_back(entry);
+    }
 
-        if (key == leaderKey) {
-            handleAssignment(message);
-        } else {
-            sendJson(it->second.ip, it->second.port, message);
-        }
+    nlohmann::json rangesJson = nlohmann::json::array();
+    for (const auto& range : rangeSnapshot) {
+        nlohmann::json e;
+        e["firstId"] = range.firstId;
+        e["lastId"] = range.lastId;
+        e["ip"] = range.ip;
+        e["port"] = range.port;
+        rangesJson.push_back(e);
+    }
+
+    nlohmann::json message = {
+        {"type", kTypeAssignment},
+        {"experimentIndex", _experimentIndex},
+        {"peers", peersJson},
+        {"peerRanges", rangesJson}
+    };
+
+    const std::string leaderKey = processKey(_myIp, _myPort);
+    if (key == leaderKey) {
+        handleAssignment(message);
+    } else {
+        sendJson(record.ip, record.port, message);
     }
 }
 
@@ -741,15 +786,31 @@ void ProcessCoordinator::handleAssignment(const nlohmann::json& msg) {
         }
     }
 
-    if (msg.contains("allPeers") && msg["allPeers"].is_array()) {
+    if (msg.contains("peerRanges") && msg["peerRanges"].is_array()) {
         std::scoped_lock lock(_endpointMutex);
         _allPeers.clear();
-        for (const auto& item : msg["allPeers"]) {
-            PeerEndpoint endpoint;
-            endpoint.id = item.value("id", static_cast<interfaceId>(NO_PEER_ID));
-            endpoint.ip = item.value("ip", "");
-            endpoint.port = item.value("port", -1);
-            _allPeers.emplace(endpoint.id, endpoint);
+        _peerRanges.clear();
+        for (const auto& item : msg["peerRanges"]) {
+            ProcessEndpointRange range;
+            range.firstId = item.value("firstId", static_cast<interfaceId>(NO_PEER_ID));
+            range.lastId = item.value("lastId", static_cast<interfaceId>(NO_PEER_ID));
+            range.ip = item.value("ip", "");
+            range.port = item.value("port", -1);
+            _peerRanges.push_back(range);
+        }
+
+        for (const auto& assignment : assignments) {
+            for (const auto& range : _peerRanges) {
+                if (assignment.id < range.firstId || assignment.id > range.lastId) {
+                    continue;
+                }
+                PeerEndpoint endpoint;
+                endpoint.id = assignment.id;
+                endpoint.ip = range.ip;
+                endpoint.port = range.port;
+                _allPeers.emplace(endpoint.id, endpoint);
+                break;
+            }
         }
     }
 
@@ -764,21 +825,7 @@ void ProcessCoordinator::handleAssignment(const nlohmann::json& msg) {
 
 std::vector<ProcessCoordinator::PeerAssignment> ProcessCoordinator::waitForAssignments() {
     std::unique_lock lock(_assignmentMutex);
-    while (!_assignmentsReady.load()) {
-        if (_isLeader) {
-            _assignmentCv.wait(lock, [&]() { return _assignmentsReady.load(); });
-            break;
-        }
-
-        if (_assignmentCv.wait_for(lock, std::chrono::seconds(2), [&]() { return _assignmentsReady.load(); })) {
-            break;
-        }
-
-        lock.unlock();
-        QUANTAS_LOG_WARN("coord") << "assignment wait timed out; re-registering with leader.";
-        sendRegistrationToLeader();
-        lock.lock();
-    }
+    _assignmentCv.wait(lock, [&]() { return _assignmentsReady.load(); });
     QUANTAS_LOG_DEBUG("coord") << "waitForAssignments returning "
                                << _localAssignments.size() << " assignments.";
     return _localAssignments;
@@ -1045,15 +1092,9 @@ void ProcessCoordinator::unicast(interfaceId from, interfaceId to, const nlohman
         }
     }
 
-    PeerEndpoint endpoint;
-    {
-        std::scoped_lock lock(_endpointMutex);
-        auto it = _allPeers.find(to);
-        if (it != _allPeers.end()) {
-            endpoint = it->second;
-        } else {
-            return;
-        }
+    const auto endpoint = endpointForPeer(to);
+    if (!endpoint.has_value()) {
+        return;
     }
 
     nlohmann::json msg = {
@@ -1063,7 +1104,7 @@ void ProcessCoordinator::unicast(interfaceId from, interfaceId to, const nlohman
         {"to_id", to},
         {"body", body}
     };
-    sendJson(endpoint.ip, endpoint.port, msg);
+    sendJson(endpoint->ip, endpoint->port, msg);
 }
 
 bool ProcessCoordinator::ownsPeer(interfaceId id) const {
@@ -1210,6 +1251,30 @@ void ProcessCoordinator::sendRegistrationToLeader() {
     };
     sendJson(_leaderIp, _leaderPort, msg);
     QUANTAS_LOG_DEBUG("coord") << "follower sent registration to leader.";
+}
+
+std::optional<ProcessCoordinator::PeerEndpoint> ProcessCoordinator::endpointForPeer(interfaceId id) {
+    std::scoped_lock lock(_endpointMutex);
+    auto direct = _allPeers.find(id);
+    if (direct != _allPeers.end()) {
+        return direct->second;
+    }
+
+    for (const auto& range : _peerRanges) {
+        if (range.firstId == NO_PEER_ID || range.lastId == NO_PEER_ID) {
+            continue;
+        }
+        if (id < range.firstId || id > range.lastId) {
+            continue;
+        }
+        PeerEndpoint endpoint;
+        endpoint.id = id;
+        endpoint.ip = range.ip;
+        endpoint.port = range.port;
+        return endpoint;
+    }
+
+    return std::nullopt;
 }
 
 std::shared_ptr<ProcessCoordinator::OutboundConnection> ProcessCoordinator::getOrCreateOutboundConnection(const std::string& ip, int port) {

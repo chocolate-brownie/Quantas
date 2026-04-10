@@ -1,10 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+make_usage() {
+    cat <<'EOF'
+This script is managed by the root makefile and is not meant to be run directly.
+
+Use:
+  make run_distributed_concrete INPUTFILE=<file> HOSTS_FILE=available_hosts.txt HOST_COUNT=5
+
+Optional make variables:
+  LEADER=<host> FOLLOWERS=<h1,h2,...> LEADER_INDEX=<n> PORT=<p> WORKDIR=<dir> ROOT_DIR=<dir>
+EOF
+}
+
+require_make_wrapper() {
+    if [[ "${QUANTAS_RUN_VIA_MAKE:-0}" != "1" ]]; then
+        make_usage >&2
+        exit 1
+    fi
+}
+
 usage() {
     cat <<'EOF'
 Usage:
-  run_distributed_concrete.sh -i INPUTFILE [host options] [options]
+  Internal helper called by make. Use `make run_distributed_concrete ...`
 
 Required:
   -i, --input FILE            Input JSON path relative to the repo
@@ -19,14 +38,12 @@ Host Selection:
 Optional:
   -p, --port PORT             Leader port (default: 5000)
   -w, --workdir DIR           Repo path on remote machines (default: current repo path)
-  -m, --make-target TARGET    Build target (default: release)
-  -b, --build-host HOST       Host to run the build on before launch (default: local host)
-      --no-build              Skip the build step
-      --foreground            Keep ssh sessions attached instead of detaching
       --root-dir DIR          Run root under the repo (default: experiments)
   -h, --help                  Show this help
 EOF
 }
+
+require_make_wrapper
 
 INPUTFILE=""
 LEADER_HOST=""
@@ -35,10 +52,6 @@ HOSTS_FILE=""
 HOST_COUNT=""
 LEADER_PORT="5000"
 WORKDIR="$(pwd)"
-MAKE_TARGET="release"
-BUILD_HOST="$(hostname -s)"
-DO_BUILD=1
-FOREGROUND=0
 RUN_ROOT_NAME="experiments"
 LEADER_INDEX="1"
 
@@ -52,10 +65,6 @@ while [[ $# -gt 0 ]]; do
         --leader-index) LEADER_INDEX="$2"; shift 2 ;;
         -p|--port) LEADER_PORT="$2"; shift 2 ;;
         -w|--workdir) WORKDIR="$2"; shift 2 ;;
-        -m|--make-target) MAKE_TARGET="$2"; shift 2 ;;
-        -b|--build-host) BUILD_HOST="$2"; shift 2 ;;
-        --no-build) DO_BUILD=0; shift ;;
-        --foreground) FOREGROUND=1; shift ;;
         --root-dir) RUN_ROOT_NAME="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *)
@@ -150,7 +159,6 @@ REMOTE_RUN_DIR="${WORKDIR}/${RUN_ROOT_NAME}/${TIMESTAMP}"
 REMOTE_QUANTAS_DIR="${REMOTE_RUN_DIR}/quantas"
 REMOTE_LAUNCHER_DIR="${REMOTE_RUN_DIR}/launcher"
 
-REMOTE_BUILD_CMD="make MODE=concrete ${MAKE_TARGET} INPUTFILE=${INPUTFILE}"
 runtime_env() {
     local role="$1"
     local host="$2"
@@ -225,34 +233,14 @@ echo "Run directory: $REMOTE_RUN_DIR"
 echo "QUANTAS logs:  $REMOTE_QUANTAS_DIR"
 echo "Launcher logs: $REMOTE_LAUNCHER_DIR"
 
-if [[ $DO_BUILD -eq 1 ]]; then
-    echo "Building on ${BUILD_HOST}..."
-    if [[ "$BUILD_HOST" == "$(hostname -s)" || "$BUILD_HOST" == "$(hostname -f 2>/dev/null || true)" ]]; then
-        (cd "$WORKDIR" && make MODE=concrete "$MAKE_TARGET" "INPUTFILE=${INPUTFILE}")
-    else
-        run_remote "$BUILD_HOST" "$REMOTE_BUILD_CMD"
-    fi
-fi
+echo "Building locally..."
+(cd "$WORKDIR" && make MODE=concrete release "INPUTFILE=${INPUTFILE}")
 
 echo "Cleaning stale runs on selected hosts..."
 stop_remote "$LEADER_HOST"
 for host in "${FOLLOWER_HOSTS[@]}"; do
     stop_remote "$host"
 done
-
-if [[ $FOREGROUND -eq 1 ]]; then
-    echo "Starting leader in foreground on ${LEADER_HOST}..."
-    run_remote "$LEADER_HOST" "$REMOTE_LEADER_CMD" &
-    sleep 2
-    for host in "${FOLLOWER_HOSTS[@]}"; do
-        remote_follower_cmd="$(runtime_env follower "$host") ${REMOTE_FOLLOWER_CMD_BASE}"
-        echo "Starting follower in foreground on ${host}..."
-        run_remote "$host" "$remote_follower_cmd" &
-        sleep 1
-    done
-    wait
-    exit 0
-fi
 
 echo "Starting leader on ${LEADER_HOST}..."
 start_remote_background "$LEADER_HOST" "leader" "$REMOTE_LEADER_CMD"

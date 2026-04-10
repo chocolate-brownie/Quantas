@@ -1,11 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+make_usage() {
+    cat <<'EOF'
+This script is managed by the root makefile and is not meant to be run directly.
+
+Use:
+  make stop_distributed_concrete HOSTS_FILE=available_hosts.txt HOST_COUNT=5
+  make stop_distributed_concrete HOSTS=eon1,eon2,eon3
+EOF
+}
+
+require_make_wrapper() {
+    if [[ "${QUANTAS_RUN_VIA_MAKE:-0}" != "1" ]]; then
+        make_usage >&2
+        exit 1
+    fi
+}
+
 usage() {
     cat <<'EOF'
 Usage:
-  stop_distributed_concrete.sh [host options] [options]
-
+  Internal helper called by make. Use `make stop_distributed_concrete ...`
+Example:
+  make run_distributed_concrete INPUTFILE=quantas/ExamplePeet/ExampleConcreteInput1.json HOSTS_FILE=available_hosts.txt HOST_COUNT=2
 Host Selection:
   -H, --hosts HOSTS           Comma-separated ssh hosts to stop
       --hosts-file FILE       File containing one host per line
@@ -14,12 +32,10 @@ Host Selection:
 Optional:
   -w, --workdir DIR           Repo path on remote machines (default: current repo path)
   -h, --help                  Show this help
-
-Example:
-  ./scripts/stop_distributed_concrete.sh -H eon1,eon2,eon3,eon4,eon5
-  ./scripts/stop_distributed_concrete.sh --hosts-file scripts/available_hosts.txt
 EOF
 }
+
+require_make_wrapper
 
 HOSTS_CSV=""
 HOSTS_FILE=""

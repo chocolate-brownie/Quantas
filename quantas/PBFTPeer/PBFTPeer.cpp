@@ -576,7 +576,7 @@ void PBFTViewChangePhase::runPhase(Consensus* con, Peer* peer) {
     Phase* np = PBFTNewViewPhase::instance();
     c->changePhase(np);
     QUANTAS_LOG_TRACE("PBFT") << peer->publicId() << " move to new view in round  " << RoundManager::currentRound();
-    QUANTAS_LOG_TRACE("PBFT") "seqNum: " << c->viewChangeAnchorSeq << " newView: " << c->view;
+    QUANTAS_LOG_TRACE("PBFT") << "seqNum: " << c->viewChangeAnchorSeq << " newView: " << c->view;
 }
 
 void PBFTNewViewPhase::runPhase(Consensus* con, Peer* peer) {

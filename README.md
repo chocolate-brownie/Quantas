@@ -36,6 +36,85 @@ Clone the repository, pick the algorithm/input configuration you want to exercis
    ```
    Use `make debug` for an unoptimised build with extra assertions, or `make run_memory` / `make run_debug` for valgrind and gdb helpers.
 
+## Running in Concrete Mode
+
+QUANTAS also supports concrete socket-based execution (`MODE=concrete`), both on one machine and across multiple hosts.
+
+### Single-machine concrete run
+
+1. Choose an input file that registers concrete-capable peers (for example `quantas/BitcoinPeer/BitcoinConcreteInput.json`).
+2. Start one process as leader on a known port:
+   ```sh
+   make run MODE=concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json PORT=5000
+   ```
+3. Start follower processes (same input, no `PORT`) in other terminals:
+   ```sh
+   make run MODE=concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json
+   ```
+
+### Distributed concrete run via SSH hosts
+
+Use the root `makefile` routes (the scripts in `scripts/` are internal helpers and are make-only):
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json \
+  HOSTS_FILE=available_hosts.txt \
+  HOST_COUNT=5
+```
+
+Optional variables:
+- `LEADER=<host>` and `FOLLOWERS=<host1,host2,...>` for explicit host assignment.
+- `LEADER_INDEX=<n>` when selecting the leader from `HOSTS_FILE`.
+- `PORT=<leaderPort>` (default `5000`).
+- `WORKDIR=<repoPathOnRemoteHosts>` (defaults to current repo path).
+- `ROOT_DIR=<folderUnderRepoForRunLogs>` (default `experiments`).
+
+To stop a distributed concrete run:
+
+```sh
+make stop_distributed_concrete \
+  HOSTS_FILE=available_hosts.txt \
+  HOST_COUNT=5
+```
+
+Or stop explicit hosts:
+
+```sh
+make stop_distributed_concrete HOSTS=eon1,eon2,eon3,eon4,eon5
+```
+
+Running plain `make` now prints a short usage summary with these concrete routes.
+
+### SSH setup for distributed concrete mode
+
+Distributed mode uses `ssh` from your local machine to each remote host and assumes key-based login.
+
+1. Generate an SSH key on the machine where you run `make` (skip if you already have one):
+   ```sh
+   ssh-keygen -t ed25519 -C "quantas-distributed"
+   ```
+2. Copy your public key to every remote host in `HOSTS_FILE`:
+   ```sh
+   ssh-copy-id <yourUser>@<host>
+   ```
+3. Verify passwordless access works for each host:
+   ```sh
+   ssh <yourUser>@<host> "echo ok"
+   ```
+4. Ensure QUANTAS exists at the same path on all hosts, or pass `WORKDIR=/path/to/Quantas` in the make command.
+5. On first connection to a host, accept its host key when prompted so future automated launches work.
+
+Example:
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json \
+  HOSTS_FILE=available_hosts.txt \
+  HOST_COUNT=5 \
+  WORKDIR=/home/joglio/Quantas
+```
+
 ## Simulation Input Reference
 
 A simulation is described by a JSON document with two top-level keys:

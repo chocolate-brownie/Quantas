@@ -58,7 +58,7 @@ private:
     mutable int submitRate = 20;
     int _mineRate = 1;
     int _mineDenominator = 100;
-
+    int _blocksMined = 0; // used to create unique hashes for every peer
     std::deque<PendingTx> _queue;
     std::set<std::pair<interfaceId, int>> _knownTransactions;
     int _localSubmitted = 0;

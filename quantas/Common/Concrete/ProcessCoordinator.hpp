@@ -37,6 +37,13 @@ public:
         int port{-1};
     };
 
+    struct ProcessEndpointRange {
+        interfaceId firstId{NO_PEER_ID};
+        interfaceId lastId{NO_PEER_ID};
+        std::string ip;
+        int port{-1};
+    };
+
     enum class StopType {
         PeerSignals,
         Time
@@ -115,6 +122,7 @@ private:
     void handleReady(const nlohmann::json& msg);
     void handlePeerDone(const std::string& remoteIp, int remotePort, interfaceId peerId);
     void distributeAssignmentsIfReady();
+    void sendAssignmentToProcess(const std::string& key, const ProcessRecord& record);
     void broadcastStartIfReady();
     void broadcastStop(const std::string& reason);
 
@@ -129,6 +137,7 @@ private:
     std::shared_ptr<OutboundConnection> getOrCreateOutboundConnection(const std::string& ip, int port);
     void closeOutboundConnection(const std::string& key);
     void closeAllConnections();
+    std::optional<PeerEndpoint> endpointForPeer(interfaceId id);
 
     std::string processKey(const std::string& ip, int port) const;
 
@@ -188,6 +197,7 @@ private:
 
     std::mutex _endpointMutex;
     std::unordered_map<interfaceId, PeerEndpoint> _allPeers;
+    std::vector<ProcessEndpointRange> _peerRanges;
 
     mutable std::mutex _interfaceMutex;
     std::unordered_map<interfaceId, NetworkInterfaceConcrete*> _localInterfaces;

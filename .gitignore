@@ -20,4 +20,6 @@
 *.user
 Debug/
 enc_temp_folder/
-experiments/
+experiments/*
+!experiments/.gitkeep
+!experiments

@@ -37,17 +37,6 @@ In this file I document what I do everyday during my internship.
 ### 08/04/2026
 
 - Today I have been studying the `createInitialChannels()` function. It walks through every peer in the network, for each peer it gets its neighbor list. Then for each neighbor list it will create one channel. The channel creation is a bit confusing to me. I understood the thing about where it creates a bidirectional connection for the communication between a peer's known neighbors back and forth, but the code itself is a bit confusing to understand.
-- There are 3-4 C++ patterns that keep appearing in this codebase that I have to take a separate day and study further it will make reading code a bit more easier for me
-    1. `shared_ptr` and ownership — I hit this today with channels
-    2. Polymorphism and `dynamic_cast` — I'll hit this more as I go deeper into the interface layer
-    3. Abstract classes and virtual functions — Peer has virtual void `performComputation() = 0`, this pattern is everywhere (I have used this in previous projects)
-    4. Static initializers — I've gotta study a bit further about this as well
-
-A good free resource is learncpp.com — it's structured, example-driven, and covers exactly these topics at the right level. Specifically:
-
-    - Chapter 22 — smart pointers (shared_ptr, unique_ptr)
-    - Chapter 25 — virtual functions and abstract classes
-    - Chapter 23 — dynamic_cast
 
 ### 09/04/2026
 
@@ -57,12 +46,16 @@ A good free resource is learncpp.com — it's structured, example-driven, and co
     3. The same channel pointer is registered as **inbound** on the receiver's interface and **outbound** on the sender's interface — this is how the "pipe" gets attached to both ends
     4. For a complete 3-peer network: 6 directed channels total (each peer × 2 neighbors)
 - Studied `initParameters()` — reads algorithm-specific config from JSON and sets it on all peers before rounds start. For AltBit: `timeOutRate = 2` (wait 2 rounds before resending an unacknowledged message)
-- Understood the round loop structure — 4 parts per round:
-    1. `RoundManager::incrementRound()` — tick the global clock by 1
-    2. `receive()` — all peers check inbound channels for arrived packets (parallel)
-    3. `tryPerformComputation()` — all peers run their algorithm logic (parallel)
-    4. `endOfRound()` — collect metrics
-- `RoundManager` is a global counter visible to every part of the simulation — packets use it to check if their delay has elapsed, peers use it to check timeouts
-- Distinction: **tests** (outer loop) = how many times the distributed system is rebuilt; **rounds** (inner loop) = how many times the algorithm runs on one system
-- Supervisor asked to study `LogWriter` next
-- Tomorrow: study `LogWriter` — how metrics are collected and written to output files
+- Working on the round loop structure.
+
+### 09/04/2026
+
+- Finished studying `incrementRound()` function, how ROUNDS works. Basically 1 round is considered as when a peer is completed receive and computation. Round get incremented each time for the peers to know about the current round that they are in. This concept of rounds has something to do with something called _discrete even simulation_
+- I have started studying the LogWriter to understand what kind values are pushed by each algorithm to the logger
+- Things to study
+
+### 13/04/2026
+
+- Studied how `pushPacket()` function works. It simluates the imperfect network conditions such as when sending the messages packets gettings lost, arriving late, arriving twice. This is to make sure that during a distributed algorithm testing the algorithm should perform under all kinda of network conditions.
+
+### 14/04/2026

@@ -58,6 +58,20 @@ In this file I document what I do everyday during my internship.
 
 - Studied how `pushPacket()` function works. It simluates the imperfect network conditions such as when sending the messages packets gettings lost, arriving late, arriving twice. This is to make sure that during a distributed algorithm testing the algorithm should perform under all kinda of network conditions.
 
+### 15/04/2026
+
+- Supervisor meeting at 14:00 — attended and presented understanding of the abstract simulation
+- Learned the Phase 1 deployment target: 1 machine, N+1 processes (1 per peer + 1 for the logger), communicating via Boost message queues. This is the step before Docker/Mininet.
+- Main constraint confirmed by supervisor: application code must remain unchanged — API and JSON config are preserved. From the user's point of view there is no difference between abstract QUANTAS and concrete QUANTAS.
+- Learned that system clock (real wall time) will be used instead of Lamport clocks — Lamport clocks cannot compute latency because they have no real time, only event ordering.
+- Understood the full 3-phase deployment roadmap:
+    1. Abstract simulation (current) — 1 process, in-memory Channel deques
+    2. Phase 1 (next) — 1 machine, N+1 processes, Boost message queues replace Channel deques
+    3. Phase 2 (later) — Docker containers + Mininet network + UDP sockets
+- Professor assigned: study Boost message queues from "The Boost C++ Libraries" by Boris Schaling and think about how to design the new concrete communication class
+- Professor assigned: read *Distributed Algorithms for Message-Passing Systems* by Michel Raynal as a reference textbook
+- Tasks before Wednesday 22/04/2026: understand Boost message queue API, design how `unicastTo()` and `receive()` would work in the new concrete class
+
 ### 14/04/2026
 
 - Continued studying `pushPacket()` in depth — drop probability using `trueWithProbability()`, how `uniformReal(0.0, 1.0) < p` simulates randomness, and how drop/delay/duplicate are three independent network problems

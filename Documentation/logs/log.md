@@ -59,3 +59,10 @@ In this file I document what I do everyday during my internship.
 - Studied how `pushPacket()` function works. It simluates the imperfect network conditions such as when sending the messages packets gettings lost, arriving late, arriving twice. This is to make sure that during a distributed algorithm testing the algorithm should perform under all kinda of network conditions.
 
 ### 14/04/2026
+
+- Continued studying `pushPacket()` in depth — drop probability using `trueWithProbability()`, how `uniformReal(0.0, 1.0) < p` simulates randomness, and how drop/delay/duplicate are three independent network problems
+- Studied `LogWriter` fully — Meyers Singleton pattern, mutex thread safety, `pushValue()` vs `setValue()`, how peer variables (messagesSent, requestsSatisfied) flow into the output JSON file
+- Studied `NetworkInterfaceAbstract` — the two key functions `unicastTo()` (send side) and `receive()` (receive side), and how this is the only file that needs to be replaced for Docker deployment
+- Understood the full real deployment stack: Docker (containers) + Mininet (virtual network) + Boost IPC (inter-process communication) + UDP (protocol)
+- Supervisor meeting tomorrow at 14:00 — prepared talking points and questions
+- Professor assigned: study Boost C++ Libraries by Boris Schaling — specifically interprocess communication chapters

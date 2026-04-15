@@ -70,8 +70,12 @@ Topics to study before starting the Docker backend implementation.
 | Docker fundamentals | Each peer becomes a container | docs.docker.com/get-started |
 | Docker networking | Containers need to communicate | docs.docker.com/network |
 | Containernet | Mininet + Docker integration | Search: "Containernet github" |
-| Mininet | Network topology emulation | mininet.org |
-| gRPC or ZeroMQ | Potential inter-container communication library | grpc.io/docs or zeromq.org |
+| Mininet | Network topology emulation — creates virtual network (routers, switches, links) in software | mininet.org |
+| **Boost.Interprocess (PRIORITY)** | IPC between Docker containers — replaces in-memory Channel with message queues between separate processes | Book: "The Boost C++ Libraries" by Boris Schaling — **interprocess communication chapters** (assigned by supervisor) |
+| Boost.Asio | Network socket communication (TCP/UDP) — may be used alongside or instead of IPC | Same book — networking chapters |
+| Interprocess communication (IPC) | The general concept — how separate processes exchange data (shared memory, message queues, pipes) | Search: "interprocess communication explained" |
+| **UDP protocol (PRIORITY)** | Chosen by supervisor for inter-container messaging — no delivery guarantee, matches QUANTAS channel behavior (drop/delay/reorder) | Search: "TCP vs UDP explained", Cloudflare "what is UDP" |
+| TCP vs UDP | Understanding why UDP was chosen — TCP hides packet loss, UDP exposes it, which is what distributed algorithm testing needs | Search: "TCP vs UDP difference" |
 
 ---
 

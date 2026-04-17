@@ -55,13 +55,13 @@ public:
 
     // Send messages to to others using this
     inline void unicastTo (json msg, const interfaceId& dest) override;
-    
+
     // moves msgs from the channel to the inStream if they've arrived
     inline void receive() override;
 
     inline void clearAll() override {
         _inStream.clear();
-        _inBoundChannels.clear();  
+        _inBoundChannels.clear();
         _outBoundChannels.clear();
         _neighbors.clear();
     }
@@ -90,9 +90,9 @@ inline void NetworkInterfaceAbstract::receive() {
 
         // pop up to chPtr->maxMsgsRec() messages that have arrived
         int recCount = 0;
-        while (!chPtr->empty() 
-               && chPtr->frontHasArrived() 
-               && recCount < chPtr->maxMsgsRec()) 
+        while (!chPtr->empty()
+               && chPtr->frontHasArrived()
+               && recCount < chPtr->maxMsgsRec())
         {
             Packet arrivedPkt = chPtr->popPacket();
             _inStream.push_back(std::move(arrivedPkt));

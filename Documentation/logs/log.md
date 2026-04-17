@@ -80,3 +80,37 @@ In this file I document what I do everyday during my internship.
 - Professor assigned: study Boost message queues from "The Boost C++ Libraries" by Boris Schaling and think about how to design the new concrete communication class
 - Professor assigned: read *Distributed Algorithms for Message-Passing Systems* by Michel Raynal as a reference textbook
 - Tasks before Wednesday 22/04/2026: understand Boost message queue API, design how `unicastTo()` and `receive()` would work in the new concrete class
+
+### 16/04/2026
+
+- Spent the morning deeply understanding the architecture behind the Phase 1 task assigned by the professor
+- Understood why Phase 1 exists: before adding Docker and Mininet, we first need to prove that inter-process communication is possible on the same machine without shared memory, while keeping the API constraint (algorithm code unchanged)
+- Understood what "1 machine, 1 process" means: currently all peers, channels, LogWriter, and RoundManager are C++ objects living in the same memory space — any object can reach any other object directly
+- Understood the full replacement table for real deployment:
+    - Channel deque (shared memory) → Boost message queues (Phase 1) → UDP over Mininet (Phase 2)
+    - RoundManager (shared counter) → NTP synchronized system clock (each peer reads locally)
+    - LogWriter (shared singleton) → separate logger process (peers send metrics via messages)
+- Understood the 3-phase roadmap clearly:
+    1. Simulation: 1 machine, 1 process, shared memory
+    2. Phase 1: 1 machine, N+1 processes, Boost message queues (proves API constraint without network complexity)
+    3. Phase 2: N machines (Docker containers), UDP over Mininet (full real deployment)
+- Key insight: the shift from simulation to real deployment is fundamentally a shift from shared memory to message passing — peers can no longer access each other's memory directly, everything must be communicated through messages
+- What needs to be designed by Wednesday: a new `NetworkInterfaceConcrete` class where `unicastTo()` puts messages into a Boost message queue and `receive()` reads from one — algorithm code calls the same functions and sees no difference
+
+### 17/04/2026
+
+- Continued reading the Boost message_queue chapter — locked in the 4-call API: `create_only`, `open_only`, `send`, `try_receive`/`receive`, `remove`
+- Hands-on exercises in `Study/Boost/msgq/`: wrote `p1.cpp` (sender) and `p2.cpp` (receiver), got two processes to exchange 10 integers via a named queue
+- Debugged two failures along the way:
+    1. `library_error` thrown when creating queue with capacity 100 — root cause: POSIX system limit `/proc/sys/fs/mqueue/msg_max = 10`. Fixed by lowering capacity to 10.
+    2. `library_error` (code 18, size_error) on receive — root cause: receive buffer size must be `>= max_msg_size` of the queue. Fixed by matching buffer to `sizeof(int)`.
+- Studied existing `quantas/Common/Concrete/NetworkInterfaceConcrete.hpp` to understand the TCP-based variant: `unicastTo()` calls `send_json()` over sockets, `start_listener()` runs a background thread doing `accept()` + `read()` and pushes into `_inStream`
+- Architecture decision: create a new parallel folder `quantas/Common/ConcreteMQ/` instead of modifying the existing `Concrete/` (TCP version stays as reference, supervisor sees a clean diff, three coexisting backends — Abstract, Concrete (TCP), ConcreteMQ — become an asset)
+- Decided to use `NetworkInterfaceAbstract.hpp` as the skeleton (not the TCP `Concrete`) because Boost MQ supports `try_receive()` (non-blocking polling), which matches Abstract's round-synchronous `receive()` model perfectly — no listener thread needed
+- Designed the two functions on paper:
+    - `unicastTo(msg, nbr)`: open `"quantas_peer_<nbr>"` queue with `open_only`, `msg.dump()` to bytes, `send()`
+    - `receive()`: loop `try_receive()` on own inbox `"quantas_peer_<_publicId>"` until empty, `json::parse()` each, push `Packet` into `_inStream`
+- Members to add: `std::unique_ptr<message_queue> _myInbox` (created once at startup with `create_only`)
+- Members to remove from the Abstract copy: both `_inBoundChannels` / `_outBoundChannels` multimaps and all channel methods, `#include "Channel.hpp"`
+- Phase 1 simplification noted: Boost MQ does not give drop/delay/duplicate/reorder for free (those lived in `Channel`). For Phase 1 this is fine — proving the API constraint is the goal, not re-simulating faults.
+- Next: extend `p1`/`p2` to send a JSON string (not int) — `json.dump().data()`/`.size()` on send, `json::parse(std::string(buf, recvd_size))` on receive — last toy step before sketching the full `NetworkInterfaceConcreteMQ.hpp`

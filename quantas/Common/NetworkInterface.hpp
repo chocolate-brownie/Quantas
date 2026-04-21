@@ -1,11 +1,8 @@
 #ifndef NETWORKINTERFACE_HPP
 #define NETWORKINTERFACE_HPP
 
-#include <memory>
-#include <map>
 #include <set>
 #include <deque>
-#include <string>
 #include <algorithm>
 #include <mutex>
 #include "Packet.hpp"
@@ -18,7 +15,7 @@ protected:
     interfaceId _publicId{NO_PEER_ID};
     interfaceId _internalId{NO_PEER_ID};
 
-    // set of public ids this peer thinks it is currently directly connected to 
+    // set of public ids this peer thinks it is currently directly connected to
     std::set<interfaceId> _neighbors;
 
     // Our local arrived messages
@@ -52,7 +49,7 @@ public:
     inline Packet popInStream();
     inline bool inStreamEmpty() {
         std::lock_guard<std::mutex> lock(_inStream_mtx);
-        return _inStream.empty(); 
+        return _inStream.empty();
     }
 
     // moves msgs to the inStream if they've arrived

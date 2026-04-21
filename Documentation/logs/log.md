@@ -114,3 +114,6 @@ In this file I document what I do everyday during my internship.
 - I am trying to come up with a design that can replace the channel queue with boost message queue with the function unicast and receive
 
 ### 21/04/2026
+- Today I spend time trying to come up with a solution on how I should implement the boost mq to `unicastTo()` and `receive()`. Then after reading the new updated TCP solution files I understood some possible solutions
+- The main challenge with the setup is to solve the *barrier synchronization* problem in the tcp solution. A solution has been already implemented called the
+*rendezvous protocol* I can implement the same thing but compatible for the boost mq.

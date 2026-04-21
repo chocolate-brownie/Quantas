@@ -17,7 +17,8 @@
 
 #include "NetworkInterfaceConcrete.hpp"
 #include "ipUtil.hpp"
-#include "../RoundManager.hpp"
+#include "../LoggingSupport.hpp"
+#include "../Logger.hpp"
 
 namespace quantas {
 
@@ -1172,7 +1173,8 @@ void ProcessCoordinator::shutdown() {
             addr.sin_family = AF_INET;
             addr.sin_port = htons(_myPort);
             addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-            connect(dummy, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+            if (connect(dummy, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0)
+                std::cerr << "err: connect" << '\n';
 #ifdef _WIN32
             closesocket(dummy);
 #else

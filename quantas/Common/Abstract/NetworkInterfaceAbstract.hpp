@@ -5,8 +5,6 @@
 #include <map>
 #include <set>
 #include <deque>
-#include <string>
-#include <algorithm>
 #include "Channel.hpp"
 #include "../Packet.hpp"
 #include "../NetworkInterface.hpp"

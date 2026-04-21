@@ -41,10 +41,10 @@ Concepts simulated by Channel and pushPacket().
 
 | Concept | Where in QUANTAS | Resource |
 |---|---|---|
-| What is a packet | Packet.hpp | cloudflare.com/learning/network-layer/what-is-a-packet |
-| Packet loss | dropProbability in Channel | cloudflare.com search "packet loss" |
-| Network latency | minDelay/maxDelay in Channel | cloudflare.com search "network latency" |
-| Packet duplication | duplicateProbability in Channel | Search: "packet duplication networking" |
+| ~~What is a packet~~ | Packet.hpp | cloudflare.com/learning/network-layer/what-is-a-packet |
+| ~~Packet loss~~ | dropProbability in Channel | cloudflare.com search "packet loss" |
+| ~~Network latency~~ | minDelay/maxDelay in Channel~~ | cloudflare.com search "network latency" |
+| ~~Packet duplication~~ | duplicateProbability in Channel~~ | Search: "packet duplication networking" |
 | Unicast vs broadcast vs multicast | unicastTo, broadcast, multicast in Peer.hpp | Search: "unicast broadcast multicast explained" |
 
 ---

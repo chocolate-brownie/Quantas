@@ -107,10 +107,10 @@ In this file I document what I do everyday during my internship.
 - Studied existing `quantas/Common/Concrete/NetworkInterfaceConcrete.hpp` to understand the TCP-based variant: `unicastTo()` calls `send_json()` over sockets, `start_listener()` runs a background thread doing `accept()` + `read()` and pushes into `_inStream`
 - Architecture decision: create a new parallel folder `quantas/Common/ConcreteMQ/` instead of modifying the existing `Concrete/` (TCP version stays as reference, supervisor sees a clean diff, three coexisting backends — Abstract, Concrete (TCP), ConcreteMQ — become an asset)
 - Decided to use `NetworkInterfaceAbstract.hpp` as the skeleton (not the TCP `Concrete`) because Boost MQ supports `try_receive()` (non-blocking polling), which matches Abstract's round-synchronous `receive()` model perfectly — no listener thread needed
-- Designed the two functions on paper:
-    - `unicastTo(msg, nbr)`: open `"quantas_peer_<nbr>"` queue with `open_only`, `msg.dump()` to bytes, `send()`
-    - `receive()`: loop `try_receive()` on own inbox `"quantas_peer_<_publicId>"` until empty, `json::parse()` each, push `Packet` into `_inStream`
-- Members to add: `std::unique_ptr<message_queue> _myInbox` (created once at startup with `create_only`)
-- Members to remove from the Abstract copy: both `_inBoundChannels` / `_outBoundChannels` multimaps and all channel methods, `#include "Channel.hpp"`
-- Phase 1 simplification noted: Boost MQ does not give drop/delay/duplicate/reorder for free (those lived in `Channel`). For Phase 1 this is fine — proving the API constraint is the goal, not re-simulating faults.
-- Next: extend `p1`/`p2` to send a JSON string (not int) — `json.dump().data()`/`.size()` on send, `json::parse(std::string(buf, recvd_size))` on receive — last toy step before sketching the full `NetworkInterfaceConcreteMQ.hpp`
+
+### 20/04/2026
+
+- `Study/Boost/msgq/send.cpp`, `Study/Boost/msgq/recv.cpp` Wrote a program that can turn a json object into rawdata and parse it to message queue and then able to receive from and parse it back to a JSON obj.
+- I am trying to come up with a design that can replace the channel queue with boost message queue with the function unicast and receive
+
+### 21/04/2026

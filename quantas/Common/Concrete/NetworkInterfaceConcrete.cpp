@@ -1,7 +1,5 @@
 #include "NetworkInterfaceConcrete.hpp"
-
 #include <deque>
-
 #include "ProcessCoordinator.hpp"
 
 namespace quantas {

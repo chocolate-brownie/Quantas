@@ -117,3 +117,18 @@ In this file I document what I do everyday during my internship.
 - Today I spend time trying to come up with a solution on how I should implement the boost mq to `unicastTo()` and `receive()`. Then after reading the new updated TCP solution files I understood some possible solutions
 - The main challenge with the setup is to solve the *barrier synchronization* problem in the tcp solution. A solution has been already implemented called the
 *rendezvous protocol* I can implement the same thing but compatible for the boost mq.
+
+### 22/04/2026
+
+- Supervisor meeting with Sebastian — presented understanding of Boost MQ API and the Phase 1 design
+- New requirements confirmed: logger process will act as the leader/coordinator in the rendezvous protocol, N message queues from peers to the logger (one per peer), and real wall-clock timestamps must be recorded at `send()` and `receive()` to measure actual message latency
+- Continued implementing `NetworkInterfaceConcreteMQ` — header and `configure()` function completed
+
+### 24/04/2026
+
+- Split inbox creation between the two classes: `ProcessCoordinatorMQ::createInbox()` creates `peer_<id>` early with `create_only`, `NetworkInterfaceConcreteMQ::configure()` now just opens it with `open_only` — fixes the timing problem where the leader would send "start" before the queue existed.
+- Implemented `createBarrier()`, `createInbox()`, `sendReady()`, and started `waitForAllReady()` in `ProcessCoordinatorMQ.cpp`. Adopted the colleague's error convention: `throw std::runtime_error("context: " + ex.what())` instead of local `exit(1)`, with `_myId` included so we know which peer failed.
+- Key insight: Boost `message_queue` is just a handle — the OS queue persists after the C++ object dies, so any process can `open_only` a queue created elsewhere.
+- Set up a minimal `.clang-format` that only locks in universally-consistent options (IndentWidth 4, BlockIndent, NamespaceIndentation None, ColumnLimit 100) so existing inconsistent files aren't churned.
+- Next: finish `waitForAllReady()` loop over `_totalPeers`, then `broadcastStart()` / `waitForStart()` / `cleanUp()` — goal is a working rendezvous end-to-end by 29/04/2026.
+

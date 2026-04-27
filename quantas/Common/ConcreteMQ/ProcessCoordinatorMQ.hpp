@@ -14,6 +14,8 @@
 #include <cstddef>
 #include <optional>
 
+#define MAX_MSG_SIZE 1024
+
 namespace quantas {
 
 class ProcessCoordinatorMQ {
@@ -21,6 +23,8 @@ class ProcessCoordinatorMQ {
     bool _isLeader{false};
     size_t _totalPeers{0};
     interfaceId _myId{NO_PEER_ID};
+
+    std::optional<boost::interprocess::message_queue> _myBarrier;
     std::optional<boost::interprocess::message_queue> _myInbox;
 
     ProcessCoordinatorMQ() = default;

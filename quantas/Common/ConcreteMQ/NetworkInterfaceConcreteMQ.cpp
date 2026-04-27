@@ -1,9 +1,11 @@
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
+#include "../Packet.hpp"
 #include <string>
 
 namespace quantas {
+
 NetworkInterfaceConcreteMQ::NetworkInterfaceConcreteMQ() = default;
 
 NetworkInterfaceConcreteMQ::NetworkInterfaceConcreteMQ(interfaceId pubId)
@@ -28,5 +30,21 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
     _myInbox.emplace(boost::interprocess::open_only, queueName.c_str());
     _configured = true;
 }
+
+/* Steps: unicastTo(json msg, dest)
+  → build Packet (source, target, msg)
+  → serialize Packet to JSON string
+  → send string bytes over MQ */
+void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId &dest) {
+    if (_neighbors.find(dest) == _neighbors.end())
+        return;
+}
+
+/* Steps: receive()
+  → try_receive() raw bytes from MQ
+  → parse bytes back to JSON
+  → reconstruct Packet from JSON
+  → push Packet into _inStream */
+void NetworkInterfaceConcreteMQ::receive() {}
 
 } // namespace quantas

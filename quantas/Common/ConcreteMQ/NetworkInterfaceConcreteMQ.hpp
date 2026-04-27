@@ -10,6 +10,7 @@
 #include <set>
 
 namespace quantas {
+
 class NetworkInterfaceConcreteMQ : public NetworkInterface {
   private:
     std::atomic<bool> _configured{false};

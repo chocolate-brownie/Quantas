@@ -132,3 +132,11 @@ In this file I document what I do everyday during my internship.
 - Set up a minimal `.clang-format` that only locks in universally-consistent options (IndentWidth 4, BlockIndent, NamespaceIndentation None, ColumnLimit 100) so existing inconsistent files aren't churned.
 - Next: finish `waitForAllReady()` loop over `_totalPeers`, then `broadcastStart()` / `waitForStart()` / `cleanUp()` — goal is a working rendezvous end-to-end by 29/04/2026.
 
+### 27/04/2026
+
+- Finished the rendezvous protocol end-to-end: implemented `waitForAllReady()`, `broadcastStart()`, `waitForStart()`, and `cleanUp()` in `ProcessCoordinatorMQ.cpp`. Split `cleanUp()` so the leader removes `mq_barrier` + all `peer_<id>` queues while a follower removes only its own — avoids race conditions where one process deletes another's still-in-use queue.
+- Added `_myBarrier` as a private member alongside `_myInbox` so `createBarrier()` and `waitForAllReady()` share the same handle instead of re-opening with `open_only`. Removed the destructor's `cleanUp()` call after debugging revealed it was wiping queues that other processes still needed.
+- Wrote a two-process smoke test in `Study/ConcreteMQ/leader.cpp` and `follower.cpp` to validate the protocol manually.
+- Resolved the `MAX_MSG_SIZE` design question: the barrier carries only `unsigned int` triggers so it stays at `sizeof(unsigned int)`, but the inbox needs to handle JSON traffic later so it's sized at 1024 from the start (defined as `MAX_MSG_SIZE` in the header). Trade-off acknowledged: small memory waste during the rendezvous phase, but avoids the complexity of recreating queues after handshake.
+- Started designing `unicastTo()` and `receive()` in `NetworkInterfaceConcreteMQ`. Decision: serialize/deserialize `Packet` via `to_json` / `from_json` free functions in the `quantas` namespace (not member functions) so nlohmann's argument-dependent lookup works. Phase 1 simplification: `_delay` and `_round` fields are not serialized since they're Abstract simulation concepts.
+- Open question for the supervisor: what is the maximum expected JSON message size for Phase 1? — `MAX_MSG_SIZE = 1024` is a guess and PBFT messages may exceed it.

@@ -17,14 +17,13 @@ You should have received a copy of the GNU General Public License along with QUA
 #ifndef Packet_hpp
 #define Packet_hpp
 
-#include <iostream>
 #include <memory>
 #include "RoundManager.hpp"
 #include "RandomUtil.hpp"
 #include "Json.hpp"
 
 namespace quantas{
-    
+
 using std::string;
 using std::unique_ptr;
 using nlohmann::json;
@@ -62,6 +61,10 @@ public:
     inline json getMessage() const { return _body; }
     inline int getDelay() const { return _delay; }
     inline int getRoundSent() const { return _round; }
+
+    // Serialize & deserialize packet -> json and json -> packet
+    // inline void to_json(json& j, const Packet& p);
+    // inline void from_json(const json& j, Packet& p);
 };
 
 // Constructor Implementations
@@ -74,7 +77,7 @@ inline Packet::Packet(interfaceId to, interfaceId from, json body)
     _round = RoundManager::currentRound();
 }
 
-inline Packet::Packet(const Packet& rhs) 
+inline Packet::Packet(const Packet& rhs)
     : _targetId(rhs._targetId), _sourceId(rhs._sourceId), _body(rhs._body), _delay(rhs._delay), _round(rhs._round) {
 }
 
@@ -94,7 +97,23 @@ inline void Packet::setDelay(int maxDelay, int minDelay) {
     if (minDelay > maxDelay) minDelay = maxDelay;
     _delay = uniformInt(minDelay, maxDelay);
 }
-    
+
+/*
+inline void Packet::to_json(json& j, const Packet& p) {
+    j = json{
+        {"source", p.sourceId()},
+        {"target", p.targetId()},
+        {"body",   p.getMessage()}
+    };
+}
+
+inline void Packet::from_json(const json& j, Packet& p) {
+    p.setSource(j.at("source").get<interfaceId>());
+    p.setTarget(j.at("target").get<interfaceId>());
+    p.setMessage(j.at("body").get<json>());
+}
+*/
+
 } // namespace quantas
-    
-#endif /* PACKET_HPP */    
+
+#endif /* PACKET_HPP */

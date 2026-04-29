@@ -1,4 +1,4 @@
-#include "../../quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.hpp"
+#include "../ProcessCoordinatorMQ.hpp"
 #include <iostream>
 
 int main() {

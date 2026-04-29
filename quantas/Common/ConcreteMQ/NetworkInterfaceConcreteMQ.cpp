@@ -97,4 +97,6 @@ void NetworkInterfaceConcreteMQ::receive() {
     }
 }
 
+void NetworkInterfaceConcreteMQ::clearAll() { NetworkInterface::clearAll(); }
+
 } // namespace quantas

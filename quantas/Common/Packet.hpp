@@ -28,6 +28,8 @@ received a copy of the GNU General Public License along with QUANTAS. If not, se
 #include <boost/serialization/access.hpp>
 #include <boost/serialization/split_member.hpp>
 #include <boost/serialization/string.hpp>
+#include <chrono>
+#include <cstdint>
 #include <memory>
 
 namespace quantas {
@@ -52,10 +54,12 @@ class Packet {
 
     /* ------------- Boost Serialization --------------- */
     friend class boost::serialization::access;
+    std::int64_t _sendTimestamp{0};
 
     template <class Archive> void save(Archive &ar, const unsigned int) const {
         ar & _sourceId;
         ar & _targetId;
+        ar & _sendTimestamp;
 
         std::string jsnBody = _body.dump();
         ar & jsnBody;
@@ -64,6 +68,7 @@ class Packet {
     template <class Archive> void load(Archive &ar, const unsigned int) {
         ar & _sourceId;
         ar & _targetId;
+        ar & _sendTimestamp;
 
         std::string jsnBody;
         ar & jsnBody;
@@ -85,6 +90,12 @@ class Packet {
     inline void setTarget(interfaceId t) { _targetId = t; }
     inline void setDelay(int delayMax, int delayMin = 1);
     inline void setMessage(json msg) { _body = msg; }
+    inline void setSendTime() {
+        _sendTimestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::system_clock::now().time_since_epoch()
+        )
+                             .count();
+    }
 
     // Getters
     inline interfaceId targetId() const { return _targetId; }
@@ -93,6 +104,7 @@ class Packet {
     inline json getMessage() const { return _body; }
     inline int getDelay() const { return _delay; }
     inline int getRoundSent() const { return _round; }
+    inline std::int64_t getSendTime() const { return _sendTimestamp; }
 };
 
 // Constructor Implementations
@@ -105,7 +117,7 @@ inline Packet::Packet(interfaceId to, interfaceId from, json body)
 
 inline Packet::Packet(const Packet &rhs)
     : _targetId(rhs._targetId), _sourceId(rhs._sourceId), _body(rhs._body), _delay(rhs._delay),
-      _round(rhs._round) {}
+      _round(rhs._round), _sendTimestamp(rhs._sendTimestamp) {}
 
 inline Packet &Packet::operator=(const Packet &rhs) {
     if (this == &rhs)
@@ -115,6 +127,7 @@ inline Packet &Packet::operator=(const Packet &rhs) {
     _delay = rhs._delay;
     _round = rhs._round;
     _body = rhs._body;
+    _sendTimestamp = rhs._sendTimestamp;
     return *this;
 }
 

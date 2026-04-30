@@ -15,6 +15,7 @@
 
     - for example, whether peers signal the logger directly, whether the logger decides when to stop
     based on a timer or peer count, or something else entirely.
+
     - Since the logger is the leader in our design the stop logic ties directly into the logger's
     responsibility.
 

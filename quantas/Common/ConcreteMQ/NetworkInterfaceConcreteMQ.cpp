@@ -4,6 +4,9 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
+#include <chrono>
+#include <cstdint>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
@@ -51,7 +54,8 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
 
     std::stringstream ss;
     boost::archive::binary_oarchive oa(ss);
-    oa << p; // calls boost serialization 'save' machinery defined in Packet.hpp
+    p.setSendTime(); // set time
+    oa << p;         // calls boost serialization 'save' machinery defined in Packet.hpp
 
     std::string bytes = ss.str();
 
@@ -89,6 +93,17 @@ void NetworkInterfaceConcreteMQ::receive() {
             boost::archive::binary_iarchive ia(ss);
             Packet p;
             ia >> p;
+
+            // Compute latency
+            auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::system_clock::now().time_since_epoch()
+            )
+                             .count();
+
+            std::int64_t latency = nowNs - p.getSendTime();
+            std::cout << "latency peer_" << p.sourceId() << " -> peer_" << publicId()
+                      << ": " << latency << " ns\n";
+
             std::lock_guard<std::mutex> lock(_inStream_mtx);
             _inStream.push_back(std::move(p));
         }

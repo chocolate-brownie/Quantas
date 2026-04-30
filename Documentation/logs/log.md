@@ -147,3 +147,13 @@ In this file I document what I do everyday during my internship.
 - Implemented `unicastTo()`: build Packet → `binary_oarchive` into `stringstream` → open `peer_<dest>` with `open_only` → guard size with `mq.get_max_msg_size()` → `send()`.
 - Implemented `receive()`: `try_receive()` loop on `_myInbox` → wrap `recvd_size` bytes in `stringstream` → `binary_iarchive` → push to `_inStream` under mutex. Loop exits when queue empty.
 - Key intuition: `_myInbox` is a persistent handle to my own queue; the `mq` in `unicastTo()` is a temporary handle to the destination's queue. Same idea as file descriptors.
+
+### 29/04/2026
+
+- Started designing `ConcreteSimulationMQ.cpp` — the per-process `main()` that ties together `NetworkInterfaceConcreteMQ` and `ProcessCoordinatorMQ` to run a real algorithm over MQ
+- Locked in architectural decisions under the constraint that behaviour must match abstract QUANTAS and the application layer cannot be changed:
+    - Two separate binaries (`quantas_logger`, `quantas_peer`)
+    - Coordinator dynamically assigns peer IDs (peers register via a temp reply queue and get back an ID `0..N-1`) — interchangeable processes for the eventual Docker phase
+    - Add `setNetworkInterface()` to `Peer.hpp` so any algorithm swaps from Abstract → MQ → 0MQ without per-algorithm subclasses
+    - Logger aggregates metrics into a single combined output file; fixed round count from JSON; separate control vs data queues per peer; `receive()` drains all per round; raise `mq_msgsize` via sysctl rather than write fragmentation logic
+- Professor confirmed the next phase will replace Boost MQ with ZeroMQ — design philosophy locked in: *throwaway code, non-throwaway protocol* (Boost MQ and 0MQ are the same async-messaging paradigm, so the protocol shape translates directly)

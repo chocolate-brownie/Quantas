@@ -148,7 +148,7 @@ In this file I document what I do everyday during my internship.
 - Implemented `receive()`: `try_receive()` loop on `_myInbox` → wrap `recvd_size` bytes in `stringstream` → `binary_iarchive` → push to `_inStream` under mutex. Loop exits when queue empty.
 - Key intuition: `_myInbox` is a persistent handle to my own queue; the `mq` in `unicastTo()` is a temporary handle to the destination's queue. Same idea as file descriptors.
 
-### 29/04/2026
+### 29/04/2026 - 30/04/2026
 
 - Started designing `ConcreteSimulationMQ.cpp` — the per-process `main()` that ties together `NetworkInterfaceConcreteMQ` and `ProcessCoordinatorMQ` to run a real algorithm over MQ
 - Locked in architectural decisions under the constraint that behaviour must match abstract QUANTAS and the application layer cannot be changed:
@@ -157,3 +157,16 @@ In this file I document what I do everyday during my internship.
     - Add `setNetworkInterface()` to `Peer.hpp` so any algorithm swaps from Abstract → MQ → 0MQ without per-algorithm subclasses
     - Logger aggregates metrics into a single combined output file; fixed round count from JSON; separate control vs data queues per peer; `receive()` drains all per round; raise `mq_msgsize` via sysctl rather than write fragmentation logic
 - Professor confirmed the next phase will replace Boost MQ with ZeroMQ — design philosophy locked in: *throwaway code, non-throwaway protocol* (Boost MQ and 0MQ are the same async-messaging paradigm, so the protocol shape translates directly)
+
+### 04/05/2026
+
+- Added `setNetworkInterface()` to `Peer.hpp` so an existing peer can replace its original `NetworkInterfaceAbstract` with `NetworkInterfaceConcreteMQ` after construction.
+- Created an AltBit real-peer MQ smoke test with `altbit_peer0.cpp` and `altbit_peer1.cpp` under `quantas/Common/ConcreteMQ/Tests`.
+- Ran `make -C quantas/Common/ConcreteMQ/Tests run_altbit` successfully. This proves `AltBitPeer::performComputation()` can generate messages that travel through `NetworkInterfaceConcreteMQ` and Boost message queues between two peer processes.
+- Key result: we moved from testing MQ directly with `iface.unicastTo()` to testing MQ through real QUANTAS algorithm code.
+
+### 05/05/2026
+
+- Consolidated `ConcreteMQ/Tests` around a single reusable `mq_peer_runner.cpp` that reads `experiments[0]`, `initialPeers`, `initialPeerType`, and `rounds` from JSON, with optional CLI round override for smoke runs.
+- Updated `ConcreteMQ/Tests/makefile` to remove stale deleted targets and keep runnable paths (`run`, `run_mq_peer_runner`) aligned with files that currently exist in the folder.
+- Produced a LIP6-style implementation status + roadmap document (`Documentation/LIP6_ConcreteMQ_Status_and_Roadmap.md`) with phased TODOs and acceptance tests from bring-up to abstract-vs-MQ benchmark comparison.

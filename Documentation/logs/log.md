@@ -170,3 +170,10 @@ In this file I document what I do everyday during my internship.
 - Consolidated `ConcreteMQ/Tests` around a single reusable `mq_peer_runner.cpp` that reads `experiments[0]`, `initialPeers`, `initialPeerType`, and `rounds` from JSON, with optional CLI round override for smoke runs.
 - Updated `ConcreteMQ/Tests/makefile` to remove stale deleted targets and keep runnable paths (`run`, `run_mq_peer_runner`) aligned with files that currently exist in the folder.
 - Produced a LIP6-style implementation status + roadmap document (`Documentation/LIP6_ConcreteMQ_Status_and_Roadmap.md`) with phased TODOs and acceptance tests from bring-up to abstract-vs-MQ benchmark comparison.
+
+### 06/05/2026
+
+- Added root makefile MQ targets to separate worker runtime from abstract runtime: `mq_release`, `mq_debug`, and `mq_run` now build/run `quantas_mq_peer.exe` independently of `quantas.exe`.
+- Refactored `quantas/Common/ConcreteMQ/concreteSimulationMQ.cpp` by splitting data roles into `CliArgs` and `ExperimentConfig`, and separating config loading (`loadConfig`) from per-experiment parsing (`parseExperiment`).
+- Updated MQ worker flow to iterate over `config["experiments"]` and perform per-experiment extraction + rendezvous + peer execution, while keeping current follower-worker semantics.
+- Clarified the architecture gap vs TCP concrete: MQ currently has peer-worker + start barrier only; still missing full leader/logger orchestration, stop protocol, and metrics aggregation parity.

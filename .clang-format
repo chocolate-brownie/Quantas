@@ -8,3 +8,7 @@ KeepEmptyLinesAtTheStartOfBlocks: false
 FixNamespaceComments: true
 SpacesBeforeTrailingComments: 1
 IndentCaseLabels: true
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true

@@ -41,6 +41,9 @@ INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 ############################### Variables and Flags ###############################
 
 EXE := quantas.exe
+MQ_EXE := quantas_mq_peer.exe
+MQ_PEER_ID ?= 0
+MQ_ROUNDS ?=
 
 # compiles all the cpps in Common and main.cpp
 COMMON_SRCS := $(wildcard quantas/Common/*.cpp)
@@ -48,6 +51,14 @@ COMMON_OBJS := $(COMMON_SRCS:.cpp=.o)
 
 ABSTRACT_OBJS := $(COMMON_OBJS) quantas/Common/Abstract/abstractSimulation.o quantas/Common/Abstract/Channel.o quantas/Common/Abstract/Network.o
 CONCRETE_OBJS := $(COMMON_OBJS) quantas/Common/Concrete/concreteSimulation.o quantas/Common/Concrete/ipUtil.o
+MQ_OBJS := $(COMMON_OBJS) \
+	quantas/Common/ConcreteMQ/concreteSimulationMQ.o \
+	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o \
+	quantas/Common/ConcreteMQ/NetworkInterfaceConcreteMQ.o \
+	quantas/Common/Abstract/Channel.o \
+	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
+	quantas/Common/Concrete/ProcessCoordinator.o \
+	quantas/Common/Concrete/ipUtil.o
 
 # compiles all cpps specified as necessary in the INPUTFILE
 ALGS := $(shell sed -n '/"algorithms"/,/]/p' $(INPUTFILE) \
@@ -57,6 +68,7 @@ ALG_OBJS += $(ALGS:.cpp=.o)
 # necessary flags
 CXX := g++
 CXXFLAGS := -pthread -std=c++17
+MQ_LDLIBS := -lboost_serialization -lrt
 GCC_VERSION := $(shell $(CXX) $(CXXFLAGS) -dumpversion)
 GCC_MIN_VERSION := 8
 
@@ -68,6 +80,10 @@ release: check-version $(EXE)
 debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG 
 # -fsanitize=address,undefined -fno-omit-frame-pointer # flag helps with double delete errors
 debug: check-version $(EXE)
+mq_release: CXXFLAGS += -O3 -s
+mq_release: check-version $(MQ_EXE)
+mq_debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG
+mq_debug: check-version $(MQ_EXE)
 
 ############################### Running Commands ###############################
 
@@ -81,6 +97,16 @@ clang: release
 run: release
 	@echo running with input: $(INPUTFILE)
 	@./$(EXE) $(INPUTFILE); exit_code=$$?; \
+	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
+
+mq_run: mq_release
+	@echo running MQ peer with input: $(INPUTFILE), peer_id: $(MQ_PEER_ID), rounds: $(MQ_ROUNDS)
+	@if [ -n "$(MQ_ROUNDS)" ]; then \
+		./$(MQ_EXE) $(INPUTFILE) $(MQ_PEER_ID) $(MQ_ROUNDS); \
+	else \
+		./$(MQ_EXE) $(INPUTFILE) $(MQ_PEER_ID); \
+	fi; \
+	exit_code=$$?; \
 	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
 
 ############################### Debugging ###############################
@@ -164,6 +190,9 @@ check-version:
 $(EXE): $(ALG_OBJS) $(ABSTRACT_OBJS)
 	@$(CXX) $(CXXFLAGS) $^ -o $(EXE)
 
+$(MQ_EXE): $(ALG_OBJS) $(MQ_OBJS)
+	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_EXE) $(MQ_LDLIBS)
+
 ############################### Cleanup ###############################
 
 # enables recursive glob patterns for bash to clean out unecessary files
@@ -186,4 +215,4 @@ clean_txt:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: clean run release debug $(EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test clean_txt
+.PHONY: clean run mq_run release debug mq_release mq_debug $(EXE) $(MQ_EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test clean_txt

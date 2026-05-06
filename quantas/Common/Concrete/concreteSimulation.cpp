@@ -208,7 +208,7 @@ int main(int argc, char** argv) {
         }
 
         localPeers.front()->endOfExperiment(localPeers);
-        
+
         QUANTAS_LOG_INFO("runner") << "stop detected, waiting for confirmation.";
 
         coordinator.waitForStop();

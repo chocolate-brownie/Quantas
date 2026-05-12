@@ -8,20 +8,22 @@
 #include <string>
 
 /* TODO:
-    The TCP coordinator's stop mechanism is quite specificm peers send a "done" signal to the
-    leader, the leader counts how many have finished, then broadcasts "stop" to all.
+   The TCP coordinator's stop mechanism is quite specificm peers send a "done"
+   signal to the leader, the leader counts how many have finished, then
+   broadcasts "stop" to all.
 
-    How will it work in the MQ version?
+   How will it work in the MQ version?
 
-    - for example, whether peers signal the logger directly, whether the logger decides when to stop
-    based on a timer or peer count, or something else entirely.
+   - for example, whether peers signal the logger directly, whether the logger
+   decides when to stop based on a timer or peer count, or something else
+   entirely.
 
-    - Since the logger is the leader in our design the stop logic ties directly into the logger's
-    responsibility.
+   - Since the logger is the leader in our design the stop logic ties directly
+   into the logger's responsibility.
 
-    No stop/done signal. The TCP coordinator has `notifyPeerStopped()` / `waitForStop()` /
-    `broadcastStop()` — peers signal when they finish so the simulation knows when to shut down. The
-    MQ version has no equivalent yet */
+   No stop/done signal. The TCP coordinator has `notifyPeerStopped()` /
+   `waitForStop()` / `broadcastStop()` — peers signal when they finish so the
+   simulation knows when to shut down. The MQ version has no equivalent yet */
 
 using namespace boost::interprocess;
 
@@ -32,35 +34,57 @@ ProcessCoordinatorMQ &ProcessCoordinatorMQ::instance() {
     return coordinator;
 }
 
-void ProcessCoordinatorMQ::configureProcess(bool isLeader, size_t totalPeers, interfaceId myId) {
+void ProcessCoordinatorMQ::configureExperiment(
+    size_t experimentIndex, const std::string &peerType, bool isLeader,
+    size_t totalPeers, interfaceId myId, const std::string &logFileBase,
+    StopMode stopMode
+) {
+    // J2 skeleton: persist experiment-scoped coordinator context.
+    _experimentIndex = experimentIndex;
+    _peerType = peerType;
     _isLeader = isLeader;
     _totalPeers = totalPeers;
     _myId = myId;
+    _configured = true;
+    _logFileBase = logFileBase;
+    _stopMode = stopMode;
+
+    // Reset transient MQ handles for a new experiment lifecycle.
+    _myBarrier.reset();
+    _myInbox.reset();
+}
+
+void ProcessCoordinatorMQ::configureProcess(
+    bool isLeader, size_t totalPeers, interfaceId myId
+) {
+    configureExperiment(
+        0, "", isLeader, totalPeers, myId, "", StopMode::FixedRounds
+    );
 }
 
 // 1. Leader creates quantas_barrier queue first
 void ProcessCoordinatorMQ::createBarrier() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     message_queue::remove("mq_barrier");
 
     /* WARNING: capacity 10 is capped by the POSIX limit fs.mqueue.msg_max
-    (default 10 on Linux). The barrier needs to hold one "ready" message per
-    follower, so N > 10 peers will require `sudo sysctl
-    fs.mqueue.msg_max=<higher>` before this queue can be created with a
-    larger size */
+       (default 10 on Linux). The barrier needs to hold one "ready" message per
+       follower, so N > 10 peers will require `sudo sysctl
+       fs.mqueue.msg_max=<higher>` before this queue can be created with a
+       larger size */
     try {
         _myBarrier.emplace(create_only, "mq_barrier", 10, sizeof(unsigned int));
     } catch (const interprocess_exception &ex) {
-        throw std::runtime_error(std::string("Failed to ::createBarrier queue: ") + ex.what());
+        throw std::runtime_error(
+            std::string("Failed to ::createBarrier queue: ") + ex.what()
+        );
     }
 }
 
 // 2. Every follower creates their own inbox
 void ProcessCoordinatorMQ::createInbox() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     std::string queueName = "peer_" + std::to_string(_myId);
     message_queue::remove(queueName.c_str());
@@ -69,15 +93,15 @@ void ProcessCoordinatorMQ::createInbox() {
         _myInbox.emplace(create_only, queueName.c_str(), 10, MAX_MSG_SIZE);
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::createInbox queue for peer " + std::to_string(_myId) + ": " + ex.what()
+            "Failed to ::createInbox queue for peer " + std::to_string(_myId) +
+            ": " + ex.what()
         );
     }
 }
 
 // 3. Every follower sends "ready" into quantas_barrier
 void ProcessCoordinatorMQ::sendReady() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     try {
         message_queue mq(open_only, "mq_barrier");
@@ -85,15 +109,15 @@ void ProcessCoordinatorMQ::sendReady() {
         mq.send(&trigger, sizeof(trigger), 0);
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " + ex.what()
+            "Failed to ::sendReady queue for peer " + std::to_string(_myId) +
+            ": " + ex.what()
         );
     }
 }
 
 // 4. Leader reads N "ready" messages from quantas_barrier
 void ProcessCoordinatorMQ::waitForAllReady() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     try {
         for (size_t i = 0; i < _totalPeers; ++i) {
@@ -101,25 +125,28 @@ void ProcessCoordinatorMQ::waitForAllReady() {
             unsigned int trigger;
             message_queue::size_type recvd_size;
 
-            _myBarrier->receive(&trigger, sizeof(trigger), recvd_size, priority);
+            _myBarrier->receive(
+                &trigger, sizeof(trigger), recvd_size, priority
+            );
             if (recvd_size != sizeof(trigger) || trigger != 1)
                 throw std::runtime_error(
-                    "Unexpected ready message (trigger=" + std::to_string(trigger) +
-                    ", size=" + std::to_string(recvd_size) + ") at ::waitForAllReady for peer " +
-                    std::to_string(_myId)
+                    "Unexpected ready message (trigger=" +
+                    std::to_string(trigger) +
+                    ", size=" + std::to_string(recvd_size) +
+                    ") at ::waitForAllReady for peer " + std::to_string(_myId)
                 );
         }
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::waitForAllReady for peer " + std::to_string(_myId) + ": " + ex.what()
+            "Failed to ::waitForAllReady for peer " + std::to_string(_myId) +
+            ": " + ex.what()
         );
     }
 }
 
 // 5. Leader sends "start" into each peer's inbox
 void ProcessCoordinatorMQ::broadcastStart() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     try {
         for (size_t i = 0; i < _totalPeers; ++i) {
@@ -131,15 +158,15 @@ void ProcessCoordinatorMQ::broadcastStart() {
         }
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::broadCastStart for peer " + std::to_string(_myId) + ": " + ex.what()
+            "Failed to ::broadCastStart for peer " + std::to_string(_myId) +
+            ": " + ex.what()
         );
     }
 }
 
 // 6. Every follower reads "start" from their inbox → begin
 void ProcessCoordinatorMQ::waitForStart() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     try {
         unsigned int priority;
@@ -153,16 +180,19 @@ void ProcessCoordinatorMQ::waitForStart() {
 
         if (recvd_size != sizeof(trigger) || trigger != 1)
             throw std::runtime_error(
-                "Unexpected start message at ::waitForStart for peer " + std::to_string(_myId)
+                "Unexpected start message at ::waitForStart for peer " +
+                std::to_string(_myId)
             );
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::waitForStart for peer " + std::to_string(_myId) + ": " + ex.what()
+            "Failed to ::waitForStart for peer " + std::to_string(_myId) +
+            ": " + ex.what()
         );
     }
 }
 
-// Remove all the names queues from the OS so they dont presist after the simulation ends
+// Remove all the names queues from the OS so they dont presist after the
+// simulation ends
 void ProcessCoordinatorMQ::cleanUp() {
     if (_isLeader) { // only leader should remove mq_barrier and all peer queues
         message_queue::remove("mq_barrier");

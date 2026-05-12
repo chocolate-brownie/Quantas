@@ -13,16 +13,23 @@
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <cstddef>
 #include <optional>
+#include <string>
 
 #define MAX_MSG_SIZE 1024
 
 namespace quantas {
+enum class StopMode { FixedRounds, DoneSignals };
 
 class ProcessCoordinatorMQ {
   private:
     bool _isLeader{false};
     size_t _totalPeers{0};
     interfaceId _myId{NO_PEER_ID};
+    size_t _experimentIndex{0};
+    std::string _peerType;
+    bool _configured{false};
+    std::string _logFileBase;
+    StopMode _stopMode;
 
     std::optional<boost::interprocess::message_queue> _myBarrier;
     std::optional<boost::interprocess::message_queue> _myInbox;
@@ -34,6 +41,12 @@ class ProcessCoordinatorMQ {
 
   public:
     static ProcessCoordinatorMQ &instance();
+    // Experiment-scoped configuration entry point (J2 skeleton).
+    void configureExperiment(
+        size_t experimentIndex, const std::string &peerType, bool isLeader, size_t totalPeers,
+        interfaceId myId, const std::string &logFileBase, StopMode stopMode
+    );
+    // Backward-compatible wrapper used by current call sites.
     void configureProcess(bool isLeader, size_t totalPeers, interfaceId myId);
 
     void createBarrier();

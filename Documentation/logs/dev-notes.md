@@ -3,7 +3,7 @@
 1.  At one point Quantas's logger should act as Mq verison's leader
 2.  at one point when I run make mqrun it should do exactly what quantas does right now instead of channel deque using MQ and as well as should run the logger as the leader process and should run N number of peer processes
 
-Fundamental truth: that `for (expIndex...)` loop is one **experiment lifecycle orchestrator**.  
+Fundamental truth: that `for (expIndex...)` loop is one **experiment lifecycle orchestrator**.
 Everything inside it is one of a few jobs.
 
 **Experiment Loop Jobs (first-principles decomposition)**
@@ -13,12 +13,12 @@ Everything inside it is one of a few jobs.
     - Validate required fields (`topology`, `initialPeerType`).
     - MQ status: done (you now iterate experiments and parse per-experiment basics).
 
-- [ ] **J2: Configure coordinator for this experiment**
+- [x] **J2: Configure coordinator for this experiment**
     - Tell coordinator experiment context, role, topology, peer count, stop policy, logging base.
     - TCP does this via `configureProcess(...)`.
     - MQ status: missing (MQ coordinator has no equivalent experiment-context config).
 
-- [ ] **J3: Acquire peer assignments for this process**
+- [x] **J3: Acquire peer assignments for this process**
     - Get which peer IDs this process owns + neighbor sets.
     - TCP does `waitForAssignments()`.
     - MQ status: missing (currently peer ID is CLI, neighbors are synthetic complete-graph-minus-self).

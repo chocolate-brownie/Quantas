@@ -177,3 +177,9 @@ In this file I document what I do everyday during my internship.
 - Refactored `quantas/Common/ConcreteMQ/concreteSimulationMQ.cpp` by splitting data roles into `CliArgs` and `ExperimentConfig`, and separating config loading (`loadConfig`) from per-experiment parsing (`parseExperiment`).
 - Updated MQ worker flow to iterate over `config["experiments"]` and perform per-experiment extraction + rendezvous + peer execution, while keeping current follower-worker semantics.
 - Clarified the architecture gap vs TCP concrete: MQ currently has peer-worker + start barrier only; still missing full leader/logger orchestration, stop protocol, and metrics aggregation parity.
+
+### 12/05/2026
+
+- Completed J2 for ConcreteMQ: added experiment-scoped coordinator configuration (`configureExperiment`) with role, peer count, log file base, and stop mode; wired from `concreteSimulationMQ.cpp` using `chooseLogFileBase(...)`.
+- Completed J3 phase-1: introduced explicit local assignment flow (`MqAssignment`) and split into `buildLocalAssignment(...)` + `applyAssignment(...)` so peer/interface setup is assignment-driven.
+- Added assignment validation checks before interface binding (peer id range, no self-neighbor, neighbor range), removed unused rendezvous parameter, and verified MQ debug build passes after changes.

@@ -16,17 +16,17 @@ Everything inside it is one of a few jobs.
 - [x] **J2: Configure coordinator for this experiment**
     - Tell coordinator experiment context, role, topology, peer count, stop policy, logging base.
     - TCP does this via `configureProcess(...)`.
-    - MQ status: missing (MQ coordinator has no equivalent experiment-context config).
+    - MQ status: done (`configureExperiment(...)` is wired from `concreteSimulationMQ.cpp` with `logFileBase` + `StopMode`).
 
 - [x] **J3: Acquire peer assignments for this process**
     - Get which peer IDs this process owns + neighbor sets.
     - TCP does `waitForAssignments()`.
-    - MQ status: missing (currently peer ID is CLI, neighbors are synthetic complete-graph-minus-self).
+    - MQ status: done (phase-1 local assignment path via `MqAssignment` + validation + apply).
 
-- [~] **J4: Construct local peers and bind network interfaces**
+- [x] **J4: Construct local peers and bind network interfaces**
     - Create peer objects from type.
     - Attach concrete interface and configure neighbors.
-    - MQ status: partially done (single peer path works; no assignment-driven multi-peer path).
+    - MQ status: done for incremental phase (assignment-list/localPeers construction loop is in place; currently one local assignment per process).
 
 - [ ] **J5: Resolve output/log destination for this experiment**
     - Compute experiment-specific output file path.
@@ -88,3 +88,22 @@ Everything inside it is one of a few jobs.
 10. `void cleanupExperimentState(...)`
 
 If you follow this checklist, you’ll converge to TCP parity systematically instead of patching ad hoc behavior.
+
+---
+
+**Incremental Phase Remaining (strict order)**
+
+- [x] **I1: Finish J4 shape**
+    - Move from single `Peer*` path to assignment-list/localPeers construction loop shape (even if list size is 1 now).
+
+- [ ] **I2: Add experiment hooks (J7/J10/J11)**
+    - Wire `initParameters(localPeers, experiment["parameters"])`, per-round `endOfRound(localPeers)`, and `endOfExperiment(localPeers)`.
+
+- [ ] **I3: Add minimal stop handshake (J12 baseline)**
+    - Add MQ coordinator done/stop signals so shutdown is controlled by protocol, not only fixed local rounds.
+
+- [ ] **I4: Add output/metrics basics (J5/J13 baseline)**
+    - Resolve experiment output target and emit runtime/memory/output in MQ worker path.
+
+- [ ] **I5: Tighten lifecycle cleanup (J14)**
+    - Ensure per-experiment cleanup is coordinated (leader/follower responsibilities explicit).

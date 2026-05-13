@@ -8,6 +8,9 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <vector>
+
+// --------------------------- CLI/config data ---------------------------
 
 struct CliArgs {
     std::string jsonPath;
@@ -26,6 +29,7 @@ struct MqAssignment {
     std::set<quantas::interfaceId> neighbors;
 };
 
+// Build the local phase-1 assignment (single peer per process).
 MqAssignment
 buildLocalAssignment(const CliArgs &cli, const ExperimentConfig &exp) {
     MqAssignment a;
@@ -37,6 +41,7 @@ buildLocalAssignment(const CliArgs &cli, const ExperimentConfig &exp) {
     return a;
 }
 
+// Validate assignment bounds and basic topology invariants.
 void validateAssignment(const MqAssignment &assignment, int totalPeers) {
     if (totalPeers <= 0)
         throw std::runtime_error("error: totalPeers must be > 0");
@@ -57,6 +62,7 @@ void validateAssignment(const MqAssignment &assignment, int totalPeers) {
     }
 }
 
+// Bind assignment data to the MQ interface, then attach it to the peer.
 void applyAssignment(
     const MqAssignment &assignment, quantas::NetworkInterfaceConcreteMQ *mq,
     quantas::Peer *peer
@@ -65,6 +71,15 @@ void applyAssignment(
     peer->setNetworkInterface(mq);
 }
 
+// Convenience wrapper for local assignment build + validation.
+MqAssignment
+buildValidatedLocalAssignment(const CliArgs &cli, const ExperimentConfig &exp) {
+    MqAssignment assignment = buildLocalAssignment(cli, exp);
+    validateAssignment(assignment, exp.totalPeers);
+    return assignment;
+}
+
+// Parse worker CLI arguments: input JSON, peer id, optional rounds override.
 std::optional<CliArgs> parseArgs(int argc, char **argv) {
     if (argc < 3 || argv == nullptr) {
         std::cerr << "Usage: " << argv[0]
@@ -86,6 +101,7 @@ std::optional<CliArgs> parseArgs(int argc, char **argv) {
     }
 }
 
+// Load root configuration and validate experiments array exists.
 nlohmann::json loadConfig(const std::string &jsonPath) {
     std::ifstream inFile(jsonPath);
 
@@ -107,6 +123,7 @@ nlohmann::json loadConfig(const std::string &jsonPath) {
     return config;
 }
 
+// Extract one experiment's runtime parameters for this worker.
 ExperimentConfig parseExperiment(
     const nlohmann::json &config, size_t expIndex,
     const std::optional<int> &roundsOverride
@@ -131,6 +148,7 @@ ExperimentConfig parseExperiment(
     return out;
 }
 
+// Perform follower-side start barrier rendezvous.
 void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
     std::cout << "[peer " << myId << "] Configuring process" << std::endl;
 
@@ -145,6 +163,54 @@ void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
 
     std::cout << "[peer " << myId << "] Rendezvous done" << std::endl;
 }
+
+/* Construct all peers assigned to this worker and bind each peer to an MQ
+    interface configured from its assignment (id + neighbors). */
+std::vector<quantas::Peer *> buildLocalPeers(
+    const std::string &peerType, const std::vector<MqAssignment> &assignments
+) {
+    std::vector<quantas::Peer *> localPeers;
+    localPeers.reserve(assignments.size());
+
+    for (const auto &assignment : assignments) {
+        quantas::Peer *peer =
+            quantas::PeerRegistry::makePeer(peerType, assignment.id);
+        auto *mq = new quantas::NetworkInterfaceConcreteMQ();
+        applyAssignment(assignment, mq, peer);
+        localPeers.push_back(peer);
+    }
+
+    return localPeers;
+}
+
+// Peer clean up
+void cleanUp(
+    std::vector<quantas::Peer *> &localPeers
+) {
+    for (auto *peer : localPeers) {
+        if (!peer) continue;
+
+        peer->clearInterface();
+        delete peer;
+    }
+    localPeers.clear();
+}
+
+// Execute the experiment round loop for all local peers.
+void runRounds(std::vector<quantas::Peer *> &localPeers, int rounds) {
+    quantas::RoundManager::setCurrentRound(0);
+    quantas::RoundManager::setLastRound(rounds);
+    for (int i = 0; i < rounds; ++i) {
+        quantas::RoundManager::incrementRound();
+        for (auto *peer : localPeers) {
+            if (!peer) continue;
+            peer->receive();
+            peer->tryPerformComputation();
+        }
+    }
+}
+
+// --------------------------- Worker runtime ---------------------------
 
 int main(int argc, char **argv) {
     auto cli = parseArgs(argc, argv); // CLI input validation
@@ -163,45 +229,35 @@ int main(int argc, char **argv) {
 
     for (size_t expIndex = 0; expIndex < config["experiments"].size();
          ++expIndex) {
-        const nlohmann::json &experiment = config["experiments"].at(expIndex);
-
-        ExperimentConfig exp;
+        std::vector<quantas::Peer *> localPeers;
         try {
-            exp = parseExperiment(config, expIndex, cli->roundsOverride);
+            const nlohmann::json &experiment = config["experiments"].at(expIndex);
+            ExperimentConfig exp =
+                parseExperiment(config, expIndex, cli->roundsOverride);
+
+            const std::string logFileBase =
+                quantas::chooseLogFileBase(config, experiment);
+            coordinator.configureExperiment(
+                expIndex, exp.peerType, false, exp.totalPeers, cli->peerId,
+                logFileBase, quantas::StopMode::FixedRounds
+            );
+            initRendezvous(coordinator, cli->peerId);
+
+            // Build local peers from topology rules
+            std::vector<MqAssignment> assignments;
+            assignments.push_back(buildValidatedLocalAssignment(*cli, exp));
+            localPeers = buildLocalPeers(exp.peerType, assignments);
+
+            // Execute the experiment round loop for all local peers.
+            runRounds(localPeers, exp.rounds);
+
+            cleanUp(localPeers);
         } catch (const std::exception &ex) {
-            std::cerr << ex.what() << '\n';
+            cleanUp(localPeers);
+            std::cerr << "error: experiment " << expIndex
+                      << " failed: " << ex.what() << '\n';
             return 1;
         }
-
-        const std::string logFileBase =
-            quantas::chooseLogFileBase(config, experiment);
-        coordinator.configureExperiment(
-            expIndex, exp.peerType, false, exp.totalPeers, cli->peerId,
-            logFileBase, quantas::StopMode::FixedRounds
-        );
-        initRendezvous(coordinator, cli->peerId);
-
-        // Peer construction
-        quantas::Peer *peer =
-            quantas::PeerRegistry::makePeer(exp.peerType, cli->peerId);
-        auto *mq = new quantas::NetworkInterfaceConcreteMQ();
-
-        // Build neighbours from topology rules
-        auto assignment = buildLocalAssignment(*cli, exp);
-        validateAssignment(assignment, exp.totalPeers);
-        applyAssignment(assignment, mq, peer);
-
-        // Run rounds
-        quantas::RoundManager::setCurrentRound(0);
-        quantas::RoundManager::setLastRound(exp.rounds);
-        for (int i = 0; i < exp.rounds; ++i) {
-            quantas::RoundManager::incrementRound();
-            peer->receive();
-            peer->tryPerformComputation();
-        }
-
-        peer->clearInterface();
-        delete peer;
     }
 
     return 0;

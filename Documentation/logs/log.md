@@ -174,30 +174,30 @@ In this file I document what I do everyday during my internship.
 ### 06/05/2026
 
 - Added root makefile MQ targets to separate worker runtime from abstract runtime: `mq_release`, `mq_debug`, and `mq_run` now build/run `quantas_mq_peer.exe` independently of `quantas.exe`.
-- Refactored `quantas/Common/ConcreteMQ/concreteSimulationMQ.cpp` by splitting data roles into `CliArgs` and `ExperimentConfig`, and separating config loading (`loadConfig`) from per-experiment parsing (`parseExperiment`).
+- Refactored `quantas/Common/ConcreteMQ/ConcreteMqPeer.cpp` by splitting data roles into `CliArgs` and `ExperimentConfig`, and separating config loading (`loadConfig`) from per-experiment parsing (`parseExperiment`).
 - Updated MQ worker flow to iterate over `config["experiments"]` and perform per-experiment extraction + rendezvous + peer execution, while keeping current follower-worker semantics.
 - Clarified the architecture gap vs TCP concrete: MQ currently has peer-worker + start barrier only; still missing full leader/logger orchestration, stop protocol, and metrics aggregation parity.
 
 ### 11/05/2026
 
-- Completed J2 for ConcreteMQ: added experiment-scoped coordinator configuration (`configureExperiment`) with role, peer count, log file base, and stop mode; wired from `concreteSimulationMQ.cpp` using `chooseLogFileBase(...)`.
+- Completed J2 for ConcreteMQ: added experiment-scoped coordinator configuration (`configureExperiment`) with role, peer count, log file base, and stop mode; wired from `ConcreteMqPeer.cpp` using `chooseLogFileBase(...)`.
 - Completed J3 phase-1: introduced explicit local assignment flow (`MqAssignment`) and split into `buildLocalAssignment(...)` + `applyAssignment(...)` so peer/interface setup is assignment-driven.
 - Added assignment validation checks before interface binding (peer id range, no self-neighbor, neighbor range), removed unused rendezvous parameter, and verified MQ debug build passes after changes.
 
 ### 12/05/2026
 
-- Finished J4 incremental shape in `concreteSimulationMQ.cpp`: moved from single-peer execution path to assignment-list driven local peer construction (`buildLocalPeers`) and round execution over `localPeers`.
+- Finished J4 incremental shape in `ConcreteMqPeer.cpp`: moved from single-peer execution path to assignment-list driven local peer construction (`buildLocalPeers`) and round execution over `localPeers`.
 - Refactored run-loop logic into `runRounds(localPeers, rounds)` and improved readability with small utility comments/section grouping.
 - Added per-experiment `try/catch` guard in the experiment loop with cleanup in both success/error paths, then re-verified with `make mq_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json`.
 
 ### 13/05/2026
 
-- Completed J5 baseline in `concreteSimulationMQ.cpp`: added experiment output path resolution via `makeExperimentFileName(...)` and configured writer with `LogWriter::setLogFile(...)`.
+- Completed J5 baseline in `ConcreteMqPeer.cpp`: added experiment output path resolution via `makeExperimentFileName(...)` and configured writer with `LogWriter::setLogFile(...)`.
 - Completed J6 baseline: added local-peer preparation gate (`prepareLocalPeers`) and fast-path skip when no runnable peers, with safe cleanup before continuing to next experiment.
 - Refactored config-load error handling by moving `try/catch` into `loadConfig(...)` (now returns `std::optional<nlohmann::json>`), simplifying `main` to a null-check path; MQ debug build still passes.
 
 ### 15/05/2026
 
-- Completed J7 baseline in `concreteSimulationMQ.cpp`: added initialization hooks (`initializeHooks`) to apply `initParameters(...)` before rounds and warn when `tests > 1` since MQ currently runs a single test pass per experiment.
-- Reorganized `concreteSimulationMQ.cpp` utility layout into shared vs worker-only sections and introduced `collectLocalAssignments(...)` to reduce repetition and prepare future reuse in leader runtime.
-- Replaced `concreteLeaderMQ.cpp` content with a comment-only learning scaffold documenting the leader control-plane protocol (`createBarrier -> waitForAllReady -> broadcastStart`) and implementation roadmap for J8/J12/J14.
+- Completed J7 baseline in `ConcreteMqPeer.cpp`: added initialization hooks (`initializeHooks`) to apply `initParameters(...)` before rounds and warn when `tests > 1` since MQ currently runs a single test pass per experiment.
+- Reorganized `ConcreteMqPeer.cpp` utility layout into shared vs worker-only sections and introduced `collectLocalAssignments(...)` to reduce repetition and prepare future reuse in leader runtime.
+- Replaced `ConcreteMqLeader.cpp` content with a comment-only learning scaffold documenting the leader control-plane protocol (`createBarrier -> waitForAllReady -> broadcastStart`) and implementation roadmap for J8/J12/J14.

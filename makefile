@@ -52,7 +52,7 @@ COMMON_OBJS := $(COMMON_SRCS:.cpp=.o)
 ABSTRACT_OBJS := $(COMMON_OBJS) quantas/Common/Abstract/abstractSimulation.o quantas/Common/Abstract/Channel.o quantas/Common/Abstract/Network.o
 CONCRETE_OBJS := $(COMMON_OBJS) quantas/Common/Concrete/concreteSimulation.o quantas/Common/Concrete/ipUtil.o
 MQ_OBJS := $(COMMON_OBJS) \
-	quantas/Common/ConcreteMQ/concreteSimulationMQ.o \
+	quantas/Common/ConcreteMQ/ConcreteMqPeer.o \
 	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o \
 	quantas/Common/ConcreteMQ/NetworkInterfaceConcreteMQ.o \
 	quantas/Common/Abstract/Channel.o \

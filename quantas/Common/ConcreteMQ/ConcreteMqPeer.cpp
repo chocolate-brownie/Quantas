@@ -54,8 +54,8 @@ Reusable utility notes
 
 The helpers below are intentionally written so they can later be moved to a
 shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
-- concreteSimulationMQ.cpp (worker runtime)
-- concreteLeaderMQ.cpp (leader runtime)
+- ConcreteMqPeer.cpp (worker runtime)
+- ConcreteMqLeader.cpp (leader runtime)
 */
 
 /* ========================= Shared utilities ========================= */
@@ -260,9 +260,8 @@ void runRounds(std::vector<quantas::Peer *> &localPeers, int rounds) {
 
 // Collect local assignments owned by this worker.
 // Phase-1 behavior: one process owns one peer assignment.
-std::vector<MqAssignment> collectLocalAssignments(
-    const CliArgs &cli, const ExperimentConfig &exp
-) {
+std::vector<MqAssignment>
+collectLocalAssignments(const CliArgs &cli, const ExperimentConfig &exp) {
     std::vector<MqAssignment> assignments;
     assignments.push_back(buildValidatedLocalAssignment(cli, exp));
     return assignments;

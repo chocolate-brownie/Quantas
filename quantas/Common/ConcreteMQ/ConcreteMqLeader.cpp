@@ -14,7 +14,7 @@ The leader is control-plane only:
 
 How this connects to worker runtime
 -----------------------------------
-Worker `concreteSimulationMQ.cpp` currently does:
+Worker `ConcreteMqPeer.cpp` currently does:
 1) createInbox()
 2) sendReady()
 3) waitForStart()
@@ -55,3 +55,8 @@ Implement only J8 baseline first:
 - full leader start gate orchestration for each experiment.
 Do not mix in stop protocol yet.
 */
+
+int main(int argc, char *argv[]) {
+
+    return 0;
+}

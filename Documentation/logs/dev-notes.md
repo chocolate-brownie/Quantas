@@ -16,7 +16,7 @@ Everything inside it is one of a few jobs.
 - [x] **J2: Configure coordinator for this experiment**
     - Tell coordinator experiment context, role, topology, peer count, stop policy, logging base.
     - TCP does this via `configureProcess(...)`.
-    - MQ status: done (`configureExperiment(...)` is wired from `concreteSimulationMQ.cpp` with `logFileBase` + `StopMode`).
+    - MQ status: done (`configureExperiment(...)` is wired from `ConcreteMqPeer.cpp` with `logFileBase` + `StopMode`).
 
 - [x] **J3: Acquire peer assignments for this process**
     - Get which peer IDs this process owns + neighbor sets.
@@ -31,7 +31,7 @@ Everything inside it is one of a few jobs.
 - [x] **J5: Resolve output/log destination for this experiment**
     - Compute experiment-specific output file path.
     - Configure writer.
-    - MQ status: done (baseline). `makeExperimentFileName(...)` + `LogWriter::setLogFile(...)` are wired in `concreteSimulationMQ.cpp`.
+    - MQ status: done (baseline). `makeExperimentFileName(...)` + `LogWriter::setLogFile(...)` are wired in `ConcreteMqPeer.cpp`.
 
 - [x] **J6: Handle empty/invalid assignment fast-path**
     - If no local peers assigned, cleanup and continue.

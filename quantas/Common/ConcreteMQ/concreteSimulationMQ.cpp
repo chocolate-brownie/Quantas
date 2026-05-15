@@ -1,3 +1,4 @@
+#include "../LogWriter.hpp"
 #include "../LoggingSupport.hpp"
 #include "../Peer.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
@@ -10,7 +11,26 @@
 #include <string>
 #include <vector>
 
-// --------------------------- CLI/config data ---------------------------
+/*
+ConcreteMQ Worker Runtime: two-phase execution model
+
+Phase 1 (setup / runtime assembly)
+- Parse CLI and load config.
+- Extract one experiment's runtime parameters.
+- Configure coordinator context for this experiment.
+- Resolve output destination.
+- Build local assignments and construct local peers/interfaces.
+
+Phase 2 (execution / lifecycle)
+- Run per-round receive + compute for local peers.
+- Handle fast-path skip when no runnable local peers.
+- Cleanup peer/interface state on success and failure.
+
+This file keeps both phases in one unit for bring-up clarity. Utility
+extraction points are grouped below to make later refactoring mechanical.
+*/
+
+// --------------------------- Shared data types ---------------------------
 
 struct CliArgs {
     std::string jsonPath;
@@ -28,6 +48,17 @@ struct MqAssignment {
     quantas::interfaceId id{quantas::NO_PEER_ID};
     std::set<quantas::interfaceId> neighbors;
 };
+
+/*
+Reusable utility notes
+
+The helpers below are intentionally written so they can later be moved to a
+shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
+- concreteSimulationMQ.cpp (worker runtime)
+- concreteLeaderMQ.cpp (leader runtime)
+*/
+
+/* ========================= Shared utilities ========================= */
 
 // Build the local phase-1 assignment (single peer per process).
 MqAssignment
@@ -102,25 +133,31 @@ std::optional<CliArgs> parseArgs(int argc, char **argv) {
 }
 
 // Load root configuration and validate experiments array exists.
-nlohmann::json loadConfig(const std::string &jsonPath) {
-    std::ifstream inFile(jsonPath);
+std::optional<nlohmann::json> loadConfig(const std::string &jsonPath) {
+    try {
+        std::ifstream inFile(jsonPath);
 
-    if (!inFile.is_open())
-        throw std::runtime_error(
-            std::string("error: cannot open input file: ") + jsonPath
-        );
+        if (!inFile.is_open())
+            throw std::runtime_error(
+                std::string("error: cannot open input file: ") + jsonPath
+            );
 
-    nlohmann::json config;
-    inFile >> config;
+        nlohmann::json config;
+        inFile >> config;
 
-    if (!config.contains("experiments") || !config["experiments"].is_array() ||
-        config["experiments"].empty()) {
-        throw std::runtime_error(
-            "error: configuration missing non-empty 'experiments' array"
-        );
+        if (!config.contains("experiments") ||
+            !config["experiments"].is_array() ||
+            config["experiments"].empty()) {
+            throw std::runtime_error(
+                "error: configuration missing non-empty 'experiments' array"
+            );
+        }
+
+        return config;
+    } catch (const std::exception &ex) {
+        std::cerr << ex.what() << '\n';
+        return std::nullopt;
     }
-
-    return config;
 }
 
 // Extract one experiment's runtime parameters for this worker.
@@ -147,6 +184,18 @@ ExperimentConfig parseExperiment(
 
     return out;
 }
+
+// Resolve and configure the output destination for this experiment.
+std::string
+configureExperimentOutput(const std::string &logFileBase, size_t expIndex) {
+    const std::optional<int> noPort = std::nullopt;
+    const std::string metricsFile =
+        quantas::makeExperimentFileName(logFileBase, expIndex, noPort, ".json");
+    quantas::LogWriter::setLogFile(metricsFile);
+    return metricsFile;
+}
+
+/* ========================= Worker-only utilities ========================= */
 
 // Perform follower-side start barrier rendezvous.
 void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
@@ -184,9 +233,7 @@ std::vector<quantas::Peer *> buildLocalPeers(
 }
 
 // Peer clean up
-void cleanUp(
-    std::vector<quantas::Peer *> &localPeers
-) {
+void cleanUp(std::vector<quantas::Peer *> &localPeers) {
     for (auto *peer : localPeers) {
         if (!peer) continue;
 
@@ -198,6 +245,7 @@ void cleanUp(
 
 // Execute the experiment round loop for all local peers.
 void runRounds(std::vector<quantas::Peer *> &localPeers, int rounds) {
+    quantas::RoundManager::asynchronous();
     quantas::RoundManager::setCurrentRound(0);
     quantas::RoundManager::setLastRound(rounds);
     for (int i = 0; i < rounds; ++i) {
@@ -210,45 +258,95 @@ void runRounds(std::vector<quantas::Peer *> &localPeers, int rounds) {
     }
 }
 
+// Collect local assignments owned by this worker.
+// Phase-1 behavior: one process owns one peer assignment.
+std::vector<MqAssignment> collectLocalAssignments(
+    const CliArgs &cli, const ExperimentConfig &exp
+) {
+    std::vector<MqAssignment> assignments;
+    assignments.push_back(buildValidatedLocalAssignment(cli, exp));
+    return assignments;
+}
+
+// Try to build local peers from topology rules
+bool prepareLocalPeers(
+    const CliArgs &cli, const ExperimentConfig &exp,
+    std::vector<quantas::Peer *> &localPeers
+) {
+    std::vector<MqAssignment> assignments = collectLocalAssignments(cli, exp);
+    if (assignments.empty()) return false;
+
+    localPeers = buildLocalPeers(exp.peerType, assignments);
+    return !localPeers.empty();
+}
+
+void initializeHooks(
+    const nlohmann::json &experiment, std::vector<quantas::Peer *> &localPeers
+) {
+    if (experiment.contains("parameters")) {
+        localPeers.front()->initParameters(
+            localPeers, experiment["parameters"]
+        );
+    }
+
+    const int testsConfigured = experiment.value("tests", 1);
+    if (testsConfigured > 1) {
+        std::cerr << "warning: concrete MQ mode currently executes a single "
+                     "test per experiment.\n";
+    }
+}
+
 // --------------------------- Worker runtime ---------------------------
 
 int main(int argc, char **argv) {
     auto cli = parseArgs(argc, argv); // CLI input validation
     if (!cli) return 1;
 
-    nlohmann::json config;
-    try {
-        config = loadConfig(cli->jsonPath);
-    } catch (const std::exception &ex) {
-        std::cerr << ex.what() << '\n';
-        return 1;
-    }
+    auto config = loadConfig(cli->jsonPath);
+    if (!config) return 1;
 
-    // Process synchronization
     auto &coordinator = quantas::ProcessCoordinatorMQ::instance();
 
-    for (size_t expIndex = 0; expIndex < config["experiments"].size();
+    for (size_t expIndex = 0; expIndex < (*config)["experiments"].size();
          ++expIndex) {
         std::vector<quantas::Peer *> localPeers;
         try {
-            const nlohmann::json &experiment = config["experiments"].at(expIndex);
+            /*
+            ==================== Phase 1: Setup / Assembly ====================
+            Build all runtime state needed to execute this experiment in the
+            current worker process.
+            */
+            const nlohmann::json &experiment =
+                (*config)["experiments"].at(expIndex);
             ExperimentConfig exp =
-                parseExperiment(config, expIndex, cli->roundsOverride);
+                parseExperiment(*config, expIndex, cli->roundsOverride);
 
             const std::string logFileBase =
-                quantas::chooseLogFileBase(config, experiment);
+                quantas::chooseLogFileBase(*config, experiment);
+            const std::string metricsFile =
+                configureExperimentOutput(logFileBase, expIndex);
             coordinator.configureExperiment(
                 expIndex, exp.peerType, false, exp.totalPeers, cli->peerId,
                 logFileBase, quantas::StopMode::FixedRounds
             );
+            std::cout << "[peer " << cli->peerId
+                      << "] output file: " << metricsFile << std::endl;
             initRendezvous(coordinator, cli->peerId);
 
-            // Build local peers from topology rules
-            std::vector<MqAssignment> assignments;
-            assignments.push_back(buildValidatedLocalAssignment(*cli, exp));
-            localPeers = buildLocalPeers(exp.peerType, assignments);
+            if (!prepareLocalPeers(*cli, exp, localPeers)) {
+                cleanUp(localPeers);
+                std::cerr << "experiment " << expIndex
+                          << ": no runnable local peers, skipping\n";
+                continue;
+            }
 
-            // Execute the experiment round loop for all local peers.
+            initializeHooks(experiment, localPeers);
+
+            /*
+            =================== Phase 2: Execute / Cleanup ====================
+            Execute rounds for all local peers, then release experiment state.
+            */
+
             runRounds(localPeers, exp.rounds);
 
             cleanUp(localPeers);

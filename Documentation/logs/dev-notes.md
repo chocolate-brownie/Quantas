@@ -28,16 +28,16 @@ Everything inside it is one of a few jobs.
     - Attach concrete interface and configure neighbors.
     - MQ status: done for incremental phase (assignment-list/localPeers construction loop is in place; currently one local assignment per process).
 
-- [ ] **J5: Resolve output/log destination for this experiment**
+- [x] **J5: Resolve output/log destination for this experiment**
     - Compute experiment-specific output file path.
     - Configure writer.
-    - MQ status: missing.
+    - MQ status: done (baseline). `makeExperimentFileName(...)` + `LogWriter::setLogFile(...)` are wired in `concreteSimulationMQ.cpp`.
 
-- [ ] **J6: Handle empty/invalid assignment fast-path**
+- [x] **J6: Handle empty/invalid assignment fast-path**
     - If no local peers assigned, cleanup and continue.
-    - MQ status: missing.
+    - MQ status: done (baseline). `prepareLocalPeers(...)` gates execution and skips experiment safely when no runnable peers.
 
-- [ ] **J7: Run experiment-level initialization hooks**
+- [x] **J7: Run experiment-level initialization hooks**
     - `initParameters(localPeers, experiment["parameters"])`.
     - Handle tests semantics (`tests > 1` warning/behavior).
     - MQ status: missing (currently no `initParameters` call in MQ worker).
@@ -103,7 +103,7 @@ If you follow this checklist, you’ll converge to TCP parity systematically ins
     - Add MQ coordinator done/stop signals so shutdown is controlled by protocol, not only fixed local rounds.
 
 - [ ] **I4: Add output/metrics basics (J5/J13 baseline)**
-    - Resolve experiment output target and emit runtime/memory/output in MQ worker path.
+    - Output target resolution (J5) is done. Remaining for this item: emit runtime/memory/final output parity (J13) in MQ worker path.
 
 - [ ] **I5: Tighten lifecycle cleanup (J14)**
     - Ensure per-experiment cleanup is coordinated (leader/follower responsibilities explicit).

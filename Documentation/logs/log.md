@@ -201,3 +201,11 @@ In this file I document what I do everyday during my internship.
 - Completed J7 baseline in `ConcreteMqPeer.cpp`: added initialization hooks (`initializeHooks`) to apply `initParameters(...)` before rounds and warn when `tests > 1` since MQ currently runs a single test pass per experiment.
 - Reorganized `ConcreteMqPeer.cpp` utility layout into shared vs worker-only sections and introduced `collectLocalAssignments(...)` to reduce repetition and prepare future reuse in leader runtime.
 - Replaced `ConcreteMqLeader.cpp` content with a comment-only learning scaffold documenting the leader control-plane protocol (`createBarrier -> waitForAllReady -> broadcastStart`) and implementation roadmap for J8/J12/J14.
+
+### 18/05/2026
+
+- Renamed MQ runtime files for clearer role separation: `concreteSimulationMQ.cpp` -> `ConcreteMqPeer.cpp` and `concreteLeaderMQ.cpp` -> `ConcreteMqLeader.cpp`, and updated build wiring in the root `makefile` to compile `ConcreteMqPeer.o`.
+- Updated naming references in active docs (`Documentation/logs/dev-notes.md`) and normalized historical references in this log file to match the new filenames.
+- Implemented the J8 leader start-gate baseline in `ConcreteMqLeader.cpp`: per-experiment config parsing, coordinator configuration with `isLeader=true`, and protocol sequence `createBarrier()` -> `waitForAllReady()` -> `broadcastStart()`.
+- Cleaned `ConcreteMqLeader.cpp` by removing non-essential J8 output setup and trimming unused includes so the file stays control-plane focused.
+- Revalidated compilation with `make mq_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json` after the leader and naming updates.

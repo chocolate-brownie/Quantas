@@ -35,9 +35,8 @@ ProcessCoordinatorMQ &ProcessCoordinatorMQ::instance() {
 }
 
 void ProcessCoordinatorMQ::configureExperiment(
-    size_t experimentIndex, const std::string &peerType, bool isLeader,
-    size_t totalPeers, interfaceId myId, const std::string &logFileBase,
-    StopMode stopMode
+    size_t experimentIndex, const std::string &peerType, bool isLeader, size_t totalPeers,
+    interfaceId myId, const std::string &logFileBase, StopMode stopMode
 ) {
     // J2 skeleton: persist experiment-scoped coordinator context.
     _experimentIndex = experimentIndex;
@@ -54,12 +53,8 @@ void ProcessCoordinatorMQ::configureExperiment(
     _myInbox.reset();
 }
 
-void ProcessCoordinatorMQ::configureProcess(
-    bool isLeader, size_t totalPeers, interfaceId myId
-) {
-    configureExperiment(
-        0, "", isLeader, totalPeers, myId, "", StopMode::FixedRounds
-    );
+void ProcessCoordinatorMQ::configureProcess(bool isLeader, size_t totalPeers, interfaceId myId) {
+    configureExperiment(0, "", isLeader, totalPeers, myId, "", StopMode::FixedRounds);
 }
 
 // 1. Leader creates quantas_barrier queue first
@@ -76,9 +71,7 @@ void ProcessCoordinatorMQ::createBarrier() {
     try {
         _myBarrier.emplace(create_only, "mq_barrier", 10, sizeof(unsigned int));
     } catch (const interprocess_exception &ex) {
-        throw std::runtime_error(
-            std::string("Failed to ::createBarrier queue: ") + ex.what()
-        );
+        throw std::runtime_error(std::string("Failed to ::createBarrier queue: ") + ex.what());
     }
 }
 
@@ -93,8 +86,7 @@ void ProcessCoordinatorMQ::createInbox() {
         _myInbox.emplace(create_only, queueName.c_str(), 10, MAX_MSG_SIZE);
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::createInbox queue for peer " + std::to_string(_myId) +
-            ": " + ex.what()
+            "Failed to ::createInbox queue for peer " + std::to_string(_myId) + ": " + ex.what()
         );
     }
 }
@@ -109,8 +101,7 @@ void ProcessCoordinatorMQ::sendReady() {
         mq.send(&trigger, sizeof(trigger), 0);
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::sendReady queue for peer " + std::to_string(_myId) +
-            ": " + ex.what()
+            "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " + ex.what()
         );
     }
 }
@@ -125,21 +116,17 @@ void ProcessCoordinatorMQ::waitForAllReady() {
             unsigned int trigger;
             message_queue::size_type recvd_size;
 
-            _myBarrier->receive(
-                &trigger, sizeof(trigger), recvd_size, priority
-            );
+            _myBarrier->receive(&trigger, sizeof(trigger), recvd_size, priority);
             if (recvd_size != sizeof(trigger) || trigger != 1)
                 throw std::runtime_error(
-                    "Unexpected ready message (trigger=" +
-                    std::to_string(trigger) +
-                    ", size=" + std::to_string(recvd_size) +
-                    ") at ::waitForAllReady for peer " + std::to_string(_myId)
+                    "Unexpected ready message (trigger=" + std::to_string(trigger) +
+                    ", size=" + std::to_string(recvd_size) + ") at ::waitForAllReady for peer " +
+                    std::to_string(_myId)
                 );
         }
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::waitForAllReady for peer " + std::to_string(_myId) +
-            ": " + ex.what()
+            "Failed to ::waitForAllReady for peer " + std::to_string(_myId) + ": " + ex.what()
         );
     }
 }
@@ -158,8 +145,7 @@ void ProcessCoordinatorMQ::broadcastStart() {
         }
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::broadCastStart for peer " + std::to_string(_myId) +
-            ": " + ex.what()
+            "Failed to ::broadCastStart for peer " + std::to_string(_myId) + ": " + ex.what()
         );
     }
 }
@@ -180,13 +166,11 @@ void ProcessCoordinatorMQ::waitForStart() {
 
         if (recvd_size != sizeof(trigger) || trigger != 1)
             throw std::runtime_error(
-                "Unexpected start message at ::waitForStart for peer " +
-                std::to_string(_myId)
+                "Unexpected start message at ::waitForStart for peer " + std::to_string(_myId)
             );
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
-            "Failed to ::waitForStart for peer " + std::to_string(_myId) +
-            ": " + ex.what()
+            "Failed to ::waitForStart for peer " + std::to_string(_myId) + ": " + ex.what()
         );
     }
 }

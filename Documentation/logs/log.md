@@ -180,32 +180,38 @@ In this file I document what I do everyday during my internship.
 
 ### 11/05/2026
 
-- Completed J2 for ConcreteMQ: added experiment-scoped coordinator configuration (`configureExperiment`) with role, peer count, log file base, and stop mode; wired from `ConcreteMqPeer.cpp` using `chooseLogFileBase(...)`.
-- Completed J3 phase-1: introduced explicit local assignment flow (`MqAssignment`) and split into `buildLocalAssignment(...)` + `applyAssignment(...)` so peer/interface setup is assignment-driven.
+- Completed for ConcreteMQ: added experiment-scoped coordinator configuration (`configureExperiment`) with role, peer count, log file base, and stop mode; wired from `ConcreteMqPeer.cpp` using `chooseLogFileBase(...)`.
+- Completed phase-1: introduced explicit local assignment flow (`MqAssignment`) and split into `buildLocalAssignment(...)` + `applyAssignment(...)` so peer/interface setup is assignment-driven.
 - Added assignment validation checks before interface binding (peer id range, no self-neighbor, neighbor range), removed unused rendezvous parameter, and verified MQ debug build passes after changes.
 
 ### 12/05/2026
 
-- Finished J4 incremental shape in `ConcreteMqPeer.cpp`: moved from single-peer execution path to assignment-list driven local peer construction (`buildLocalPeers`) and round execution over `localPeers`.
+- Finished incremental shape in `ConcreteMqPeer.cpp`: moved from single-peer execution path to assignment-list driven local peer construction (`buildLocalPeers`) and round execution over `localPeers`.
 - Refactored run-loop logic into `runRounds(localPeers, rounds)` and improved readability with small utility comments/section grouping.
 - Added per-experiment `try/catch` guard in the experiment loop with cleanup in both success/error paths, then re-verified with `make mq_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json`.
 
 ### 13/05/2026
 
-- Completed J5 baseline in `ConcreteMqPeer.cpp`: added experiment output path resolution via `makeExperimentFileName(...)` and configured writer with `LogWriter::setLogFile(...)`.
+- Completed baseline in `ConcreteMqPeer.cpp`: added experiment output path resolution via `makeExperimentFileName(...)` and configured writer with `LogWriter::setLogFile(...)`.
 - Completed J6 baseline: added local-peer preparation gate (`prepareLocalPeers`) and fast-path skip when no runnable peers, with safe cleanup before continuing to next experiment.
 - Refactored config-load error handling by moving `try/catch` into `loadConfig(...)` (now returns `std::optional<nlohmann::json>`), simplifying `main` to a null-check path; MQ debug build still passes.
 
 ### 15/05/2026
 
-- Completed J7 baseline in `ConcreteMqPeer.cpp`: added initialization hooks (`initializeHooks`) to apply `initParameters(...)` before rounds and warn when `tests > 1` since MQ currently runs a single test pass per experiment.
+- Completed baseline in `ConcreteMqPeer.cpp`: added initialization hooks (`initializeHooks`) to apply `initParameters(...)` before rounds and warn when `tests > 1` since MQ currently runs a single test pass per experiment.
 - Reorganized `ConcreteMqPeer.cpp` utility layout into shared vs worker-only sections and introduced `collectLocalAssignments(...)` to reduce repetition and prepare future reuse in leader runtime.
 - Replaced `ConcreteMqLeader.cpp` content with a comment-only learning scaffold documenting the leader control-plane protocol (`createBarrier -> waitForAllReady -> broadcastStart`) and implementation roadmap for J8/J12/J14.
 
 ### 18/05/2026
 
-- Renamed MQ runtime files for clearer role separation: `concreteSimulationMQ.cpp` -> `ConcreteMqPeer.cpp` and `concreteLeaderMQ.cpp` -> `ConcreteMqLeader.cpp`, and updated build wiring in the root `makefile` to compile `ConcreteMqPeer.o`.
-- Updated naming references in active docs (`Documentation/logs/dev-notes.md`) and normalized historical references in this log file to match the new filenames.
-- Implemented the J8 leader start-gate baseline in `ConcreteMqLeader.cpp`: per-experiment config parsing, coordinator configuration with `isLeader=true`, and protocol sequence `createBarrier()` -> `waitForAllReady()` -> `broadcastStart()`.
+- Implemented the leader start-gate baseline in `ConcreteMqLeader.cpp`: per-experiment config parsing, coordinator configuration with `isLeader=true`, and protocol sequence `createBarrier()` -> `waitForAllReady()` -> `broadcastStart()`.
 - Cleaned `ConcreteMqLeader.cpp` by removing non-essential J8 output setup and trimming unused includes so the file stays control-plane focused.
 - Revalidated compilation with `make mq_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json` after the leader and naming updates.
+- Added root `makefile` orchestration targets for MQ leader/peer workflows:
+  - `mq_peer_debug` / `mq_peer_release`
+  - `mq_leader_debug` / `mq_leader_release`
+  - `mq_peer_run`, `mq_leader_run`, `mq_run_all`
+  - `help` target with concrete usage examples.
+- Added `mq_run_all` PID/exit diagnostics and a single-terminal debug orchestration target `mq_run_all_debug_peer` to run one peer in `gdb` while launching remaining peers in background.
+- Verified with Bitcoin single-experiment input (`initialPeers = 11`) that J8 control-plane synchronization is working: all peers reach `Rendezvous done` under leader coordination.
+- Identified current blocker beyond J8: repeated peer crashes (`exit code 139`) in the data-plane send path. `gdb` backtrace points to Boost serialization construction inside `NetworkInterfaceConcreteMQ::unicastTo(...)` (`binary_oarchive` path), while leader process exits normally.

@@ -42,7 +42,7 @@ Everything inside it is one of a few jobs.
     - Handle tests semantics (`tests > 1` warning/behavior).
     - MQ status: missing (currently no `initParameters` call in MQ worker).
 
-- [~] **J8: Start synchronization gate**
+- [x] **J8: Start synchronization gate**
     - Mark ready, wait for start signal.
     - TCP: `markReady()` + `waitForStartSignal()`.
     - MQ: `sendReady()` + `waitForStart()` exists, but only follower-side with external leader flow.

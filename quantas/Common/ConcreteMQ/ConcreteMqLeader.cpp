@@ -1,61 +1,3 @@
-/*
-ConcreteMQ Leader Runtime - Learning Scaffold
-=============================================
-
-Purpose
--------
-This file is intentionally comment-only for now.
-You will implement the leader runtime yourself.
-
-The leader is control-plane only:
-- it does not instantiate or run algorithm peers,
-- it only coordinates worker start (J8),
-- later it will coordinate stop/cleanup (J12/J14).
-
-How this connects to worker runtime
------------------------------------
-Worker `ConcreteMqPeer.cpp` currently does:
-1) createInbox()
-2) sendReady()
-3) waitForStart()
-4) runRounds(...)
-
-Leader must provide the matching protocol:
-1) createBarrier()
-2) waitForAllReady()
-3) broadcastStart()
-
-Both sides connect through named MQ objects:
-- barrier queue: `mq_barrier`
-- worker inbox queues: `peer_<id>`
-
-Implementation blueprint (recommended)
---------------------------------------
-1) Parse CLI: input JSON path.
-2) Load config and iterate experiments.
-3) For each experiment:
-   - parse `initialPeers`, `initialPeerType`, `rounds` (if needed),
-   - compute `logFileBase` using `chooseLogFileBase(...)`,
-   - call `configureExperiment(..., isLeader=true, totalPeers=N, ...)`,
-   - run start gate: createBarrier -> waitForAllReady -> broadcastStart.
-4) (Later) add stop gate: wait DONE from workers -> broadcast STOP.
-5) (Later) add coordinated cleanup after all workers finished.
-
-Shared utility reuse strategy
------------------------------
-To avoid duplication, reuse helpers from worker runtime once extracted into a
-shared module (for example `ConcreteMQRuntime.hpp/.cpp`):
-- loadConfig(...)
-- parseExperiment(...)
-- shared config structs (if desired)
-
-Suggested first coding target
------------------------------
-Implement only J8 baseline first:
-- full leader start gate orchestration for each experiment.
-Do not mix in stop protocol yet.
-*/
-
 #include "../LoggingSupport.hpp"
 #include "ProcessCoordinatorMQ.hpp"
 #include <fstream>
@@ -67,7 +9,6 @@ Do not mix in stop protocol yet.
 struct ExperimentConfig {
     int initialPeers{0};
     std::string initialPeerType;
-    int rounds{0};
 };
 
 ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
@@ -78,12 +19,10 @@ ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
     ExperimentConfig out;
     out.initialPeers = experiment["topology"].value("initialPeers", 0);
     out.initialPeerType = experiment["topology"].value("initialPeerType", "");
-    out.rounds = static_cast<int>(experiment.value("rounds", 0));
 
     if (out.initialPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
     if (out.initialPeerType.empty())
         throw std::runtime_error("error: topology.initialPeerType is empty");
-    if (out.rounds <= 0) throw std::runtime_error("error: rounds must be > 0");
     return out;
 }
 
@@ -123,7 +62,7 @@ int main(int argc, char *argv[]) {
      * (`createBarrier`, `waitForAllReady`, `broadcastStart`, `configureExperiment`). */
     auto &coordinator = quantas::ProcessCoordinatorMQ::instance();
 
-    /* ==================== Phase 1: Setup / Assembly ====================
+    /* ==================== Phase 1: Setup ====================
      * Build all runtime state needed to execute this experiment in the current leader
      * process.
 
@@ -131,21 +70,27 @@ int main(int argc, char *argv[]) {
      - parse `initialPeers`, `initialPeerType`, `rounds` (if needed),
      - compute `logFileBase` using `chooseLogFileBase(...)`,
      - call `configureExperiment(..., isLeader=true, totalPeers=N, ...)`,
-     - run start gate: createBarrier -> waitForAllReady -> broadcastStart. */
+    - run start gate: createBarrier -> waitForAllReady -> broadcastStart. */
 
     for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
-        const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
-        ExperimentConfig exp = parseLeaderExp(*config, expIndex);
+        try {
+            const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
+            ExperimentConfig exp = parseLeaderExp(*config, expIndex);
 
-        const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
+            const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
 
-        coordinator.configureExperiment(
-            expIndex, exp.initialPeerType, true, exp.initialPeers, quantas::NO_PEER_ID, logFileBase,
-            quantas::StopMode::FixedRounds
-        );
-        coordinator.createBarrier();
-        coordinator.waitForAllReady();
-        coordinator.broadcastStart();
+            coordinator.configureExperiment(
+                expIndex, exp.initialPeerType, true, exp.initialPeers, quantas::NO_PEER_ID,
+                logFileBase, quantas::StopMode::FixedRounds
+            );
+            coordinator.createBarrier();
+            coordinator.waitForAllReady();
+            coordinator.broadcastStart();
+        } catch (const std::exception &ex) {
+            std::cerr << "error: leader failed at experiment " << expIndex << ": " << ex.what()
+                      << '\n';
+            return 1;
+        }
     }
 
     return 0;

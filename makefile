@@ -88,11 +88,11 @@ debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG
 debug: check-version $(EXE)
 mq_peer_release: CXXFLAGS += -O3 -s
 mq_peer_release: check-version $(MQ_EXE)
-mq_peer_debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG
+mq_peer_debug: CXXFLAGS += -O0 -g
 mq_peer_debug: check-version $(MQ_EXE)
 mq_leader_release: CXXFLAGS += -O3 -s
 mq_leader_release: check-version $(MQ_LEADER_EXE)
-mq_leader_debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG
+mq_leader_debug: CXXFLAGS += -O0 -g
 mq_leader_debug: check-version $(MQ_LEADER_EXE)
 
 # Backward-compatible aliases (prefer mq_peer_release / mq_peer_debug).

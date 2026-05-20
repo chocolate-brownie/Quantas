@@ -2,12 +2,17 @@
 #include "../Packet.hpp"
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/posix_time/posix_time_duration.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <mutex>
 #include <sstream>
+#include <unordered_map>
 #include <vector>
 
 using namespace boost::interprocess;
@@ -44,8 +49,7 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
   → write Packet to boost::archive::binary_oarchive backed by std::stringstream
   → send stringstream's bytes over MQ */
 void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId &dest) {
-    if (_neighbors.find(dest) == _neighbors.end())
-        return;
+    if (_neighbors.find(dest) == _neighbors.end()) return;
 
     Packet p;
     p.setSource(publicId());
@@ -69,7 +73,25 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
                 std::to_string(mq.get_max_msg_size())
             );
 
-        mq.send(bytes.data(), bytes.size(), 0);
+        /* Backpressure guard: avoid indefinite blocking on full peer queues by
+           bounding send wait time. Track per-destination drops so bottlenecked
+           peers are visible during debugging. */
+        static std::mutex dropsMutex;
+        static std::unordered_map<interfaceId, unsigned long> dropsByDest;
+
+        const auto deadline = boost::posix_time::microsec_clock::universal_time() +
+                              boost::posix_time::milliseconds(5);
+        const bool sent = mq.timed_send(bytes.data(), bytes.size(), 0, deadline);
+        if (!sent) {
+            std::lock_guard<std::mutex> lock(dropsMutex);
+            auto &count = dropsByDest[dest];
+            ++count;
+            if ((count % 100) == 0) {
+                std::cerr << "unicastTo: peer_" << dest << " dropped=" << count << "\n";
+            }
+            return;
+        }
+
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "unicastTo: failed to open peer_" + std::to_string(dest) + " queue: " + ex.what()
@@ -101,8 +123,8 @@ void NetworkInterfaceConcreteMQ::receive() {
                              .count();
 
             std::int64_t latency = nowNs - p.getSendTime();
-            std::cout << "latency peer_" << p.sourceId() << " -> peer_" << publicId()
-                      << ": " << latency << " ns\n";
+            std::cout << "latency peer_" << p.sourceId() << " -> peer_" << publicId() << ": "
+                      << latency << " ns\n";
 
             std::lock_guard<std::mutex> lock(_inStream_mtx);
             _inStream.push_back(std::move(p));

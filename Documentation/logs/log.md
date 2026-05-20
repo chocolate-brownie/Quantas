@@ -215,3 +215,21 @@ In this file I document what I do everyday during my internship.
 - Added `mq_run_all` PID/exit diagnostics and a single-terminal debug orchestration target `mq_run_all_debug_peer` to run one peer in `gdb` while launching remaining peers in background.
 - Verified with Bitcoin single-experiment input (`initialPeers = 11`) that J8 control-plane synchronization is working: all peers reach `Rendezvous done` under leader coordination.
 - Identified current blocker beyond J8: repeated peer crashes (`exit code 139`) in the data-plane send path. `gdb` backtrace points to Boost serialization construction inside `NetworkInterfaceConcreteMQ::unicastTo(...)` (`binary_oarchive` path), while leader process exits normally.
+
+### 20/05/2026
+
+- Resolved MQ debug crash root cause: `mq_peer_debug` / `mq_leader_debug` were built with `-D_GLIBCXX_DEBUG` while using system `libboost_serialization`, which caused reproducible segfaults at `boost::archive::binary_oarchive` construction in `NetworkInterfaceConcreteMQ::unicastTo(...)`.
+- Applied makefile fix: removed `-D_GLIBCXX_DEBUG` from MQ debug targets only (`mq_peer_debug`, `mq_leader_debug`) and kept the rest of the build matrix unchanged.
+- Identified second runtime issue as liveness/backpressure (not memory crash): blocking `message_queue::send(...)` could stall peers under bursty broadcast and limited queue depth.
+- Applied MQ liveness fix in `NetworkInterfaceConcreteMQ::unicastTo(...)`:
+  - replaced blocking `send(...)` with `timed_send(...)` using a 5ms deadline,
+  - dropped message on timeout to prevent indefinite blocking,
+  - added per-destination drop counters with periodic logging,
+  - documented the backpressure guard with a short block comment.
+- Validation run succeeded with orchestrated debug command:
+  - `make mq_run_all_debug_peer INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_DEBUG_PEER_ID=0 MQ_ROUNDS=10`
+  - gdb inferior exited normally,
+  - no serialization segfault,
+  - no stuck send deadlock,
+  - all peer and leader processes exited with code `0`.
+- Remaining note: high latency spikes are still visible under load and should be treated as performance/backpressure tuning work (not a correctness crash).

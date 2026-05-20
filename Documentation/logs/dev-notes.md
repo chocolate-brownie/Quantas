@@ -6,7 +6,7 @@
 Fundamental truth: that `for (expIndex...)` loop is one **experiment lifecycle orchestrator**.
 Everything inside it is one of a few jobs.
 
-**Experiment Loop Jobs (first-principles decomposition)**
+### Experiment Loop Jobs (first-principles decomposition) 
 
 - [x] **J1: Select experiment config**
     - Read `config["experiments"][expIndex]`.
@@ -46,6 +46,16 @@ Everything inside it is one of a few jobs.
     - Mark ready, wait for start signal.
     - TCP: `markReady()` + `waitForStartSignal()`.
     - MQ: `sendReady()` + `waitForStart()` exists, but only follower-side with external leader flow.
+
+# Bug fixes:
+    - root cause 1: _GLIBCXX_DEBUG + Boost serialization mismatch on MQ debug
+    targets
+    - fix 1: removed _GLIBCXX_DEBUG from mq_peer_debug and mq_leader_debug
+    - root cause 2: blocking mq.send under queue pressure
+    - fix 2: timed_send + per-destination drop counters
+    - validation: make mq_run_all_debug_peer ... MQ_TOTAL_PEERS=11 MQ_ROUNDS=10
+    all exit codes 0, no segfault/hang
+
 
 - [ ] **J9: Execute main run loop under stop policy**
     - Loop until coordinator stop condition, not fixed rounds only.

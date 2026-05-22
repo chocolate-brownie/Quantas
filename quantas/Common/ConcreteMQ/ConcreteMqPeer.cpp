@@ -1,4 +1,5 @@
 #include "../LogWriter.hpp"
+#include "../Logger.hpp"
 #include "../LoggingSupport.hpp"
 #include "../Peer.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
@@ -184,18 +185,18 @@ std::string configureExperimentOutput(const std::string &logFileBase, size_t exp
 
 // Perform follower-side start barrier rendezvous.
 void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
-    std::cout << "[peer " << myId << "] Configuring process" << std::endl;
+    QUANTAS_LOG_INFO("runner") << "peer " << myId << " configuring process";
 
-    std::cout << "[peer " << myId << "] Creating inboxes" << std::endl;
+    QUANTAS_LOG_INFO("runner") << "peer " << myId << " creating inbox";
     coord.createInbox();
 
-    std::cout << "[peer " << myId << "] Sending ready" << std::endl;
+    QUANTAS_LOG_INFO("runner") << "peer " << myId << " sending ready";
     coord.sendReady();
 
-    std::cout << "[peer " << myId << "] Waiting for start" << std::endl;
+    QUANTAS_LOG_INFO("runner") << "peer " << myId << " waiting for start";
     coord.waitForStart();
 
-    std::cout << "[peer " << myId << "] Rendezvous done" << std::endl;
+    QUANTAS_LOG_INFO("runner") << "peer " << myId << " start signal acknowledged";
 }
 
 /* Construct all peers assigned to this worker and bind each peer to an MQ
@@ -267,8 +268,8 @@ void initializeHooks(const nlohmann::json &experiment, std::vector<quantas::Peer
 
     const int testsConfigured = experiment.value("tests", 1);
     if (testsConfigured > 1) {
-        std::cerr << "warning: concrete MQ mode currently executes a single "
-                     "test per experiment.\n";
+        QUANTAS_LOG_WARN("runner")
+            << "concrete MQ mode currently executes a single test per experiment";
     }
 }
 
@@ -300,12 +301,13 @@ int main(int argc, char **argv) {
                 expIndex, exp.peerType, false, exp.totalPeers, cli->peerId, logFileBase,
                 quantas::StopMode::FixedRounds
             );
-            std::cout << "[peer " << cli->peerId << "] output file: " << metricsFile << std::endl;
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " output file: " << metricsFile;
             initRendezvous(coordinator, cli->peerId);
 
             if (!prepareLocalPeers(*cli, exp, localPeers)) {
                 cleanUp(localPeers);
-                std::cerr << "experiment " << expIndex << ": no runnable local peers, skipping\n";
+                QUANTAS_LOG_WARN("runner")
+                    << "experiment " << expIndex << ": no runnable local peers, skipping";
                 continue;
             }
 
@@ -321,7 +323,7 @@ int main(int argc, char **argv) {
             cleanUp(localPeers);
         } catch (const std::exception &ex) {
             cleanUp(localPeers);
-            std::cerr << "error: experiment " << expIndex << " failed: " << ex.what() << '\n';
+            QUANTAS_LOG_ERROR("runner") << "experiment " << expIndex << " failed: " << ex.what();
             return 1;
         }
     }

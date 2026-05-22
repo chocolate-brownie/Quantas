@@ -1,4 +1,5 @@
 #include "../LoggingSupport.hpp"
+#include "../Logger.hpp"
 #include "ProcessCoordinatorMQ.hpp"
 #include <fstream>
 #include <iostream>
@@ -83,9 +84,14 @@ int main(int argc, char *argv[]) {
                 expIndex, exp.initialPeerType, true, exp.initialPeers, quantas::NO_PEER_ID,
                 logFileBase, quantas::StopMode::FixedRounds
             );
+            QUANTAS_LOG_INFO("coord")
+                << "leader starting rendezvous for experiment " << expIndex
+                << " with totalPeers=" << exp.initialPeers;
             coordinator.createBarrier();
             coordinator.waitForAllReady();
             coordinator.broadcastStart();
+            QUANTAS_LOG_INFO("coord")
+                << "leader broadcasted start for experiment " << expIndex;
         } catch (const std::exception &ex) {
             std::cerr << "error: leader failed at experiment " << expIndex << ": " << ex.what()
                       << '\n';

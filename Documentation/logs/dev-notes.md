@@ -40,7 +40,8 @@ Everything inside it is one of a few jobs.
 - [x] **J7: Run experiment-level initialization hooks**
     - `initParameters(localPeers, experiment["parameters"])`.
     - Handle tests semantics (`tests > 1` warning/behavior).
-    - MQ status: missing (currently no `initParameters` call in MQ worker).
+    - MQ status: done (baseline). `initializeHooks(...)` calls
+      `initParameters(...)` and warns when `tests > 1`.
 
 - [x] **J8: Start synchronization gate**
     - Mark ready, wait for start signal.
@@ -69,6 +70,23 @@ Everything inside it is one of a few jobs.
 - [ ] **J11: Execute end-of-experiment hook**
     - `endOfExperiment(localPeers)`.
     - MQ status: missing.
+
+### Concern from architecture review (metric parity risk)
+
+Do not serialize full `Peer` objects as the default solution for global hook
+parity. Full-peer serialization is likely brittle and over-complex for Phase 1
+(polymorphism, process-local runtime state, backend coupling).
+
+Preferred direction:
+
+1. Split parity into two tracks:
+   - execution parity first (start/round/stop lifecycle correctness),
+   - metric parity second (global `endOfRound` / `endOfExperiment` correctness).
+2. For metric parity, define a minimal explicit snapshot schema with only
+   hook-relevant fields, version it, and aggregate in framework code.
+
+Current focus: **I2 (J10/J11)** plus metric-parity design guardrails, then
+**I3 (J12)**.
 
 - [ ] **J12: Stop handshake completion**
     - Wait for authoritative stop confirmation.

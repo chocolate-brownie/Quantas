@@ -1,4 +1,5 @@
 #include "ProcessCoordinatorMQ.hpp"
+#include "../Logger.hpp"
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
@@ -7,23 +8,25 @@
 #include <stdexcept>
 #include <string>
 
-/* TODO:
-   The TCP coordinator's stop mechanism is quite specificm peers send a "done"
-   signal to the leader, the leader counts how many have finished, then
-   broadcasts "stop" to all.
+/*
+ * TODO:: 
+ *
+ * The TCP coordinator's stop mechanism is quite specificm peers send a "done"
+ signal to the leader, the leader counts how many have finished, then
+ broadcasts "stop" to all.
 
-   How will it work in the MQ version?
+ * How will it work in the MQ version?
 
-   - for example, whether peers signal the logger directly, whether the logger
-   decides when to stop based on a timer or peer count, or something else
-   entirely.
+ * for example, whether peers signal the logger directly, whether the logger
+ decides when to stop based on a timer or peer count, or something else
+ entirely.
 
-   - Since the logger is the leader in our design the stop logic ties directly
-   into the logger's responsibility.
+ * Since the logger is the leader in our design the stop logic ties directly
+ into the logger's responsibility.
 
-   No stop/done signal. The TCP coordinator has `notifyPeerStopped()` /
-   `waitForStop()` / `broadcastStop()` — peers signal when they finish so the
-   simulation knows when to shut down. The MQ version has no equivalent yet */
+ * No stop/done signal. The TCP coordinator has `notifyPeerStopped()` /
+ `waitForStop()` / `broadcastStop()` — peers signal when they finish so the
+ simulation knows when to shut down. The MQ version has no equivalent yet */
 
 using namespace boost::interprocess;
 
@@ -61,6 +64,7 @@ void ProcessCoordinatorMQ::configureProcess(bool isLeader, size_t totalPeers, in
 void ProcessCoordinatorMQ::createBarrier() {
     if (!_isLeader) return;
 
+    QUANTAS_LOG_INFO("coord") << "creating barrier queue mq_barrier";
     message_queue::remove("mq_barrier");
 
     /* WARNING: capacity 10 is capped by the POSIX limit fs.mqueue.msg_max
@@ -80,6 +84,7 @@ void ProcessCoordinatorMQ::createInbox() {
     if (_isLeader) return;
 
     std::string queueName = "peer_" + std::to_string(_myId);
+    QUANTAS_LOG_INFO("coord") << "peer " << _myId << " creating inbox " << queueName;
     message_queue::remove(queueName.c_str());
 
     try {
@@ -99,6 +104,7 @@ void ProcessCoordinatorMQ::sendReady() {
         message_queue mq(open_only, "mq_barrier");
         unsigned int trigger = 1;
         mq.send(&trigger, sizeof(trigger), 0);
+        QUANTAS_LOG_INFO("coord") << "peer " << _myId << " sent ready to barrier";
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " + ex.what()
@@ -110,6 +116,8 @@ void ProcessCoordinatorMQ::sendReady() {
 void ProcessCoordinatorMQ::waitForAllReady() {
     if (!_isLeader) return;
 
+    QUANTAS_LOG_INFO("coord")
+        << "leader waiting for " << _totalPeers << " ready messages";
     try {
         for (size_t i = 0; i < _totalPeers; ++i) {
             unsigned int priority;
@@ -124,6 +132,7 @@ void ProcessCoordinatorMQ::waitForAllReady() {
                     std::to_string(_myId)
                 );
         }
+        QUANTAS_LOG_INFO("coord") << "leader received all ready messages";
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "Failed to ::waitForAllReady for peer " + std::to_string(_myId) + ": " + ex.what()
@@ -135,6 +144,7 @@ void ProcessCoordinatorMQ::waitForAllReady() {
 void ProcessCoordinatorMQ::broadcastStart() {
     if (!_isLeader) return;
 
+    QUANTAS_LOG_INFO("coord") << "leader broadcasting start to " << _totalPeers << " peers";
     try {
         for (size_t i = 0; i < _totalPeers; ++i) {
             std::string queueName = "peer_" + std::to_string(i);
@@ -154,6 +164,7 @@ void ProcessCoordinatorMQ::broadcastStart() {
 void ProcessCoordinatorMQ::waitForStart() {
     if (_isLeader) return;
 
+    QUANTAS_LOG_INFO("coord") << "peer " << _myId << " waiting for start signal";
     try {
         unsigned int priority;
         char buffer[MAX_MSG_SIZE];
@@ -168,6 +179,7 @@ void ProcessCoordinatorMQ::waitForStart() {
             throw std::runtime_error(
                 "Unexpected start message at ::waitForStart for peer " + std::to_string(_myId)
             );
+        QUANTAS_LOG_INFO("coord") << "peer " << _myId << " received start signal";
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "Failed to ::waitForStart for peer " + std::to_string(_myId) + ": " + ex.what()

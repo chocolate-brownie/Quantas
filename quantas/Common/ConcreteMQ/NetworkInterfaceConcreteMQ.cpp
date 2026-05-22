@@ -1,5 +1,5 @@
-#include "NetworkInterfaceConcreteMQ.hpp"
 #include "../Packet.hpp"
+#include "NetworkInterfaceConcreteMQ.hpp"
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -37,9 +37,9 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
     std::string queueName = "peer_" + std::to_string(id);
 
     /* WARNING: capacity 10 is capped by the POSIX limit fs.mqueue.msg_max
-    (default 10 on Linux). Algorithms with more peers/traffic (PBFT, Bitcoin,
-    Kademlia) will need `sudo sysctl fs.mqueue.msg_max=<higher>` raised
-    before this queue can be created with a larger size */
+       (default 10 on Linux). Algorithms with more peers/traffic (PBFT, Bitcoin,
+       Kademlia) will need `sudo sysctl fs.mqueue.msg_max=<higher>` raised
+       before this queue can be created with a larger size */
     _myInbox.emplace(boost::interprocess::open_only, queueName.c_str());
     _configured = true;
 }
@@ -73,8 +73,8 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
                 std::to_string(mq.get_max_msg_size())
             );
 
-        /* Backpressure guard: avoid indefinite blocking on full peer queues by
-           bounding send wait time. Track per-destination drops so bottlenecked
+        /* NOTE: Backpressure guard: avoid indefinite blocking on full peer queues by
+           bounding send wait time. Track per-destination drops so ottlenecked
            peers are visible during debugging. */
         static std::mutex dropsMutex;
         static std::unordered_map<interfaceId, unsigned long> dropsByDest;
@@ -86,9 +86,8 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
             std::lock_guard<std::mutex> lock(dropsMutex);
             auto &count = dropsByDest[dest];
             ++count;
-            if ((count % 100) == 0) {
+            if ((count % 100) == 0)
                 std::cerr << "unicastTo: peer_" << dest << " dropped=" << count << "\n";
-            }
             return;
         }
 

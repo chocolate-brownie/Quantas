@@ -64,6 +64,34 @@ The two approaches I can think of:
 
 **(a)** seems like the only option that respects the constraint, but it is a lot of work and I want to know if you have a better approach in mind before I commit. This same problem applies to `initParameters` and `endOfExperiment`.
 
+### Concern added after design review (important)
+
+Option **(a)** (serialize full `Peer` objects and reconstruct all peers in logger)
+looks high-risk for Phase 1 and probably over-complicated.
+
+Why this is risky:
+
+- `Peer` is polymorphic and may hold non-serializable or process-local runtime
+  state (interface handles, pointers, transient state).
+- Full-object serialization tightly couples framework internals to transport
+  format, which is brittle across backend transition (Boost MQ -> 0MQ).
+- Debugging and maintenance cost can grow before lifecycle parity is proven.
+
+Recommended direction:
+
+1. Split parity into two tracks:
+   - Execution parity first (start/round/stop semantics, stability)
+   - Metric parity second (global `endOfRound` / `endOfExperiment` correctness)
+2. For metric parity, prefer a **minimal explicit snapshot contract** over full
+   `Peer` serialization:
+   - each peer emits only hook-relevant fields per round/experiment,
+   - schema is versioned,
+   - framework aggregates and writes final metrics without changing algorithm
+     APIs.
+
+This keeps Phase 1 simpler and preserves the principle:
+"throwaway transport, non-throwaway protocol."
+
 ---
 
 ### 2. How does each peer learn its neighbour set? Quick confirmation.

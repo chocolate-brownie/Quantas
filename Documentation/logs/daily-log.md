@@ -233,3 +233,22 @@ In this file I document what I do everyday during my internship.
   - no stuck send deadlock,
   - all peer and leader processes exited with code `0`.
 - Remaining note: high latency spikes are still visible under load and should be treated as performance/backpressure tuning work (not a correctness crash).
+
+### 22/05/2026
+
+- Added structured lifecycle logging for the MQ runtime using the shared logger macros (`QUANTAS_LOG_INFO/WARN/ERROR`) instead of ad-hoc `std::cout` in start-gate paths:
+  - follower-side rendezvous markers in `ConcreteMqPeer.cpp` (configure/create inbox/send ready/wait start/start acknowledged),
+  - leader/coordinator markers in `ConcreteMqLeader.cpp` and `ProcessCoordinatorMQ.cpp` (barrier creation, wait-all-ready, broadcast start, start receive).
+- Ran an MQ-only stability gate (not full QUANTAS scope) aligned with current project objective from logs (`J8 baseline readiness before branch split):
+  - `make clean && make -j4 mq_peer_debug mq_leader_debug`
+  - `make mq_run_all INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_ROUNDS=5`
+- Validation result for MQ scope:
+  - leader and all 11 peers completed rendezvous/start sequence successfully,
+  - all processes exited with code `0`,
+  - no crash in MQ send path during this run,
+  - structured start-gate evidence now visible in logger output.
+- Build-system hardening done while validating branch-freeze readiness:
+  - fixed abstract/concrete link coverage in `makefile` so concrete-interface symbols resolve consistently when algorithm files register `*Concrete` peer factories,
+  - corrected `make test` Bitcoin input path from `quantas/BitcoinPeer/BitcoinInput.json` to `quantas/BitcoinPeer/BitcoinPeerInput.json`.
+- Scope decision recorded: full QUANTAS valgrind suite is intentionally not the gating criterion for this checkpoint; the freeze criterion is MQ progress validity (current J8/J2-J7 baseline) before moving to feature branches.
+- Project management decision: treat current `master` as MQ baseline checkpoint and continue next work in scoped sub-branches (`J9/J10/J11/J12` progression) with issue-first + evidence-based workflow.

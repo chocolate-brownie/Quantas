@@ -52,8 +52,18 @@ MQ_DEBUG_PEER_ID ?= 0
 COMMON_SRCS := $(wildcard quantas/Common/*.cpp)
 COMMON_OBJS := $(COMMON_SRCS:.cpp=.o)
 
-ABSTRACT_OBJS := $(COMMON_OBJS) quantas/Common/Abstract/abstractSimulation.o quantas/Common/Abstract/Channel.o quantas/Common/Abstract/Network.o
-CONCRETE_OBJS := $(COMMON_OBJS) quantas/Common/Concrete/concreteSimulation.o quantas/Common/Concrete/ipUtil.o
+ABSTRACT_OBJS := $(COMMON_OBJS) \
+	quantas/Common/Abstract/abstractSimulation.o \
+	quantas/Common/Abstract/Channel.o \
+	quantas/Common/Abstract/Network.o \
+	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
+	quantas/Common/Concrete/ProcessCoordinator.o \
+	quantas/Common/Concrete/ipUtil.o
+CONCRETE_OBJS := $(COMMON_OBJS) \
+	quantas/Common/Concrete/concreteSimulation.o \
+	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
+	quantas/Common/Concrete/ProcessCoordinator.o \
+	quantas/Common/Concrete/ipUtil.o
 MQ_OBJS := $(COMMON_OBJS) \
 	quantas/Common/ConcreteMQ/ConcreteMqPeer.o \
 	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o \
@@ -267,7 +277,7 @@ rand_test: quantas/Tests/randtest.cpp
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
-TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
+TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
 test: check-version rand_test
 	@make --no-print-directory clean

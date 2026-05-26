@@ -252,3 +252,8 @@ In this file I document what I do everyday during my internship.
   - corrected `make test` Bitcoin input path from `quantas/BitcoinPeer/BitcoinInput.json` to `quantas/BitcoinPeer/BitcoinPeerInput.json`.
 - Scope decision recorded: full QUANTAS valgrind suite is intentionally not the gating criterion for this checkpoint; the freeze criterion is MQ progress validity (current J8/J2-J7 baseline) before moving to feature branches.
 - Project management decision: treat current `master` as MQ baseline checkpoint and continue next work in scoped sub-branches (`J9/J10/J11/J12` progression) with issue-first + evidence-based workflow.
+
+
+### 26/05/2026
+
+- Implemented the J9 baseline run-loop in `ConcreteMqPeer.cpp` so the MQ worker now follows coordinator-aware stop-policy checks while still executing per-peer `receive()` + `tryPerformComputation()` each iteration. Improved observability by adding requesting peer id to `ProcessCoordinatorMQ::requestStop(...)` logs and adding per-peer loop-exit summaries (`mode`, `loopCount`, `currentRoundView`, `reason`), including the rename from `currentRound` to `currentRoundView` to avoid async-mode confusion. Revalidated with `make -j4 mq_peer_debug mq_leader_debug` and `make mq_run_all INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_ROUNDS=5`, where all peers and leader exited with code `0` and stop reasons appeared as `fixed_rounds_reached`. This session outcome is that J9 is treated as baseline complete, with full done-signal propagation intentionally deferred to J12.

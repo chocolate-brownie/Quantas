@@ -4,6 +4,7 @@
 #include "../Peer.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include "ProcessCoordinatorMQ.hpp"
+#include <boost/interprocess/errors.hpp>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -227,18 +228,58 @@ void cleanUp(std::vector<quantas::Peer *> &localPeers) {
     localPeers.clear();
 }
 
-// Execute the experiment round loop for all local peers.
-void runRounds(std::vector<quantas::Peer *> &localPeers, int rounds) {
+/* Checks for stop policies and execute the experiment round loop for all local peers */
+void runRounds(
+    std::vector<quantas::Peer *> &localPeers, int rounds, quantas::ProcessCoordinatorMQ &coordinator
+) {
     quantas::RoundManager::asynchronous();
     quantas::RoundManager::setCurrentRound(0);
     quantas::RoundManager::setLastRound(rounds);
-    for (int i = 0; i < rounds; ++i) {
+
+    size_t loopCount = 0;
+    std::string stopReason = "unknown";
+    const auto mode = coordinator.stopMode();
+    const char *modeLabel =
+        (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
+
+    while (true) {
+        // mqcoord checks for possible stop conditions ...
+        if (coordinator.shouldStop()) {
+            if (stopReason == "unknown") stopReason = "coordinator_stop_signal";
+            break;
+        }
+        if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {
+            stopReason = "fixed_rounds_bound";
+            break;
+        }
+
+        // one round of work
         quantas::RoundManager::incrementRound();
         for (auto *peer : localPeers) {
             if (!peer) continue;
             peer->receive();
             peer->tryPerformComputation();
         }
+
+        ++loopCount;
+
+        if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {
+            stopReason = "fixed_rounds_reached";
+            coordinator.requestStop(stopReason);
+        } else if (mode == quantas::StopMode::DoneSignals &&
+                   loopCount >= static_cast<size_t>(rounds)) {
+            stopReason = "done_signals_not_implemented_fallback";
+            coordinator.requestStop(stopReason);
+        }
+    }
+
+    const auto currentRound = quantas::RoundManager::currentRound();
+    for (const auto *peer : localPeers) {
+        if (!peer) continue;
+        QUANTAS_LOG_INFO("runner")
+            << "peer " << peer->publicId() << " loop exit summary: mode=" << modeLabel
+            << " loopCount=" << loopCount << " currentRoundView=" << currentRound
+            << " reason=" << stopReason;
     }
 }
 
@@ -318,7 +359,7 @@ int main(int argc, char **argv) {
             Execute rounds for all local peers, then release experiment state.
             */
 
-            runRounds(localPeers, exp.rounds);
+            runRounds(localPeers, exp.rounds, coordinator);
 
             cleanUp(localPeers);
         } catch (const std::exception &ex) {

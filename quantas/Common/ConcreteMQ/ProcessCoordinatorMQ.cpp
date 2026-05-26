@@ -1,5 +1,6 @@
 #include "ProcessCoordinatorMQ.hpp"
 #include "../Logger.hpp"
+#include <atomic>
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
@@ -9,7 +10,7 @@
 #include <string>
 
 /*
- * TODO:: 
+ * TODO::
  *
  * The TCP coordinator's stop mechanism is quite specificm peers send a "done"
  signal to the leader, the leader counts how many have finished, then
@@ -50,7 +51,7 @@ void ProcessCoordinatorMQ::configureExperiment(
     _configured = true;
     _logFileBase = logFileBase;
     _stopMode = stopMode;
-
+    _stopSignal = false;
     // Reset transient MQ handles for a new experiment lifecycle.
     _myBarrier.reset();
     _myInbox.reset();
@@ -116,8 +117,7 @@ void ProcessCoordinatorMQ::sendReady() {
 void ProcessCoordinatorMQ::waitForAllReady() {
     if (!_isLeader) return;
 
-    QUANTAS_LOG_INFO("coord")
-        << "leader waiting for " << _totalPeers << " ready messages";
+    QUANTAS_LOG_INFO("coord") << "leader waiting for " << _totalPeers << " ready messages";
     try {
         for (size_t i = 0; i < _totalPeers; ++i) {
             unsigned int priority;
@@ -200,6 +200,19 @@ void ProcessCoordinatorMQ::cleanUp() {
         std::string queueName = "peer_" + std::to_string(_myId);
         message_queue::remove(queueName.c_str());
     }
+}
+
+bool ProcessCoordinatorMQ::shouldStop() const { return _stopSignal.load(); }
+
+StopMode ProcessCoordinatorMQ::stopMode() const { return _stopMode; }
+
+void ProcessCoordinatorMQ::requestStop(const std::string &reason) {
+    const bool alreadyStopping = _stopSignal.exchange(true);
+    if (alreadyStopping) return;
+
+    if (!reason.empty())
+        QUANTAS_LOG_INFO("coord") << "peer " << _myId << " stop requested: " << reason;
+    else QUANTAS_LOG_INFO("coord") << "peer " << _myId << " stop requested";
 }
 
 ProcessCoordinatorMQ::~ProcessCoordinatorMQ() {}

@@ -1,137 +1,156 @@
-## Bigger goals
+## 🎯 Bigger Goals
 
-1.  At one point Quantas's logger should act as Mq verison's leader
-2.  at one point when I run make mqrun it should do exactly what quantas does right now instead of channel deque using MQ and as well as should run the logger as the leader process and should run N number of peer processes
-
-Fundamental truth: that `for (expIndex...)` loop is one **experiment lifecycle orchestrator**.
-Everything inside it is one of a few jobs.
-
-### Experiment Loop Jobs (first-principles decomposition) 
-
-- [x] **J1: Select experiment config**
-    - Read `config["experiments"][expIndex]`.
-    - Validate required fields (`topology`, `initialPeerType`).
-    - MQ status: done (you now iterate experiments and parse per-experiment basics).
-
-- [x] **J2: Configure coordinator for this experiment**
-    - Tell coordinator experiment context, role, topology, peer count, stop policy, logging base.
-    - TCP does this via `configureProcess(...)`.
-    - MQ status: done (`configureExperiment(...)` is wired from `ConcreteMqPeer.cpp` with `logFileBase` + `StopMode`).
-
-- [x] **J3: Acquire peer assignments for this process**
-    - Get which peer IDs this process owns + neighbor sets.
-    - TCP does `waitForAssignments()`.
-    - MQ status: done (phase-1 local assignment path via `MqAssignment` + validation + apply).
-
-- [x] **J4: Construct local peers and bind network interfaces**
-    - Create peer objects from type.
-    - Attach concrete interface and configure neighbors.
-    - MQ status: done for incremental phase (assignment-list/localPeers construction loop is in place; currently one local assignment per process).
-
-- [x] **J5: Resolve output/log destination for this experiment**
-    - Compute experiment-specific output file path.
-    - Configure writer.
-    - MQ status: done (baseline). `makeExperimentFileName(...)` + `LogWriter::setLogFile(...)` are wired in `ConcreteMqPeer.cpp`.
-
-- [x] **J6: Handle empty/invalid assignment fast-path**
-    - If no local peers assigned, cleanup and continue.
-    - MQ status: done (baseline). `prepareLocalPeers(...)` gates execution and skips experiment safely when no runnable peers.
-
-- [x] **J7: Run experiment-level initialization hooks**
-    - `initParameters(localPeers, experiment["parameters"])`.
-    - Handle tests semantics (`tests > 1` warning/behavior).
-    - MQ status: done (baseline). `initializeHooks(...)` calls
-      `initParameters(...)` and warns when `tests > 1`.
-
-- [x] **J8: Start synchronization gate**
-    - Mark ready, wait for start signal.
-    - TCP: `markReady()` + `waitForStartSignal()`.
-    - MQ: `sendReady()` + `waitForStart()` exists, but only follower-side with external leader flow.
-
-# Bug fixes:
-    - root cause 1: _GLIBCXX_DEBUG + Boost serialization mismatch on MQ debug
-    targets
-    - fix 1: removed _GLIBCXX_DEBUG from mq_peer_debug and mq_leader_debug
-    - root cause 2: blocking mq.send under queue pressure
-    - fix 2: timed_send + per-destination drop counters
-    - validation: make mq_run_all_debug_peer ... MQ_TOTAL_PEERS=11 MQ_ROUNDS=10
-    all exit codes 0, no segfault/hang
-
-
-- [ ] **J9: Execute main run loop under stop policy**
-    - Loop until coordinator stop condition, not fixed rounds only.
-    - For each local peer: receive + compute.
-    - MQ status: missing parity (currently fixed-round loop only).
-
-- [ ] **J10: Execute per-round global hook**
-    - Call `endOfRound(localPeers)` once per round.
-    - MQ status: missing (critical parity gap for metrics behavior).
-
-- [ ] **J11: Execute end-of-experiment hook**
-    - `endOfExperiment(localPeers)`.
-    - MQ status: missing.
-
-### Concern from architecture review (metric parity risk)
-
-Do not serialize full `Peer` objects as the default solution for global hook
-parity. Full-peer serialization is likely brittle and over-complex for Phase 1
-(polymorphism, process-local runtime state, backend coupling).
-
-Preferred direction:
-
-1. Split parity into two tracks:
-   - execution parity first (start/round/stop lifecycle correctness),
-   - metric parity second (global `endOfRound` / `endOfExperiment` correctness).
-2. For metric parity, define a minimal explicit snapshot schema with only
-   hook-relevant fields, version it, and aggregate in framework code.
-
-Current focus: **I2 (J10/J11)** plus metric-parity design guardrails, then
-**I3 (J12)**.
-
-- [ ] **J12: Stop handshake completion**
-    - Wait for authoritative stop confirmation.
-    - MQ status: missing (`notifyPeerStopped/broadcastStop/waitForStop` absent).
-
-- [ ] **J13: Emit final experiment metrics**
-    - Runtime, peak memory, output print.
-    - MQ status: missing.
-
-- [~] **J14: Teardown experiment resources**
-    - Clear interfaces, delete peers, coordinator cleanup.
-    - MQ status: partially done (peer cleanup done; leader-driven full lifecycle cleanup not integrated in same runtime).
+1. Logger should act as MQ version's leader/coordinator.
+2. `make mqrun` should match current QUANTAS lifecycle semantics (using MQ transport), launching leader + N peer processes.
 
 ---
 
-**What this means for your MQ design (next small functions to implement)**
+## 🧭 Core Framing
 
-1. `ExperimentConfig parseExperiment(config, expIndex, roundsOverride)` ✅ (already started)
+The `for (expIndex...)` loop is one **experiment lifecycle orchestrator**.
+Each lifecycle job below should reach parity with TCP concrete runtime.
+
+---
+
+## ✅ Experiment Lifecycle Jobs (J1–J14)
+
+- [x] **J1: Select experiment config**
+  - Read `config["experiments"][expIndex]`.
+  - Validate required fields (`topology`, `initialPeerType`).
+  - MQ status: ✅ done.
+
+- [x] **J2: Configure coordinator for this experiment**
+  - Provide experiment context, role, topology, peer count, stop policy, log base.
+  - TCP equivalent: `configureProcess(...)`.
+  - MQ status: ✅ done via `configureExperiment(...)` in `ConcreteMqPeer.cpp`.
+
+- [x] **J3: Acquire peer assignments for this process**
+  - Determine owned peer IDs + neighbor sets.
+  - TCP equivalent: `waitForAssignments()`.
+  - MQ status: ✅ done (phase-1 local assignment via `MqAssignment` + validation + apply).
+
+- [x] **J4: Construct local peers and bind network interfaces**
+  - Build peer objects and attach configured interfaces.
+  - MQ status: ✅ done for incremental phase (assignment-list/localPeers loop shape).
+
+- [x] **J5: Resolve output/log destination for this experiment**
+  - Compute experiment output path and configure writer.
+  - MQ status: ✅ done (`makeExperimentFileName(...)` + `LogWriter::setLogFile(...)`).
+
+- [x] **J6: Handle empty/invalid assignment fast-path**
+  - Skip safely when no runnable local peers.
+  - MQ status: ✅ done (`prepareLocalPeers(...)` gate + cleanup).
+
+- [x] **J7: Run experiment-level initialization hooks**
+  - `initParameters(localPeers, experiment["parameters"])`.
+  - Warn for `tests > 1` behavior.
+  - MQ status: ✅ done (`initializeHooks(...)`).
+
+- [x] **J8: Start synchronization gate**
+  - Mark ready, wait for start.
+  - TCP: `markReady()` + `waitForStartSignal()`.
+  - MQ: `sendReady()` + `waitForStart()`.
+  - MQ status: ✅ done baseline.
+
+- [x] **J9: Execute main run loop under stop policy**
+  - Loop based on coordinator stop policy (not only fixed-round loop structure).
+  - Per local peer: `receive()` + `tryPerformComputation()`.
+  - Added coordinator mode branching (`FixedRounds` / `DoneSignals`) with temporary DoneSignals fallback.
+  - Added observability improvements:
+    - stop-request logs now include requesting peer id,
+    - per-peer loop exit summary logs include `mode`, `loopCount`, `currentRoundView`, and `reason`.
+  - Validation evidence:
+    - `make -j4 mq_peer_debug mq_leader_debug` ✅
+    - `make mq_run_all INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_ROUNDS=5` ✅
+    - all peers + leader exit code `0`; stop reason logged as `fixed_rounds_reached`.
+  - MQ status: ✅ **baseline done**.
+  - ⚠️ Note: global done-signal propagation is still pending J12.
+
+- [ ] **J10: Execute per-round global hook**
+  - `endOfRound(localPeers)` once per round.
+  - MQ status: ❌ missing (critical metric-parity gap).
+
+- [ ] **J11: Execute end-of-experiment hook**
+  - `endOfExperiment(localPeers)`.
+  - MQ status: ❌ missing.
+
+- [ ] **J12: Stop handshake completion**
+  - Wait for authoritative stop confirmation.
+  - MQ status: ❌ missing (`notifyPeerStopped` / `broadcastStop` / `waitForStop` equivalents absent).
+
+- [ ] **J13: Emit final experiment metrics**
+  - Runtime, peak memory, final output print parity.
+  - MQ status: ❌ missing.
+
+- [~] **J14: Teardown experiment resources**
+  - Clear interfaces, delete peers, coordinator cleanup.
+  - MQ status: 🟡 partial (peer cleanup exists; leader/follower coordinated cleanup incomplete).
+
+---
+
+## 🐛 Known Bug Fixes Already Landed
+
+- Root cause 1: `_GLIBCXX_DEBUG` + Boost serialization mismatch on MQ debug targets.
+  - Fix: removed `_GLIBCXX_DEBUG` from `mq_peer_debug` and `mq_leader_debug`.
+
+- Root cause 2: blocking MQ `send(...)` under queue pressure.
+  - Fix: `timed_send(...)` + per-destination drop counters.
+
+- Validation:
+  - `make mq_run_all_debug_peer ... MQ_TOTAL_PEERS=11 MQ_ROUNDS=10`
+  - ✅ all exit codes `0`, no segfault/hang.
+
+---
+
+## 🧠 Metric-Parity Guardrail
+
+Do **not** serialize full `Peer` objects as default metric-parity strategy.
+That approach is high-risk for phase 1 (polymorphism + process-local state + backend coupling).
+
+Preferred direction:
+1. Split parity tracks:
+   - **Execution parity first** (start/round/stop lifecycle correctness)
+   - **Metric parity second** (`endOfRound` / `endOfExperiment` correctness)
+2. For metric parity, use a minimal explicit snapshot schema with hook-relevant fields.
+
+---
+
+## 🔍 Current Focus
+
+- Current focus: **I2 (J10/J11)** + metric-parity guardrails, then **I3 (J12)**.
+
+---
+
+## 🧩 MQ Design Checklist (Implementation Helpers)
+
+1. `ExperimentConfig parseExperiment(config, expIndex, roundsOverride)` ✅
 2. `void configureMqExperimentCoordinator(...)`
 3. `std::vector<Assignment> getMqAssignments(...)` (or single-peer shim first)
 4. `std::vector<Peer*> buildLocalPeers(...)`
 5. `void initExperimentHooks(...)` (`initParameters`)
 6. `void synchronizeStart(...)`
 7. `RunStats runUntilStop(...)` (or temporary fixed-round variant)
-8. `void finalizeExperimentHooks(...)` (`endOfRound/endOfExperiment` integration path)
+8. `void finalizeExperimentHooks(...)` (`endOfRound` / `endOfExperiment` path)
 9. `void writeExperimentOutputs(...)`
 10. `void cleanupExperimentState(...)`
 
-If you follow this checklist, you’ll converge to TCP parity systematically instead of patching ad hoc behavior.
+If this checklist is followed, parity converges systematically (instead of ad hoc patching).
 
 ---
 
-**Incremental Phase Remaining (strict order)**
+## 🚧 Incremental Phase Remaining (Strict Order)
 
 - [x] **I1: Finish J4 shape**
-    - Move from single `Peer*` path to assignment-list/localPeers construction loop shape (even if list size is 1 now).
+  - Move from single `Peer*` flow to assignment-list/localPeers loop shape.
 
 - [ ] **I2: Add experiment hooks (J7/J10/J11)**
-    - Wire `initParameters(localPeers, experiment["parameters"])`, per-round `endOfRound(localPeers)`, and `endOfExperiment(localPeers)`.
+  - Wire `initParameters(...)`, per-round `endOfRound(...)`, and `endOfExperiment(...)`.
 
 - [ ] **I3: Add minimal stop handshake (J12 baseline)**
-    - Add MQ coordinator done/stop signals so shutdown is controlled by protocol, not only fixed local rounds.
+  - Add MQ done/stop signals so shutdown is protocol-controlled, not only local-round controlled.
 
 - [ ] **I4: Add output/metrics basics (J5/J13 baseline)**
-    - Output target resolution (J5) is done. Remaining for this item: emit runtime/memory/final output parity (J13) in MQ worker path.
+  - J5 is done; remaining work is J13 runtime/memory/final output parity.
 
 - [ ] **I5: Tighten lifecycle cleanup (J14)**
-    - Ensure per-experiment cleanup is coordinated (leader/follower responsibilities explicit).
+  - Make experiment cleanup explicitly coordinated across leader/follower roles.

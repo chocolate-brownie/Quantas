@@ -257,3 +257,7 @@ In this file I document what I do everyday during my internship.
 ### 26/05/2026
 
 - Implemented the J9 baseline run-loop in `ConcreteMqPeer.cpp` so the MQ worker now follows coordinator-aware stop-policy checks while still executing per-peer `receive()` + `tryPerformComputation()` each iteration. Improved observability by adding requesting peer id to `ProcessCoordinatorMQ::requestStop(...)` logs and adding per-peer loop-exit summaries (`mode`, `loopCount`, `currentRoundView`, `reason`), including the rename from `currentRound` to `currentRoundView` to avoid async-mode confusion. Revalidated with `make -j4 mq_peer_debug mq_leader_debug` and `make mq_run_all INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_ROUNDS=5`, where all peers and leader exited with code `0` and stop reasons appeared as `fixed_rounds_reached`. This session outcome is that J9 is treated as baseline complete, with full done-signal propagation intentionally deferred to J12.
+
+### 27/05/2026
+
+- Completed bookkeeping after wiring J10/J11 in the MQ worker lifecycle: `endOfRound(localPeers)` now executes once per round inside `runRounds(...)`, and `endOfExperiment(localPeers)` runs once after rounds finish. Updated `todo.md` to mark J10/J11 (and I2) as done and shifted focus to J12 stop-handshake completion and J13 output/metrics parity. This closes the hook-wiring branch scope and keeps the next workstream centered on coordinator-driven termination parity.

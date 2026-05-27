@@ -67,13 +67,13 @@ Each lifecycle job below should reach parity with TCP concrete runtime.
     - MQ status: ✅ **baseline done**.
     - ⚠️ Note: global done-signal propagation is still pending J12.
 
-- [ ] **J10: Execute per-round global hook**
+- [x] **J10: Execute per-round global hook**
     - `endOfRound(localPeers)` once per round.
-    - MQ status: ❌ missing (critical metric-parity gap).
+    - MQ status: ✅ done (wired in `runRounds(...)` via `localPeers.front()->endOfRound(localPeers)` once per loop iteration).
 
-- [ ] **J11: Execute end-of-experiment hook**
+- [x] **J11: Execute end-of-experiment hook**
     - `endOfExperiment(localPeers)`.
-    - MQ status: ❌ missing.
+    - MQ status: ✅ done (wired after rounds complete via `localPeers.front()->endOfExperiment(localPeers)`).
 
 - [ ] **J12: Stop handshake completion**
     - Wait for authoritative stop confirmation.
@@ -119,7 +119,7 @@ Preferred direction:
 
 ## 🔍 Current Focus
 
-- Current focus: **I2 (J10/J11)** + metric-parity guardrails, then **I3 (J12)**.
+- Current focus: **I3 (J12)** stop-handshake completion, then **I4 (J13)** output/metrics parity.
 
 ---
 
@@ -145,7 +145,7 @@ If this checklist is followed, parity converges systematically (instead of ad ho
 - [x] **I1: Finish J4 shape**
     - Move from single `Peer*` flow to assignment-list/localPeers loop shape.
 
-- [ ] **I2: Add experiment hooks (J7/J10/J11)**
+- [x] **I2: Add experiment hooks (J7/J10/J11)**
     - Wire `initParameters(...)`, per-round `endOfRound(...)`, and `endOfExperiment(...)`.
 
 - [ ] **I3: Add minimal stop handshake (J12 baseline)**

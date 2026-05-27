@@ -50,9 +50,7 @@ class PeerRegistry {
             throw std::runtime_error("unordered_map has zero buckets in makePeer() in file Peer.hpp"
             );
         auto it = inst->registry.find(type);
-        if (it == inst->registry.end()) {
-            throw std::runtime_error("Unknown peer type: " + type);
-        }
+        if (it == inst->registry.end()) { throw std::runtime_error("Unknown peer type: " + type); }
         return it->second(pubId);
     }
 
@@ -85,6 +83,9 @@ class Peer {
     inline Peer(const Peer &rhs){};
     inline virtual ~Peer(){};
 
+    // Runtime layer end of experiment does nothing unless it depends on an algorithm override
+    virtual void endOfExperiment(std::vector<Peer *> &peers) {}
+
     virtual void clearInterface() {
         if (_networkInterface != nullptr) {
             _networkInterface->clearAll();
@@ -99,9 +100,7 @@ class Peer {
 
     // try to run performComputation though it may not
     virtual void tryPerformComputation() {
-        if (!isCrashed()) {
-            performComputation();
-        }
+        if (!isCrashed()) { performComputation(); }
     };
 
     // Main algorithmic step that each Peer runs each round

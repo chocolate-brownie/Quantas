@@ -44,12 +44,51 @@ Rules:
 ## 2) Issue-first execution
 
 Before coding, open a short issue (or note) with:
-- objective/question,
-- assumptions (timing, fault, topology, stop mode),
-- expected property/invariant,
-- success criteria,
-- validation commands,
-- risks.
+## 1) What is the exact behavior gap?
+- Current behavior (today):
+- Desired behavior (after this issue):
+- Why this matters for parity/correctness:
+
+## 2) What is the smallest change that could close this gap?
+- File(s) I expect to touch:
+- Function(s) I expect to touch:
+- Change I will NOT do in this issue:
+
+## 3) Round-model sanity check (answer in plain words)
+- What is “one round” in this code path?
+- What must happen exactly once per round?
+- What must happen exactly once per experiment?
+
+## 4) Invariants I promise to preserve
+- Invariant A:
+- Invariant B:
+- Invariant C:
+
+## 5) Failure story (pre-mortem)
+- If I implement this wrong, what breaks silently?
+- What log/signal would reveal the mistake earliest?
+- What is the most likely off-by-one error here?
+
+## 6) Acceptance checks (binary yes/no)
+- [ ] Hook order is correct
+- [ ] Call counts match expectation
+- [ ] Build passes
+- [ ] Runtime exits cleanly
+- [ ] No scope creep into unrelated tasks
+
+## 7) Validation evidence I will collect
+- Command 1:
+- Command 2:
+- What exact output lines I expect to see:
+- What output would prove failure:
+
+## 8) Boundaries and deferrals
+- Explicitly out-of-scope:
+- Follow-up issue(s) needed:
+- Why deferring is safe today:
+
+## 9) My one-sentence implementation plan
+- “I will … then verify … then stop when …”
 
 Use this mini-template:
 

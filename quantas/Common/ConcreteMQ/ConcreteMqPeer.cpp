@@ -4,7 +4,7 @@
 #include "../Peer.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include "ProcessCoordinatorMQ.hpp"
-#include <boost/interprocess/errors.hpp>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -228,7 +228,7 @@ void cleanUp(std::vector<quantas::Peer *> &localPeers) {
     localPeers.clear();
 }
 
-/* Checks for stop policies and execute the experiment round loop for all local peers */
+/* ========================= Rounds Execution Start ========================= */
 void runRounds(
     std::vector<quantas::Peer *> &localPeers, int rounds, quantas::ProcessCoordinatorMQ &coordinator
 ) {
@@ -243,7 +243,7 @@ void runRounds(
         (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
 
     while (true) {
-        // mqcoord checks for possible stop conditions ...
+        // Pre iteration stop trigger
         if (coordinator.shouldStop()) {
             if (stopReason == "unknown") stopReason = "coordinator_stop_signal";
             break;
@@ -253,16 +253,17 @@ void runRounds(
             break;
         }
 
-        // one round of work
+        // One round of work
         quantas::RoundManager::incrementRound();
         for (auto *peer : localPeers) {
             if (!peer) continue;
             peer->receive();
             peer->tryPerformComputation();
         }
-
+        localPeers.front()->endOfRound(localPeers);
         ++loopCount;
 
+        // Post iteration stop trigger
         if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {
             stopReason = "fixed_rounds_reached";
             coordinator.requestStop(stopReason);
@@ -273,6 +274,11 @@ void runRounds(
         }
     }
 
+    /* If the algorithm layer has an `endOfExperiment` it will override otherwise the runtime layer
+     * does nothing */
+    localPeers.front()->endOfExperiment(localPeers);
+
+    // Observability/debug evidence for how and why each peer’s loop terminated.
     const auto currentRound = quantas::RoundManager::currentRound();
     for (const auto *peer : localPeers) {
         if (!peer) continue;
@@ -282,9 +288,10 @@ void runRounds(
             << " reason=" << stopReason;
     }
 }
+/* ========================= Rounds Execution Ends ========================= */
 
-// Collect local assignments owned by this worker.
-// Phase-1 behavior: one process owns one peer assignment.
+/* Collect local assignments owned by this worker.
+Phase-1 behavior: one process owns one peer assignment */
 std::vector<MqAssignment> collectLocalAssignments(const CliArgs &cli, const ExperimentConfig &exp) {
     std::vector<MqAssignment> assignments;
     assignments.push_back(buildValidatedLocalAssignment(cli, exp));

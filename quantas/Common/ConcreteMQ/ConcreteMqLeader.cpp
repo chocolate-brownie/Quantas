@@ -90,9 +90,12 @@ int main(int argc, char *argv[]) {
             coordinator.createBarrier();
             coordinator.waitForAllReady();
             coordinator.broadcastStart();
+            coordinator.waitForAllDone();
             QUANTAS_LOG_INFO("coord")
                 << "leader broadcasted start for experiment " << expIndex;
+            coordinator.cleanUp();
         } catch (const std::exception &ex) {
+            coordinator.cleanUp();
             std::cerr << "error: leader failed at experiment " << expIndex << ": " << ex.what()
                       << '\n';
             return 1;

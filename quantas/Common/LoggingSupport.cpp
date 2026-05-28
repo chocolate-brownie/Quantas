@@ -117,6 +117,12 @@ void mergeLoggingOverrides(const nlohmann::json& node, LoggingOverrides& overrid
 
 std::string chooseLogFileBase(const nlohmann::json& rootConfig,
                               const nlohmann::json& experimentConfig) {
+    if (experimentConfig.contains("logFile") && experimentConfig["logFile"].is_string()) {
+        return experimentConfig["logFile"].get<std::string>();
+    }
+    if (rootConfig.contains("logFile") && rootConfig["logFile"].is_string()) {
+        return rootConfig["logFile"].get<std::string>();
+    }
     if (experimentConfig.contains("id") && experimentConfig["id"].is_string()) {
         return experimentConfig["id"].get<std::string>();
     }

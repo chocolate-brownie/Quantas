@@ -74,6 +74,10 @@ class ProcessCoordinatorMQ {
     bool shouldStop() const;
     StopMode stopMode() const;
     void requestStop(const std::string &reason = "");
+    void broadcastStop();
+    void waitForStop();
+    void notifyPeerStopped(interfaceId id);
+    void waitForAllDone();
 };
 
 } // namespace quantas

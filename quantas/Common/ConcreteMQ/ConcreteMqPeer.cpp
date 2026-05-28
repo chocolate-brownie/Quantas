@@ -1,6 +1,7 @@
 #include "../LogWriter.hpp"
 #include "../Logger.hpp"
 #include "../LoggingSupport.hpp"
+#include "../memoryUtil.hpp"
 #include "../Peer.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include "ProcessCoordinatorMQ.hpp"
@@ -174,10 +175,11 @@ ExperimentConfig parseExperiment(
 }
 
 // Resolve and configure the output destination for this experiment.
-std::string configureExperimentOutput(const std::string &logFileBase, size_t expIndex) {
-    const std::optional<int> noPort = std::nullopt;
+std::string configureExperimentOutput(
+    const std::string &logFileBase, size_t expIndex, std::optional<int> processDisambiguator
+) {
     const std::string metricsFile =
-        quantas::makeExperimentFileName(logFileBase, expIndex, noPort, ".json");
+        quantas::makeExperimentFileName(logFileBase, expIndex, processDisambiguator, ".json");
     quantas::LogWriter::setLogFile(metricsFile);
     return metricsFile;
 }
@@ -242,18 +244,13 @@ void runRounds(
     const char *modeLabel =
         (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
 
-    while (true) {
-        // Pre iteration stop trigger
-        if (coordinator.shouldStop()) {
-            if (stopReason == "unknown") stopReason = "coordinator_stop_signal";
-            break;
-        }
+    while (!coordinator.shouldStop()) {
         if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {
-            stopReason = "fixed_rounds_bound";
+            stopReason = "fixed_rounds_reached";
             break;
         }
 
-        // One round of work
+        // --------------------------- Round starts ---------------------------
         quantas::RoundManager::incrementRound();
         for (auto *peer : localPeers) {
             if (!peer) continue;
@@ -262,13 +259,10 @@ void runRounds(
         }
         localPeers.front()->endOfRound(localPeers);
         ++loopCount;
+        // --------------------------- Round Ends ---------------------------
 
-        // Post iteration stop trigger
-        if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {
-            stopReason = "fixed_rounds_reached";
-            coordinator.requestStop(stopReason);
-        } else if (mode == quantas::StopMode::DoneSignals &&
-                   loopCount >= static_cast<size_t>(rounds)) {
+        if (mode == quantas::StopMode::DoneSignals &&
+            loopCount >= static_cast<size_t>(rounds)) {
             stopReason = "done_signals_not_implemented_fallback";
             coordinator.requestStop(stopReason);
         }
@@ -277,6 +271,9 @@ void runRounds(
     /* If the algorithm layer has an `endOfExperiment` it will override otherwise the runtime layer
      * does nothing */
     localPeers.front()->endOfExperiment(localPeers);
+
+    coordinator.notifyPeerStopped(localPeers.front()->publicId());
+    coordinator.waitForStop();
 
     // Observability/debug evidence for how and why each peer’s loop terminated.
     const auto currentRound = quantas::RoundManager::currentRound();
@@ -321,6 +318,16 @@ void initializeHooks(const nlohmann::json &experiment, std::vector<quantas::Peer
     }
 }
 
+void emitFinalExperimentMetrics(const std::chrono::high_resolution_clock::time_point &startTime) {
+    const auto endTime = std::chrono::high_resolution_clock::now();
+    const std::chrono::duration<double> duration = endTime - startTime;
+    quantas::LogWriter::setValue("RunTime", duration.count());
+    quantas::LogWriter::setValue("Peak Memory KB", static_cast<double>(getPeakMemoryKB()));
+    QUANTAS_LOG_INFO("runner") << "printing output";
+    quantas::LogWriter::print();
+    QUANTAS_LOG_INFO("runner") << "output printed";
+}
+
 // --------------------------- Worker runtime ---------------------------
 
 int main(int argc, char **argv) {
@@ -344,7 +351,9 @@ int main(int argc, char **argv) {
             ExperimentConfig exp = parseExperiment(*config, expIndex, cli->roundsOverride);
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
-            const std::string metricsFile = configureExperimentOutput(logFileBase, expIndex);
+            const std::optional<int> processDisambiguator = cli->peerId;
+            const std::string metricsFile =
+                configureExperimentOutput(logFileBase, expIndex, processDisambiguator);
             coordinator.configureExperiment(
                 expIndex, exp.peerType, false, exp.totalPeers, cli->peerId, logFileBase,
                 quantas::StopMode::FixedRounds
@@ -354,12 +363,14 @@ int main(int argc, char **argv) {
 
             if (!prepareLocalPeers(*cli, exp, localPeers)) {
                 cleanUp(localPeers);
+                coordinator.cleanUp();
                 QUANTAS_LOG_WARN("runner")
                     << "experiment " << expIndex << ": no runnable local peers, skipping";
                 continue;
             }
 
             initializeHooks(experiment, localPeers);
+            const auto startTime = std::chrono::high_resolution_clock::now();
 
             /*
             =================== Phase 2: Execute / Cleanup ====================
@@ -367,10 +378,13 @@ int main(int argc, char **argv) {
             */
 
             runRounds(localPeers, exp.rounds, coordinator);
+            emitFinalExperimentMetrics(startTime);
 
             cleanUp(localPeers);
+            coordinator.cleanUp();
         } catch (const std::exception &ex) {
             cleanUp(localPeers);
+            coordinator.cleanUp();
             QUANTAS_LOG_ERROR("runner") << "experiment " << expIndex << " failed: " << ex.what();
             return 1;
         }

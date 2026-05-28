@@ -261,3 +261,8 @@ In this file I document what I do everyday during my internship.
 ### 27/05/2026
 
 - Completed bookkeeping after wiring J10/J11 in the MQ worker lifecycle: `endOfRound(localPeers)` now executes once per round inside `runRounds(...)`, and `endOfExperiment(localPeers)` runs once after rounds finish. Updated `todo.md` to mark J10/J11 (and I2) as done and shifted focus to J12 stop-handshake completion and J13 output/metrics parity. This closes the hook-wiring branch scope and keeps the next workstream centered on coordinator-driven termination parity.
+
+### 28/05/2026
+
+- Implemented and validated the MQ baseline for stop-handshake, final metrics emission, and coordinated per-experiment cleanup across leader and workers (J12/J13/J14 baseline). Fixed output behavior so experiment `logFile` from JSON is used in MQ runs, and resolved multi-process output corruption by writing peer-disambiguated output files (`..._p<peerId>`). Verification with `make -j4 mq_peer_debug mq_leader_debug` and `make mq_run_all ... MQ_TOTAL_PEERS=11 MQ_ROUNDS=5` completed with all peer and leader exit codes at `0`.
+- Reached a stable MQ runtime baseline where the full experiment lifecycle is now wired end-to-end: config/peer setup, start synchronization, round execution with hooks, coordinator-driven stop handshake, final metrics emission, and cleanup. The MQ path now honors `logFile` output and avoids multi-peer file corruption through peer-disambiguated output files. At this point the remaining work is semantic parity hardening (topology behavior, distribution/channel behavior, `tests > 1`, final `DoneSignals` policy, and final output artifact contract).

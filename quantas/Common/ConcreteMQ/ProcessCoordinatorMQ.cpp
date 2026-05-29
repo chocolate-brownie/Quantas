@@ -1,5 +1,5 @@
-#include "ProcessCoordinatorMQ.hpp"
 #include "../Logger.hpp"
+#include "ProcessCoordinatorMQ.hpp"
 #include <atomic>
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/exceptions.hpp>

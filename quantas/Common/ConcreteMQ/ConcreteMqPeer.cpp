@@ -1,8 +1,8 @@
 #include "../LogWriter.hpp"
 #include "../Logger.hpp"
 #include "../LoggingSupport.hpp"
-#include "../memoryUtil.hpp"
 #include "../Peer.hpp"
+#include "../memoryUtil.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include "ProcessCoordinatorMQ.hpp"
 #include <chrono>
@@ -63,7 +63,7 @@ shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
 
 /* ========================= Shared utilities ========================= */
 
-// Build the local phase-1 assignment (single peer per process).
+/* Build the local phase-1 assignment (single peer per process). "for peer X, who should X know?"*/
 MqAssignment buildLocalAssignment(const CliArgs &cli, const ExperimentConfig &exp) {
     MqAssignment a;
     a.id = cli.peerId;
@@ -261,8 +261,7 @@ void runRounds(
         ++loopCount;
         // --------------------------- Round Ends ---------------------------
 
-        if (mode == quantas::StopMode::DoneSignals &&
-            loopCount >= static_cast<size_t>(rounds)) {
+        if (mode == quantas::StopMode::DoneSignals && loopCount >= static_cast<size_t>(rounds)) {
             stopReason = "done_signals_not_implemented_fallback";
             coordinator.requestStop(stopReason);
         }

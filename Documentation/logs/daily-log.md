@@ -266,3 +266,9 @@ In this file I document what I do everyday during my internship.
 
 - Implemented and validated the MQ baseline for stop-handshake, final metrics emission, and coordinated per-experiment cleanup across leader and workers (J12/J13/J14 baseline). Fixed output behavior so experiment `logFile` from JSON is used in MQ runs, and resolved multi-process output corruption by writing peer-disambiguated output files (`..._p<peerId>`). Verification with `make -j4 mq_peer_debug mq_leader_debug` and `make mq_run_all ... MQ_TOTAL_PEERS=11 MQ_ROUNDS=5` completed with all peer and leader exit codes at `0`.
 - Reached a stable MQ runtime baseline where the full experiment lifecycle is now wired end-to-end: config/peer setup, start synchronization, round execution with hooks, coordinator-driven stop handshake, final metrics emission, and cleanup. The MQ path now honors `logFile` output and avoids multi-peer file corruption through peer-disambiguated output files. At this point the remaining work is semantic parity hardening (topology behavior, distribution/channel behavior, `tests > 1`, final `DoneSignals` policy, and final output artifact contract).
+
+### 01/06/2026
+
+- Mapped the TCP topology-assignment pipeline step by step and traced how `buildTopology(...)` reaches worker peer configuration through assignment payloads.
+- Identified the ConcreteMQ parity gap clearly: local assignment still defaults to full-mesh neighbors, so topology semantics are not yet injected into peer construction.
+- Locked an incremental execution path for M1.1: introduce topology-aware neighbor mapping in local assignment flow first (`complete`, `ring`, `grid`, `userList`) before larger coordinator-driven refactors.

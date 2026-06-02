@@ -1,6 +1,9 @@
 # Milestones Roadmap
 
 ## M1 - Topology parity
+Status:
+- PASS. Evidence recorded in `06-validation-matrix.md`.
+
 Objective:
 - Implement topology-faithful assignment/wiring in MQ runtime.
 

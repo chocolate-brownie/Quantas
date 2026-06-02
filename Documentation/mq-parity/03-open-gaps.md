@@ -15,6 +15,8 @@ The gaps below are required to close behavioral parity.
 
 ## G1: Topology mapping fidelity
 
+Status: CLOSED for MQ M1. Evidence recorded in `06-validation-matrix.md`.
+
 ### What it is
 Topology is the communication graph: who can directly send to whom.
 

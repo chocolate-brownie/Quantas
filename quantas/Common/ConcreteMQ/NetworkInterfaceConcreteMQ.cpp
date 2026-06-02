@@ -1,3 +1,4 @@
+#include "../Logger.hpp"
 #include "../Packet.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include <boost/archive/binary_iarchive.hpp>
@@ -33,6 +34,16 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
     _publicId = id;
     _internalId = id;
     _neighbors = neighbors;
+
+    std::ostringstream neighborList;
+    bool first = true;
+    for (const auto neighbor : _neighbors) {
+        if (!first) neighborList << ',';
+        neighborList << neighbor;
+        first = false;
+    }
+    QUANTAS_LOG_INFO("topology")
+        << "configured MQ peer " << _publicId << " neighbors=[" << neighborList.str() << "]";
 
     std::string queueName = "peer_" + std::to_string(id);
 

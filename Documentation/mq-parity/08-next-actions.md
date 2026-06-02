@@ -1,16 +1,16 @@
 # Next Actions (Active Queue)
 
+## Completed
+1. M1 topology parity
+- MQ now builds local assignments from topology rules instead of the all-neighbor fallback.
+- `complete`, `ring`, `grid`, and `userList` are covered by `TopologyParityInput.json`.
+- Evidence is recorded in `06-validation-matrix.md`.
+
 ## Now
-1. M1 topology parity implementation plan
-- map README topology schema to MQ assignment generation
-- define validation inputs for `complete`, `ring`, `grid`, `userList`
+1. M2 distribution/channel parity implementation kickoff
+- map README distribution semantics to MQ transport behavior
+- define validation inputs for drop/reorder/duplicate/delay behavior
+- update `06-validation-matrix.md` with scenario evidence
 
-2. M1 implementation
-- replace phase-1 all-neighbor simplification with topology-faithful assignment
-
-3. M1 evidence
-- run matrix scenarios
-- update `06-validation-matrix.md`
-
-## After M1
-- M2 distribution/channel parity implementation kickoff.
+## After M2
+- M3 `tests > 1` parity kickoff.

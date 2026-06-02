@@ -6,6 +6,6 @@
 | Stop handshake | done->stop flow | same as above | done notifications, leader stop broadcast, peer stop receive | PASS | coordinator logs |
 | Final metrics | J13 baseline | same as above | `RunTime` and `Peak Memory KB` emitted | PASS | `bitcoinRun_EXP1_p*.txt` |
 | Output isolation | per-peer artifacts | same as above | no cross-peer file corruption | PASS | peer-disambiguated files |
-| Topology parity | TODO | TODO | topology-faithful behavior | TODO | TODO |
+| Topology parity | 4-peer complete/ring/grid/userList smoke | `make -j4 mq_peer_debug mq_leader_debug INPUTFILE=quantas/ExamplePeer/TopologyParityInput.json` + `make mq_run_all INPUTFILE=quantas/ExamplePeer/TopologyParityInput.json MQ_TOTAL_PEERS=4 MQ_ROUNDS=1` | expected neighbor sets emitted for complete, ring, 2x2 grid, and directed userList; all peers + leader exit `0` | PASS | `/tmp/quantas_mq_topology_parity.log` |
 | Distribution parity | TODO | TODO | README semantics matched | TODO | TODO |
 | `tests > 1` parity | TODO | TODO | repeated tests semantics matched | TODO | TODO |

@@ -272,3 +272,8 @@ In this file I document what I do everyday during my internship.
 - Mapped the TCP topology-assignment pipeline step by step and traced how `buildTopology(...)` reaches worker peer configuration through assignment payloads.
 - Identified the ConcreteMQ parity gap clearly: local assignment still defaults to full-mesh neighbors, so topology semantics are not yet injected into peer construction.
 - Locked an incremental execution path for M1.1: introduce topology-aware neighbor mapping in local assignment flow first (`complete`, `ring`, `grid`, `userList`) before larger coordinator-driven refactors.
+
+### 02/06/2026
+
+- Completed MQ M1 topology parity by replacing the full-mesh local assignment fallback with topology-aware neighbor construction for `complete`, `ring`, `grid`, and `userList`.
+- Added visual topology logs showing both computed assignments and configured MQ interface neighbors, then validated with `TopologyParityInput.json` using `mq_peer_debug`, `mq_leader_debug`, and `mq_run_all`.

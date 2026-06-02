@@ -231,7 +231,7 @@ void Logger::write(std::string_view category, LogLevel level, std::string_view m
         return;
     }
     (*sink) << formatTimestamp() << ' '
-            << '[' << category << "][" << levelName(level) << "] "
+            << '[' << category << "]\t[" << levelName(level) << "] "
             << message << '\n';
     sink->flush();
 }

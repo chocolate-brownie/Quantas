@@ -2,11 +2,13 @@
 #define PROCESS_COORDINATOR_MQ_HPP
 
 #include "../NetworkInterface.hpp" // IWYU pragma: keep
+#include "MqAssignment.hpp"
 #include <atomic>
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 
 #define MAX_MSG_SIZE 1024
 
@@ -64,6 +66,10 @@ class ProcessCoordinatorMQ {
     void waitForAllReady();
     void broadcastStart();
     void waitForStart();
+
+    // -------------------- assignment protocol scaffolding --------------------
+    void sendAssignments(const std::vector<MqAssignment> &assignments);
+    std::vector<MqAssignment> waitForAssignments();
 
     /* -------------------- Cleanup/lifecycle helpers --------------------
     Remove MQ queues created for this experiment/process */

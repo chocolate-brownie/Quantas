@@ -67,6 +67,7 @@ CONCRETE_OBJS := $(COMMON_OBJS) \
 MQ_OBJS := $(COMMON_OBJS) \
 	quantas/Common/ConcreteMQ/ConcreteMqPeer.o \
 	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o \
+	quantas/Common/ConcreteMQ/MqTopology.o \
 	quantas/Common/ConcreteMQ/NetworkInterfaceConcreteMQ.o \
 	quantas/Common/Abstract/Channel.o \
 	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
@@ -74,6 +75,7 @@ MQ_OBJS := $(COMMON_OBJS) \
 	quantas/Common/Concrete/ipUtil.o
 MQ_LEADER_OBJS := $(COMMON_OBJS) \
 	quantas/Common/ConcreteMQ/ConcreteMqLeader.o \
+	quantas/Common/ConcreteMQ/MqTopology.o \
 	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o
 
 # compiles all cpps specified as necessary in the INPUTFILE

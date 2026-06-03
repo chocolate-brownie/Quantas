@@ -277,3 +277,9 @@ In this file I document what I do everyday during my internship.
 
 - Completed MQ M1 topology parity by replacing the full-mesh local assignment fallback with topology-aware neighbor construction for `complete`, `ring`, `grid`, and `userList`.
 - Added visual topology logs showing both computed assignments and configured MQ interface neighbors, then validated with `TopologyParityInput.json` using `mq_peer_debug`, `mq_leader_debug`, and `mq_run_all`.
+
+### 03/06/2026
+
+- Migrated MQ topology execution from peer-local computation to coordinator-driven assignment: leader now builds topology, serializes `MqAssignment` payloads with Boost, and sends them before start.
+- Added visual proof logs for `leader sent assignments topology=<type>` and `peer X using topology=<type>`, then validated `complete`, `ring`, `grid`, and `userList` with clean peer/leader exits.
+- Added `quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json` as a small 3-peer Bitcoin MQ demo file for supervisor walkthroughs on one machine with multiple processes.

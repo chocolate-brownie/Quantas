@@ -223,8 +223,10 @@ MqAssignment buildLocalAssignment(const CliArgs &cli, const ExperimentConfig &ex
         neighbors << neighbor;
         first = false;
     }
+    const std::string topologyType = exp.topology.value("type", "unknown");
     QUANTAS_LOG_INFO("topology")
-        << "peer " << assignment.id << " neighbors=[" << neighbors.str() << "]";
+        << "type=" << topologyType << " peer " << assignment.id << " neighbors=["
+        << neighbors.str() << "]";
 
     return assignment;
 }

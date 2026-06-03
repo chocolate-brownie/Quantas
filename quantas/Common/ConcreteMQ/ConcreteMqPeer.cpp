@@ -1,15 +1,15 @@
 #include "../LogWriter.hpp"
 #include "../Logger.hpp"
 #include "../LoggingSupport.hpp"
-#include "../memoryUtil.hpp"
 #include "../Peer.hpp"
+#include "../memoryUtil.hpp"
+#include "MqAssignment.hpp"
 #include "NetworkInterfaceConcreteMQ.hpp"
 #include "ProcessCoordinatorMQ.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -47,32 +47,13 @@ struct ExperimentConfig {
     int rounds{0};
 };
 
-struct MqAssignment {
-    quantas::interfaceId id{quantas::NO_PEER_ID};
-    std::set<quantas::interfaceId> neighbors;
-};
+using MqAssignment = quantas::MqAssignment;
 
-/*
-Reusable utility notes
+/* The helpers below are intentionally written so they can later be moved to a
+   shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
+   - ConcreteMqPeer.cpp (worker runtime)
+   - ConcreteMqLeader.cpp (leader runtime) */
 
-The helpers below are intentionally written so they can later be moved to a
-shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
-- ConcreteMqPeer.cpp (worker runtime)
-- ConcreteMqLeader.cpp (leader runtime)
-*/
-
-/* ========================= Shared utilities ========================= */
-
-// Build the local phase-1 assignment (single peer per process).
-MqAssignment buildLocalAssignment(const CliArgs &cli, const ExperimentConfig &exp) {
-    MqAssignment a;
-    a.id = cli.peerId;
-
-    for (int other = 0; other < exp.totalPeers; ++other) {
-        if (other != cli.peerId) a.neighbors.insert(other);
-    }
-    return a;
-}
 
 // Validate assignment bounds and basic topology invariants.
 void validateAssignment(const MqAssignment &assignment, int totalPeers) {
@@ -98,15 +79,10 @@ void validateAssignment(const MqAssignment &assignment, int totalPeers) {
 void applyAssignment(
     const MqAssignment &assignment, quantas::NetworkInterfaceConcreteMQ *mq, quantas::Peer *peer
 ) {
+    QUANTAS_LOG_INFO("topology") << "peer " << assignment.id << " using topology="
+                                 << assignment.topologyType;
     mq->configure(assignment.id, assignment.neighbors);
     peer->setNetworkInterface(mq);
-}
-
-// Convenience wrapper for local assignment build + validation.
-MqAssignment buildValidatedLocalAssignment(const CliArgs &cli, const ExperimentConfig &exp) {
-    MqAssignment assignment = buildLocalAssignment(cli, exp);
-    validateAssignment(assignment, exp.totalPeers);
-    return assignment;
 }
 
 // Parse worker CLI arguments: input JSON, peer id, optional rounds override.
@@ -166,7 +142,6 @@ ExperimentConfig parseExperiment(
     out.peerType = experiment["topology"].value("initialPeerType", "");
     out.rounds = roundsOverride.has_value() ? *roundsOverride
                                             : static_cast<int>(experiment.value("rounds", 0));
-
     if (out.totalPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
     if (out.peerType.empty()) throw std::runtime_error("error: topology.initialPeerType is empty");
     if (out.rounds <= 0) throw std::runtime_error("error: rounds must be > 0");
@@ -195,11 +170,6 @@ void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
 
     QUANTAS_LOG_INFO("runner") << "peer " << myId << " sending ready";
     coord.sendReady();
-
-    QUANTAS_LOG_INFO("runner") << "peer " << myId << " waiting for start";
-    coord.waitForStart();
-
-    QUANTAS_LOG_INFO("runner") << "peer " << myId << " start signal acknowledged";
 }
 
 /* Construct all peers assigned to this worker and bind each peer to an MQ
@@ -261,8 +231,7 @@ void runRounds(
         ++loopCount;
         // --------------------------- Round Ends ---------------------------
 
-        if (mode == quantas::StopMode::DoneSignals &&
-            loopCount >= static_cast<size_t>(rounds)) {
+        if (mode == quantas::StopMode::DoneSignals && loopCount >= static_cast<size_t>(rounds)) {
             stopReason = "done_signals_not_implemented_fallback";
             coordinator.requestStop(stopReason);
         }
@@ -287,20 +256,14 @@ void runRounds(
 }
 /* ========================= Rounds Execution Ends ========================= */
 
-/* Collect local assignments owned by this worker.
-Phase-1 behavior: one process owns one peer assignment */
-std::vector<MqAssignment> collectLocalAssignments(const CliArgs &cli, const ExperimentConfig &exp) {
-    std::vector<MqAssignment> assignments;
-    assignments.push_back(buildValidatedLocalAssignment(cli, exp));
-    return assignments;
-}
-
-// Try to build local peers from topology rules
+// Try to build peers from topology rules
 bool prepareLocalPeers(
-    const CliArgs &cli, const ExperimentConfig &exp, std::vector<quantas::Peer *> &localPeers
+    const ExperimentConfig &exp, const std::vector<MqAssignment> &assignments,
+    std::vector<quantas::Peer *> &localPeers
 ) {
-    std::vector<MqAssignment> assignments = collectLocalAssignments(cli, exp);
     if (assignments.empty()) return false;
+
+    for (const auto &assignment : assignments) { validateAssignment(assignment, exp.totalPeers); }
 
     localPeers = buildLocalPeers(exp.peerType, assignments);
     return !localPeers.empty();
@@ -361,13 +324,18 @@ int main(int argc, char **argv) {
             QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " output file: " << metricsFile;
             initRendezvous(coordinator, cli->peerId);
 
-            if (!prepareLocalPeers(*cli, exp, localPeers)) {
+            std::vector<MqAssignment> assignments = coordinator.waitForAssignments();
+            if (!prepareLocalPeers(exp, assignments, localPeers)) {
                 cleanUp(localPeers);
                 coordinator.cleanUp();
                 QUANTAS_LOG_WARN("runner")
                     << "experiment " << expIndex << ": no runnable local peers, skipping";
                 continue;
             }
+
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
+            coordinator.waitForStart();
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " start signal acknowledged";
 
             initializeHooks(experiment, localPeers);
             const auto startTime = std::chrono::high_resolution_clock::now();

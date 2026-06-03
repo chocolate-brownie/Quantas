@@ -1,0 +1,88 @@
+{
+  "algorithms": [
+    "ExamplePeer/ExamplePeer.cpp",
+    "ExamplePeer/ExamplePeer2.cpp"
+  ],
+  "experiments": [
+    {
+      "logFile": "topologyComplete.txt",
+      "threadCount": 1,
+      "parameters": {
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "ONE",
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 4,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 1
+    },
+    {
+      "logFile": "topologyRing.txt",
+      "threadCount": 1,
+      "parameters": {
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "ONE",
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "ring",
+        "initialPeers": 4,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 1
+    },
+    {
+      "logFile": "topologyGrid.txt",
+      "threadCount": 1,
+      "parameters": {
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "ONE",
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "grid",
+        "height": 2,
+        "width": 2,
+        "initialPeers": 4,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 1
+    },
+    {
+      "logFile": "topologyUserList.txt",
+      "threadCount": 1,
+      "parameters": {
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "ONE",
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "userList",
+        "initialPeers": 4,
+        "initialPeerType": "ExamplePeer",
+        "list": {
+          "0": [1, 2],
+          "1": [2],
+          "2": [3],
+          "3": [0]
+        }
+      },
+      "tests": 1,
+      "rounds": 1
+    }
+  ]
+}

@@ -1,5 +1,6 @@
-#include "../LoggingSupport.hpp"
 #include "../Logger.hpp"
+#include "../LoggingSupport.hpp"
+#include "MqTopology.hpp"
 #include "ProcessCoordinatorMQ.hpp"
 #include <fstream>
 #include <iostream>
@@ -10,6 +11,7 @@
 struct ExperimentConfig {
     int initialPeers{0};
     std::string initialPeerType;
+    nlohmann::json topology;
 };
 
 ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
@@ -20,6 +22,7 @@ ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
     ExperimentConfig out;
     out.initialPeers = experiment["topology"].value("initialPeers", 0);
     out.initialPeerType = experiment["topology"].value("initialPeerType", "");
+    out.topology = experiment["topology"];
 
     if (out.initialPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
     if (out.initialPeerType.empty())
@@ -84,15 +87,18 @@ int main(int argc, char *argv[]) {
                 expIndex, exp.initialPeerType, true, exp.initialPeers, quantas::NO_PEER_ID,
                 logFileBase, quantas::StopMode::FixedRounds
             );
-            QUANTAS_LOG_INFO("coord")
-                << "leader starting rendezvous for experiment " << expIndex
-                << " with totalPeers=" << exp.initialPeers;
+            QUANTAS_LOG_INFO("coord") << "leader starting rendezvous for experiment " << expIndex
+                                      << " with totalPeers=" << exp.initialPeers;
             coordinator.createBarrier();
             coordinator.waitForAllReady();
+
+            quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
+            coordinator.sendAssignments(topology.assignments);
+
             coordinator.broadcastStart();
             coordinator.waitForAllDone();
-            QUANTAS_LOG_INFO("coord")
-                << "leader broadcasted start for experiment " << expIndex;
+
+            QUANTAS_LOG_INFO("coord") << "leader broadcasted start for experiment " << expIndex;
             coordinator.cleanUp();
         } catch (const std::exception &ex) {
             coordinator.cleanUp();

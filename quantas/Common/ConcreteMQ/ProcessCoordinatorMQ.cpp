@@ -1,15 +1,20 @@
 #include "../Logger.hpp"
+#include "MqAssignment.hpp"
 #include "ProcessCoordinatorMQ.hpp"
 #include <atomic>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
+#include <boost/interprocess/streams/bufferstream.hpp>
 #include <cstddef>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 /*
  * TODO::
@@ -218,6 +223,62 @@ void ProcessCoordinatorMQ::waitForStart() {
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "Failed to ::waitForStart for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
+    }
+}
+
+void ProcessCoordinatorMQ::sendAssignments(const std::vector<MqAssignment> &assignments) {
+    if (!_isLeader) return;
+
+    try {
+        for (const MqAssignment &assignment : assignments) {
+            std::stringstream ss;
+            boost::archive::binary_oarchive oa(ss);
+            oa << assignment;
+
+            const std::string bytes = ss.str();
+
+            std::string queueName = "peer_" + std::to_string(assignment.id);
+            message_queue peerInbox(open_only, queueName.c_str());
+
+            if (bytes.size() > peerInbox.get_max_msg_size()) {
+                throw std::runtime_error(
+                    "Assignment for peer " + std::to_string(assignment.id) +
+                    " exceeds queue max message size"
+                );
+            }
+
+            peerInbox.send(bytes.data(), bytes.size(), 0);
+        }
+        const std::string topologyType =
+            assignments.empty() ? "unknown" : assignments.front().topologyType;
+        QUANTAS_LOG_INFO("coord") << "leader sent assignments topology=" << topologyType
+                                  << " peers=" << assignments.size();
+    } catch (const interprocess_exception &ex) {
+        throw std::runtime_error(std::string("Failed to ::sendAssignments: ") + ex.what());
+    }
+}
+
+std::vector<MqAssignment> ProcessCoordinatorMQ::waitForAssignments() {
+    if (_isLeader) return {};
+
+    try {
+        std::vector<char> buffer(_myInbox->get_max_msg_size());
+        unsigned int priority;
+        message_queue::size_type recvdSize;
+
+        _myInbox->receive(buffer.data(), buffer.size(), recvdSize, priority);
+
+        std::stringstream ss(std::string(buffer.data(), recvdSize));
+        boost::archive::binary_iarchive ia(ss);
+
+        MqAssignment assignment;
+        ia >> assignment;
+
+        return {assignment};
+    } catch (const interprocess_exception &ex) {
+        throw std::runtime_error(
+            "Failed to ::waitForAssignments for peer " + std::to_string(_myId) + ": " + ex.what()
         );
     }
 }

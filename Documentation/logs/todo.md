@@ -26,21 +26,21 @@ Legend:
 These are not the next attack targets unless they regress.
 
 Done:
-- JSON parsing exists in both `ConcreteMqLeader` and `ConcreteMqPeer`.
-- `make mq_run_all` launches one leader process plus N peer processes.
-- `ProcessCoordinatorMQ` supports startup readiness, assignment delivery,
+- [x] JSON parsing exists in both `ConcreteMqLeader` and `ConcreteMqPeer`.
+- [x] `make mq_run_all` launches one leader process plus N peer processes.
+- [x] `ProcessCoordinatorMQ` supports startup readiness, assignment delivery,
   start, done, stop, and cleanup.
-- `MqTopology::buildTopology(...)` computes neighbor assignments.
-- each peer process owns one inbox queue named `peer_<id>`.
-- `NetworkInterfaceConcreteMQ` checks neighbor sets before send.
-- `Packet` crosses the process boundary through Boost serialization.
-- peer receive/compute execution is process-local.
-- Abstract `BS::thread_pool` is not used for MQ peer execution.
-- peer outputs are disambiguated per process.
+- [x] `MqTopology::buildTopology(...)` computes neighbor assignments.
+- [x] each peer process owns one inbox queue named `peer_<id>`.
+- [x] `NetworkInterfaceConcreteMQ` checks neighbor sets before send.
+- [x] `Packet` crosses the process boundary through Boost serialization.
+- [x] peer receive/compute execution is process-local.
+- [x] Abstract `BS::thread_pool` is not used for MQ peer execution.
+- [x] peer outputs are disambiguated per process.
 
 Keep validating with:
-- `make mq_run_all INPUTFILE=... MQ_TOTAL_PEERS=<N> [MQ_ROUNDS=<R>]`
-- topology evidence in logs for complete, ring, grid, and userList scenarios.
+- [ ] `make mq_run_all INPUTFILE=... MQ_TOTAL_PEERS=<N> [MQ_ROUNDS=<R>]`
+- [ ] topology evidence in logs for complete, ring, grid, and userList scenarios.
 
 ## 1. Decide the ConcreteMQ Execution Model
 
@@ -57,18 +57,18 @@ Recommendation:
   Abstract parity is required.
 
 Tasks:
-- Decision: record ConcreteMQ as "realistic process backend, no global round
+- [ ] Decision: record ConcreteMQ as "realistic process backend, no global round
   barrier" in the validation docs.
-- Next: add a small round-progress evidence run that logs each peer's local
+- [ ] Next: add a small round-progress evidence run that logs each peer's local
   loop count/current round view.
-- Later: if strict parity becomes necessary, design a separate IPC round barrier
+- [ ] Later: if strict parity becomes necessary, design a separate IPC round barrier
   rather than mixing it into message delivery.
 
 Done when:
-- `Documentation/logs/arch.md` and the MQ validation matrix both state the same
+- [ ] `Documentation/logs/arch.md` and the MQ validation matrix both state the same
   execution model;
-- a reproducible MQ run shows independent peer loop progress;
-- algorithms that depend on `RoundManager::currentRound()` are flagged for
+- [ ] a reproducible MQ run shows independent peer loop progress;
+- [ ] algorithms that depend on `RoundManager::currentRound()` are flagged for
   careful comparison.
 
 ## 2. Define the MQ Channel-Semantics Contract
@@ -101,18 +101,18 @@ Recommendation:
 - Add semantics incrementally, one behavior at a time.
 
 Tasks:
-- Decision: define whether channel configuration is keyed globally, per
+- [ ] Decision: define whether channel configuration is keyed globally, per
   destination peer, or per source/destination link.
-- Next: document the exact first M2 semantic to implement.
-- Next: choose the smallest controlled ExamplePeer input that proves the first
+- [ ] Next: document the exact first M2 semantic to implement.
+- [ ] Next: choose the smallest controlled ExamplePeer input that proves the first
   semantic.
-- Later: move each implemented behavior into
+- [ ] Later: move each implemented behavior into
   `Documentation/mq-parity/06-validation-matrix.md` with command evidence.
 
 Done when:
-- the keying rule is written down before code changes;
-- one M2 semantic has a reproducible input and expected output;
-- validation logs explain why a packet was delivered, delayed, dropped,
+- [ ] the keying rule is written down before code changes;
+- [ ] one M2 semantic has a reproducible input and expected output;
+- [ ] validation logs explain why a packet was delivered, delayed, dropped,
   duplicated, reordered, or capped.
 
 ## 3. Add a Pending-Delivery Buffer
@@ -136,16 +136,16 @@ peer_<id> inbox
 ```
 
 Tasks:
-- Next: add a local pending packet buffer to `NetworkInterfaceConcreteMQ`.
-- Next: keep initial behavior equivalent by immediately flushing all pending
+- [ ] Next: add a local pending packet buffer to `NetworkInterfaceConcreteMQ`.
+- [ ] Next: keep initial behavior equivalent by immediately flushing all pending
   packets into `_inStream`.
-- Next: add counters for `received_raw` and `delivered_to_instream`.
-- Later: plug delay, reorder, and `maxMsgsRec` into the buffer.
+- [ ] Next: add counters for `received_raw` and `delivered_to_instream`.
+- [ ] Later: plug delay, reorder, and `maxMsgsRec` into the buffer.
 
 Done when:
-- existing MQ smoke runs still behave the same;
-- receive logs or counters distinguish raw receipt from algorithm delivery;
-- there is a clean insertion point for delay/reorder/receive-cap semantics.
+- [ ] existing MQ smoke runs still behave the same;
+- [ ] receive logs or counters distinguish raw receipt from algorithm delivery;
+- [ ] there is a clean insertion point for delay/reorder/receive-cap semantics.
 
 ## 4. Separate Model Drops from Backpressure Drops
 
@@ -163,15 +163,15 @@ dropped_backpressure
 ```
 
 Tasks:
-- Next: introduce structured counters in `NetworkInterfaceConcreteMQ`.
-- Next: rename/record timed-send failures as `dropped_backpressure`.
-- Later: implement configured `dropProbability` as `dropped_model`.
-- Later: write counters to peer output or validation logs.
+- [ ] Next: introduce structured counters in `NetworkInterfaceConcreteMQ`.
+- [ ] Next: rename/record timed-send failures as `dropped_backpressure`.
+- [ ] Later: implement configured `dropProbability` as `dropped_model`.
+- [ ] Later: write counters to peer output or validation logs.
 
 Done when:
-- no validation output confuses model loss with queue-capacity loss;
-- backpressure drops and configured drops are independently visible;
-- a test or controlled run can force at least one backpressure drop without
+- [ ] no validation output confuses model loss with queue-capacity loss;
+- [ ] backpressure drops and configured drops are independently visible;
+- [ ] a test or controlled run can force at least one backpressure drop without
   calling it a model drop.
 
 ## 5. Implement One Channel Semantic at a Time
@@ -189,16 +189,16 @@ Recommended order:
 6. queue-size semantics, if Abstract parity requires more than OS MQ capacity.
 
 Tasks for each semantic:
-- define the exact input configuration field being honored;
-- implement only that behavior;
-- add a small controlled input;
-- capture command output/log evidence;
-- update the validation matrix row.
+- [ ] define the exact input configuration field being honored;
+- [ ] implement only that behavior;
+- [ ] add a small controlled input;
+- [ ] capture command output/log evidence;
+- [ ] update the validation matrix row.
 
 Done when:
-- each semantic can be explained from one small run;
-- each semantic has separate counters or logs;
-- M2 distribution/channel parity can be marked PASS behavior by behavior.
+- [ ] each semantic can be explained from one small run;
+- [ ] each semantic has separate counters or logs;
+- [ ] M2 distribution/channel parity can be marked PASS behavior by behavior.
 
 ## 6. Define the Packet Metadata Contract
 
@@ -221,15 +221,15 @@ Recommendation:
 - First choose the first channel semantic and identify what metadata it needs.
 
 Tasks:
-- Decision: document stable serialized fields and delivery metadata fields.
-- Next: decide whether the first M2 semantic requires packet-format changes.
-- Later: if packet format changes, clean rebuild before debugging behavior.
+- [ ] Decision: document stable serialized fields and delivery metadata fields.
+- [ ] Next: decide whether the first M2 semantic requires packet-format changes.
+- [ ] Later: if packet format changes, clean rebuild before debugging behavior.
 
 Done when:
-- `Packet` field purpose is documented;
-- MQ serialization format is documented;
-- any added field has a validation use case;
-- existing MQ smoke runs pass after packet-format changes.
+- [ ] `Packet` field purpose is documented;
+- [ ] MQ serialization format is documented;
+- [ ] any added field has a validation use case;
+- [ ] existing MQ smoke runs pass after packet-format changes.
 
 ## 7. Audit Peer Lifecycle Hooks
 
@@ -248,25 +248,25 @@ ConcreteMQ today:
 - This can silently break algorithms that inspect global peer state.
 
 Tasks:
-- Next: audit concrete algorithms for:
+- [ ] Next: audit concrete algorithms for:
   - `initParameters(...)`;
   - `endOfRound(...)`;
   - `endOfExperiment(...)`;
   - loops over `std::vector<Peer*>`;
   - direct reads of other peer state.
-- Next: create a table with:
+- [ ] Next: create a table with:
   - algorithm;
   - hook used;
   - needs global peer vector;
   - MQ risk;
   - proposed contract.
-- Decision: classify each hook as local-safe, aggregation-needed, or unsupported
+- [ ] Decision: classify each hook as local-safe, aggregation-needed, or unsupported
   in MQ mode.
 
 Done when:
-- no algorithm hook ambiguity remains undocumented;
-- global-peer-vector assumptions are visible before more MQ parity work;
-- risky hooks have a proposed snapshot/aggregation strategy.
+- [ ] no algorithm hook ambiguity remains undocumented;
+- [ ] global-peer-vector assumptions are visible before more MQ parity work;
+- [ ] risky hooks have a proposed snapshot/aggregation strategy.
 
 ## 8. Define Output Aggregation
 
@@ -281,19 +281,19 @@ Recommendation:
 - Aggregate explicit metric snapshots or per-peer JSON outputs.
 
 Tasks:
-- Decision: choose one output contract:
+- [ ] Decision: choose one output contract:
   - per-peer files only;
   - leader-aggregated report;
   - separate `ResultAggregator`.
-- Next: define the final report schema.
-- Next: update validation docs with expected output artifacts.
-- Later: implement aggregation after MQ channel semantics are stable enough to
+- [ ] Next: define the final report schema.
+- [ ] Next: update validation docs with expected output artifacts.
+- [ ] Later: implement aggregation after MQ channel semantics are stable enough to
   produce meaningful metrics.
 
 Done when:
-- one completed MQ run produces predictable output artifact names;
-- the leader/simulation responsibility for aggregation is explicit;
-- `tests > 1` reporting has a place to live.
+- [ ] one completed MQ run produces predictable output artifact names;
+- [ ] the leader/simulation responsibility for aggregation is explicit;
+- [ ] `tests > 1` reporting has a place to live.
 
 ## 9. Implement `tests > 1` Semantics
 
@@ -302,15 +302,15 @@ Problem:
 - ConcreteMQ currently warns that it executes a single test per experiment.
 
 Tasks:
-- Decision: decide whether repeated tests relaunch processes or reuse them
+- [ ] Decision: decide whether repeated tests relaunch processes or reuse them
   across test iterations.
-- Next: define output naming for experiment index, peer id, and test index.
-- Later: implement repeated-test execution after output aggregation is defined.
+- [ ] Next: define output naming for experiment index, peer id, and test index.
+- [ ] Later: implement repeated-test execution after output aggregation is defined.
 
 Done when:
-- `tests > 1` produces deterministic per-test outputs;
-- repeated runs do not reuse stale MQ resources;
-- validation matrix records the behavior as PASS.
+- [ ] `tests > 1` produces deterministic per-test outputs;
+- [ ] repeated runs do not reuse stale MQ resources;
+- [ ] validation matrix records the behavior as PASS.
 
 ## 10. Introduce a C++ Process Manager
 
@@ -326,33 +326,33 @@ Recommendation:
   concrete acceptance test.
 
 Tasks:
-- Later: introduce a process manager that can:
+- [ ] Later: introduce a process manager that can:
   - parse config and determine peer count;
   - spawn leader/peer child processes;
   - track PIDs and exit codes;
   - capture logs/output paths;
   - handle startup failure, peer crash, timeout, and teardown;
   - clean stale MQ resources deterministically.
-- Later: replace the makefile launcher only after matching its current behavior.
+- [ ] Later: replace the makefile launcher only after matching its current behavior.
 
 Done when:
-- the process manager can run the same scenario as `make mq_run_all`;
-- failed peer startup produces a clear failure path;
-- all child exit codes are captured;
-- stale MQ cleanup is deterministic.
+- [ ] the process manager can run the same scenario as `make mq_run_all`;
+- [ ] failed peer startup produces a clear failure path;
+- [ ] all child exit codes are captured;
+- [ ] stale MQ cleanup is deterministic.
 
 ## Suggested Attack Order
 
-1. Decide/document ConcreteMQ execution model.
-2. Define channel-semantics keying rule.
-3. Add pending-delivery buffer with behavior preserved.
-4. Add structured counters and separate backpressure drops.
-5. Implement one model semantic, starting with configured drop.
-6. Define packet metadata changes only when required by a semantic.
-7. Audit peer lifecycle hooks.
-8. Define output aggregation.
-9. Implement `tests > 1`.
-10. Replace makefile orchestration with a C++ process manager.
+1. [ ] Decide/document ConcreteMQ execution model.
+2. [ ] Define channel-semantics keying rule.
+3. [ ] Add pending-delivery buffer with behavior preserved.
+4. [ ] Add structured counters and separate backpressure drops.
+5. [ ] Implement one model semantic, starting with configured drop.
+6. [ ] Define packet metadata changes only when required by a semantic.
+7. [ ] Audit peer lifecycle hooks.
+8. [ ] Define output aggregation.
+9. [ ] Implement `tests > 1`.
+10. [ ] Replace makefile orchestration with a C++ process manager.
 
 This order keeps each task small and verifiable. It also prevents a process
 manager refactor from hiding the harder semantic work inside

@@ -1,116 +1,328 @@
-# Questions Before Implementing ConcreteSimulationMQ.cpp
+# QUANTAS Abstract-to-N-Process MQ Architecture Study
 
-[GitLab - ConcreteMQ](https://gitlab.lip6.fr/godawatta/Quantas/-/tree/e44deec99d80ced05ce7d5981371904fc5123712/quantas/Common/ConcreteMQ)
+This note captures the working architecture model for moving original Abstract
+QUANTAS from one-process simulation toward an N-process, one-machine
+Boost/POSIX message-queue backend.
 
-## What I am trying to do
+Current working assumption:
+- the ConcreteMQ backend is closer to a realistic process-based communication
+  backend than to strict Abstract lockstep parity;
+- Abstract QUANTAS remains the reference model for terminology, component
+  responsibilities, and validation gaps;
+- differences from Abstract behavior must be documented and measured rather than
+  hidden.
 
-The next file I need to write is `ConcreteSimulationMQ.cpp` — the `main()` that starts a peer process, connects it to the coordinator, and runs the algorithm round by round. Before I write it, I want to lock down the design so I do not have to rewrite later when we move to 0MQ or Docker/Mininet
+High-level model:
 
-## The core design constraint
+```text
+Abstract QUANTAS:
+  one process
+  many peer objects
+  in-memory channels
+  thread-pool receive/compute phases
+  one shared LogWriter view
 
-Whatever the current abstract QUANTAS does — the metrics it collects, the way rounds work in lockstep, the single combined output file it produces, every topology it supports — the MQ version must also produce. And later, the 0MQ + Docker + Mininet version must produce the same thing too.
-
-The application layer (algorithm files like `BitcoinPeer.cpp`, `ExamplePeer.cpp`) cannot be changed. The framework can. So the framework has to do whatever it takes to keep the behaviour identical across all three versions.
-
-This constraint resolves most of the design questions on its own. Below I have separated what I am already going to do (for your awareness) from the questions that need your input.
-
----
-
-## Decisions I Am Making...
-
-These are decided, either by the design constraint above or by reasoning about what the next phase (0MQ) will need. I am listing them so you can flag any you disagree with.
-
-| # | Decision | Reasoning |
-|---|---|---|
-| 1 | **Two separate binaries**: `quantas_logger` and `quantas_peer`. No `--leader` flag. | The roles are different at compile time, and this maps cleanly to two Docker images later. |
-| 2 | **Coordinator assigns peer IDs dynamically.** Each peer registers via a temp reply queue and gets back an ID `0..N-1`. | Peer processes are interchangeable, which is what Docker containers need. |
-| 3 | **Add `setNetworkInterface()` to `Peer.hpp`.** After `PeerRegistry::makePeer()`, swap the abstract interface for `NetworkInterfaceConcreteMQ`. | One change to the framework, zero changes to algorithms. Same pattern works for 0MQ later. |
-| 4 | **Logger aggregates metrics into one combined output file.** | Constraint: current QUANTAS produces one file, MQ must too. |
-| 5 | **Fixed round count from JSON config** for the stop mechanism. | Constraint: matches abstract simulation. |
-| 6 | **Support every topology the current QUANTAS supports** (complete, ring, random, kademlia, etc.). | Constraint: behavioural parity. |
-| 7 | **Separate the start/stop control queue from the data queue per peer.** | 0MQ idioms favour one socket per concern, so doing it now means no rewrite later. |
-| 8 | **`receive()` drains all messages each round.** | Matches the "all messages arrived this round" semantics of the abstract simulation. |
-| 9 | **Raise `mq_msgsize` via `sysctl`** for the 1024-byte limit. No fragmentation logic. | 0MQ has no such limit, so any fragmentation code would be thrown away. |
-| 10 | **Latency timestamps go through `OutputWriter`**, not stdout. | Matches how the abstract simulation handles metrics. |
-| 11 | **Launch via a `Makefile` target** for now. | Reproducible, and maps to `docker compose up` later. |
-| 12 | **No `CoordinatorAddress` abstraction yet.** Phase 1 uses a fixed queue name; defer until 0MQ forces it. | Premature abstraction. |
-
----
-
-## Open Questions — your input needed
-
-There are three for the moment. The first one is the real architectural problem; the other two are quick confirmations.
-
----
-
-### 1. The hardest problem: how do `endOfRound`, `initParameters`, and `endOfExperiment` keep working in MQ mode?
-
-In the current QUANTAS, these functions are called with the full list of all peers, and algorithms iterate over the list:
-
-```cpp
-void endOfRound(vector<Peer*>& peers) override {
-    int total = 0;
-    for (auto* p : peers) total += p->throughput;
-    OutputWriter::pushValue("throughput", total);
-}
+ConcreteMQ direction:
+  one leader process
+  N peer processes
+  one MQ inbox per peer
+  OS process scheduling
+  process-local receive/compute loops
+  per-peer output now, aggregation contract pending
 ```
 
-In MQ mode, each process only has its own peer. If the framework calls `endOfRound([this_peer])`, the loop only sees one peer, and the metric is silently wrong. Since we cannot change algorithm code, the framework has to give these functions something that *behaves* like the full peer list — which means peer state needs to cross process boundaries somehow.
+## Simulation Component
 
-The two approaches I can think of:
+Abstract role:
+- parse configuration;
+- set rounds/tests;
+- initialize topology and distribution settings;
+- run receive/compute/end-of-round phases using a thread pool;
+- finalize metrics through `LogWriter`.
 
-- **(a)** At the end of each round, every peer process serializes its peer state and sends it to the logger. The logger reconstructs a full peer list and calls `endOfRound([all peers])` itself. Requires `Peer` to be serializable end-to-end.
-- **(b)** Each peer pushes its own metrics independently and the logger aggregates them outside the `endOfRound` call. But this would require changing how the algorithm collects metrics, which is an application-layer change — not allowed.
+N-process MQ role:
+- parse the same experiment configuration;
+- launch or coordinate one leader process plus N peer processes;
+- create/clear MQ resources;
+- distribute topology assignments and start/stop signals;
+- let OS scheduling provide process-level parallelism;
+- gather or aggregate process-local outputs after peers finish.
 
-**(a)** seems like the only option that respects the constraint, but it is a lot of work and I want to know if you have a better approach in mind before I commit. This same problem applies to `initParameters` and `endOfExperiment`.
+Current state:
+- `make mq_run_all` is the practical process launcher;
+- `ConcreteMqLeader` and `ProcessCoordinatorMQ` coordinate readiness,
+  assignments, start, done, and stop;
+- `ConcreteMqPeer` owns the local peer round loop;
+- the Abstract `BS::thread_pool` execution path is not used for MQ peer
+  execution;
+- full central output aggregation is not finalized.
 
-### Concern added after design review (important)
+Open design point:
+- strict Abstract parity would require a per-round IPC barrier;
+- realistic process-backend behavior can intentionally keep independent peer
+  progress and study the resulting timing/round drift.
 
-Option **(a)** (serialize full `Peer` objects and reconstruct all peers in logger)
-looks high-risk for Phase 1 and probably over-complicated.
+## Network Component
 
-Why this is risky:
+Abstract role:
+- build all peers in one memory space;
+- compute topology from config;
+- create in-memory `Channel` objects between neighbors;
+- pass distribution settings into each channel;
+- expose receive/compute/end-of-round operations for `Simulation` to schedule.
 
-- `Peer` is polymorphic and may hold non-serializable or process-local runtime
-  state (interface handles, pointers, transient state).
-- Full-object serialization tightly couples framework internals to transport
-  format, which is brittle across backend transition (Boost MQ -> 0MQ).
-- Debugging and maintenance cost can grow before lifecycle parity is proven.
+N-process MQ role:
+- compute topology centrally or deterministically;
+- distribute per-peer neighbor assignments;
+- replace in-memory edge channels with process message transport;
+- keep topology enforcement in the sender interface;
+- rebuild channel/distribution semantics explicitly on top of MQ transport.
 
-Recommended direction:
+Current state:
+- `ConcreteMqLeader` reads topology from the experiment config;
+- `MqTopology::buildTopology(...)` computes neighbor assignments;
+- `ProcessCoordinatorMQ::sendAssignments(...)` sends assignments to peers;
+- `ConcreteMqPeer` creates local peer objects and installs
+  `NetworkInterfaceConcreteMQ`;
+- M1 topology parity is documented as PASS for complete, ring, grid, and
+  userList;
+- M2 distribution/channel semantics remain open.
 
-1. Split parity into two tracks:
-   - Execution parity first (start/round/stop semantics, stability)
-   - Metric parity second (global `endOfRound` / `endOfExperiment` correctness)
-2. For metric parity, prefer a **minimal explicit snapshot contract** over full
-   `Peer` serialization:
-   - each peer emits only hook-relevant fields per round/experiment,
-   - schema is versioned,
-   - framework aggregates and writes final metrics without changing algorithm
-     APIs.
+## Abstract Node / Peer Component
 
-This keeps Phase 1 simpler and preserves the principle:
-"throwaway transport, non-throwaway protocol."
+Abstract role:
+- define the algorithm computation hook through `performComputation()`;
+- provide a stable base class for user algorithms;
+- expose high-level messaging APIs such as `broadcast(...)`, `unicastTo(...)`,
+  `receive()`, and `popInStream()`;
+- allow hooks such as `initParameters(...)`, `endOfRound(...)`, and
+  `endOfExperiment(...)` to receive a full `std::vector<Peer*>` because all
+  peers are in one process.
 
----
+N-process MQ role:
+- preserve the algorithm-facing `Peer` API as much as possible;
+- create one local peer object inside each peer process;
+- swap the underlying network interface to `NetworkInterfaceConcreteMQ`;
+- treat global peer-list hooks as a separate unresolved contract.
 
-### 2. How does each peer learn its neighbour set? Quick confirmation.
+Current state:
+- concrete peers still inherit from `Peer`;
+- algorithms still implement `performComputation()`;
+- MQ peer processes call `tryPerformComputation()`;
+- `setNetworkInterface(...)` allows MQ to install `NetworkInterfaceConcreteMQ`;
+- local hook wiring exists, but global peer-vector semantics are not fully
+  solved.
 
-Two reasonable options:
+Important caveat:
+- `performComputation()` and messaging APIs are mostly safe in MQ mode;
+- hooks that inspect all peers are risky because a peer process naturally owns
+  only local peer state.
 
-- **(i)** The coordinator computes the topology and tells each peer its neighbour list when it assigns the ID.
-- **(ii)** Each peer reads the JSON config itself and computes its neighbours.
+## Node Network Interface Component
 
-I am leaning toward **(i)** because the coordinator already owns the system view, but **(ii)** is cleaner for the Docker phase where each container already has the config file. Which fits your plan?
+Abstract role:
+- own inbound/outbound channel references;
+- wrap outgoing messages into `Packet` objects;
+- place packets into channel tails;
+- during `receive()`, inspect channels and move arrived packets into `_inStream`;
+- rely on `Channel` for delay, drop, duplicate, reorder, receive cap, and queue
+  size behavior.
 
----
+N-process MQ role:
+- hide Boost/POSIX MQ details from algorithm code;
+- keep the shared `NetworkInterface` API;
+- own the peer inbox queue `peer_<id>`;
+- open destination inbox queues `peer_<dest>` on send;
+- serialize/deserialize packets across process boundaries;
+- eventually maintain a pending-delivery buffer and MQ-side channel semantics
+  before packets reach `_inStream`.
 
-### 3. Round semantics in async mode — confirming option (ii).
+Current state:
+- identity and neighbor filtering are implemented;
+- one named inbox queue per peer is implemented;
+- `unicastTo(...)` serializes `Packet` to bytes and sends with
+  `message_queue::timed_send(...)`;
+- `receive()` drains raw MQ messages, deserializes packets, and pushes them
+  directly into `_inStream`;
+- `broadcast(...)`, `multicast(...)`, and related APIs still route through the
+  shared base interface;
+- backpressure drops are counted, but they are runtime liveness drops, not
+  configured model drops.
 
-The design constraint already implies the answer (synchronized rounds, since algorithms assume lockstep), but I want to confirm before I commit because synchronization adds a coordination message every round.
+Open work:
+- add a pending-delivery buffer;
+- separate model drops from backpressure drops;
+- implement delay/drop/duplicate/reorder/`maxMsgsRec`/`size` semantics
+  incrementally;
+- improve observability counters for validation.
 
-- **(i)** Each peer loops freely, no shared round counter. Fast but breaks any algorithm that compares rounds across peers.
-- **(ii)** Peers wait for the coordinator's "go to round N+1" signal each round. Slower but preserves abstract semantics.
-- **(iii)** Wall-clock interval rounds. Decouples rounds from messages.
+## Packet Component
 
-Confirming **(ii)** is what you want?
+Abstract role:
+- carry source id;
+- carry destination id;
+- carry the user-defined message payload;
+- carry delay and sent-round metadata so channels can decide when the packet
+  has arrived.
+
+N-process MQ role:
+- become a process-safe transport envelope;
+- preserve source, destination, and payload;
+- support object-to-bytes-to-object serialization;
+- carry wall-clock send timestamp for latency observation;
+- define delivery metadata for the chosen MQ semantics.
+
+Current state:
+- source and destination are preserved;
+- JSON payload is serialized as a string and parsed on receive;
+- Boost serialization is implemented for process-boundary transport;
+- wall-clock send timestamp exists and is used for latency observation;
+- Abstract `_delay` and `_round` fields still exist but are not serialized by the
+  current MQ packet format.
+
+Open design point:
+- strict Abstract parity may require serializing logical round and delay;
+- realistic process-backend behavior may keep wall-clock delivery metadata as
+  primary and treat round delay as optional;
+- the packet metadata contract should be defined before broad M2 changes.
+
+## MQ Architecture Note: Per-Peer Inbox Queues vs Per-Edge Queues
+
+The current ConcreteMQ backend makes a deliberate tradeoff in how Abstract
+channels are represented with Boost/POSIX message queues.
+
+Abstract QUANTAS has channel-like links between peers. A literal IPC translation
+would create one queue per directed topology edge:
+
+```text
+queue_0_to_1
+queue_1_to_0
+queue_0_to_2
+...
+```
+
+The current MQ implementation instead creates one named inbox queue per peer:
+
+```text
+peer_0
+peer_1
+peer_2
+...
+```
+
+Topology is enforced by neighbor assignments in `NetworkInterfaceConcreteMQ`.
+A sender first checks whether the destination is in its neighbor set. If it is,
+the packet is serialized and sent to the destination peer inbox. If it is not,
+the send is ignored.
+
+This keeps the number of OS message queues linear in the number of peers:
+
+```text
+per-peer inbox model: N queues
+per-directed-edge model: N * (N - 1) queues for a complete topology
+```
+
+For dense experiments this matters because POSIX message queues have system
+limits and setup/cleanup costs. A 100-peer complete topology would require 100
+queues with the per-peer inbox model, but 9900 directed queues with a per-edge
+model.
+
+The cost of this tradeoff is that one inbox no longer directly represents one
+Abstract `Channel`. All messages sent to a peer share the same OS inbox, so
+per-channel behavior must be reproduced explicitly in the MQ transport layer.
+For M2 distribution/channel parity, the MQ backend must still model Abstract
+semantics such as:
+
+- delay;
+- drop probability;
+- duplicate probability;
+- reorder probability;
+- per-round receive caps such as `maxMsgsRec`;
+- queue-size behavior.
+
+In short: MQ queues represent peer mailboxes, while C++ runtime logic represents
+topology and channel semantics. This is simpler and more scalable than one queue
+per topology edge, but it makes the M2 channel-semantics layer mandatory for
+behavioral parity with Abstract QUANTAS.
+
+## MQ Architecture Observation: Independent Process Rounds
+
+Abstract QUANTAS is a lockstep round-based simulator. All peers live in one
+process, and the simulator waits for the receive phase and compute phase to
+complete across all peers before starting the next round.
+
+The current ConcreteMQ backend intentionally moves execution toward independent
+processes. The normal MQ run path launches one leader process and N peer
+processes. After startup coordination, each peer process advances its own local
+round loop and communicates through Boost/POSIX message queues.
+
+This means there is currently:
+
+- startup synchronization: peers create inboxes, send ready, receive assignments,
+  and wait for the leader start signal;
+- shutdown coordination: peers notify completion and wait for stop;
+- no global per-round IPC barrier that forces every peer to finish round N before
+  any peer starts round N+1.
+
+This is an important semantic choice to observe and study. Independent peer
+processes do not naturally wait for each other; they progress according to OS
+scheduling, local computation speed, and message availability. That is closer to
+a real process/network communication layer than the Abstract simulator's
+centralized lockstep execution.
+
+The tradeoff is:
+
+```text
+Strict Abstract parity:
+  add a per-round IPC barrier
+  preserve lockstep round semantics
+  easier backend-to-backend comparison
+
+Realistic process-based communication:
+  keep independent peer progress
+  model process scheduling and IPC timing more naturally
+  accept semantic divergence from Abstract lockstep rounds
+```
+
+Future work should decide whether ConcreteMQ is intended to be:
+
+1. a strict behavioral-parity backend for Abstract QUANTAS, in which case a
+   per-round barrier is required; or
+2. a more realistic process-based backend for studying algorithms over an IPC
+   communication layer, in which case the absence of a global round barrier
+   should be documented, measured, and treated as part of the model.
+
+Until that decision is finalized, MQ results that depend on
+`RoundManager::currentRound()` or lockstep delivery assumptions should be treated
+carefully and compared against Abstract results with this semantic difference in
+mind.
+
+## MQ Architecture Observation: Packet Serialization Boundary
+
+Abstract QUANTAS can pass `Packet` objects through in-memory channels because all
+peers live inside one process and share the same address space.
+
+ConcreteMQ peers run in separate processes. A process cannot read another
+process's C++ objects directly, so packets must cross an explicit serialization
+boundary before they enter Boost/POSIX message queues.
+
+The current MQ backend satisfies this requirement for message passing:
+
+- `Packet` defines Boost serialization support;
+- the packet source, target, send timestamp, and JSON body are serialized;
+- the JSON payload is converted to a string with `dump()` before serialization;
+- the receiver reconstructs the JSON payload with `nlohmann::json::parse(...)`;
+- `NetworkInterfaceConcreteMQ::unicastTo(...)` serializes a `Packet` into a byte
+  string before `message_queue::timed_send(...)`;
+- `NetworkInterfaceConcreteMQ::receive(...)` reads raw bytes from the inbox queue
+  and deserializes them back into a `Packet`.
+
+The same serialization pattern is also used for `MqAssignment`, allowing the
+leader to send topology assignments to peer processes.
+
+This satisfies the payload boundary needed for process-based packet delivery.
+The important caveat is that this only serializes transport messages and
+assignments. It does not serialize full `Peer` objects, algorithm-local runtime
+state, network interface handles, or process-local resources. That distinction
+matters for future metric aggregation, global hook behavior, and any design that
+tries to reconstruct full peer state outside the owning process.

@@ -283,3 +283,8 @@ In this file I document what I do everyday during my internship.
 - Migrated MQ topology execution from peer-local computation to coordinator-driven assignment: leader now builds topology, serializes `MqAssignment` payloads with Boost, and sends them before start.
 - Added visual proof logs for `leader sent assignments topology=<type>` and `peer X using topology=<type>`, then validated `complete`, `ring`, `grid`, and `userList` with clean peer/leader exits.
 - Added `quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json` as a small 3-peer Bitcoin MQ demo file for supervisor walkthroughs on one machine with multiple processes.
+
+### 08/06/2026
+
+- Consolidated the Abstract QUANTAS -> N-process MQ architecture study in `Documentation/logs/arch.md`, covering Simulation, Network, Peer, Node Network Interface, and Packet component mappings.
+- Expanded `Documentation/logs/todo.md` with component-specific TODOs for process management, output aggregation, channel/distribution semantics, peer hook contracts, MQ interface delivery buffering, and packet metadata decisions.

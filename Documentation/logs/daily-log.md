@@ -288,3 +288,4 @@ In this file I document what I do everyday during my internship.
 
 - Consolidated the Abstract QUANTAS -> N-process MQ architecture study in `Documentation/logs/arch.md`, covering Simulation, Network, Peer, Node Network Interface, and Packet component mappings.
 - Expanded `Documentation/logs/todo.md` with component-specific TODOs for process management, output aggregation, channel/distribution semantics, peer hook contracts, MQ interface delivery buffering, and packet metadata decisions.
+- Reorganized `Documentation/logs/arch.md` into a stable component map and `Documentation/logs/todo.md` into an ordered, one-problem-at-a-time ConcreteMQ runtime backlog.

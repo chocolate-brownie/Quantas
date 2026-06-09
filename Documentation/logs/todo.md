@@ -93,6 +93,18 @@ size
 ```
 
 - These semantics are not yet implemented in the MQ layer.
+- Concrete/TCP also appears to behave as a realistic transport backend rather
+  than applying Abstract `Channel` semantics directly. TCP naturally provides
+  reliable ordered byte-stream transport, but that is not equivalent to
+  QUANTAS-controlled delay/drop/duplicate/reorder/max-receive semantics.
+- MQ likewise has natural transport traits such as FIFO queueing, bounded queue
+  capacity, and backpressure, but these are OS/runtime effects, not explicit
+  experiment-model semantics.
+
+Professor decision question:
+- Should ConcreteMQ aim for Abstract simulator parity by explicitly implementing
+  configured channel semantics, or should it follow Concrete/TCP as a realistic
+  transport backend and document the semantic gap instead?
 
 Recommendation:
 - Keep one MQ inbox per peer.
@@ -101,6 +113,8 @@ Recommendation:
 - Add semantics incrementally, one behavior at a time.
 
 Tasks:
+- [ ] Decision: ask whether MQ parity target is Abstract channel semantics or
+  Concrete/TCP-style realistic transport behavior.
 - [ ] Decision: define whether channel configuration is keyed globally, per
   destination peer, or per source/destination link.
 - [ ] Next: document the exact first M2 semantic to implement.

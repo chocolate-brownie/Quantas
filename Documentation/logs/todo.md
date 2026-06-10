@@ -1,373 +1,236 @@
-# ConcreteMQ N-Process Runtime TODOs
+# ConcreteMQ Supervisor Questions
 
-The MQ parity master backlog lives at:
+This file keeps the ConcreteMQ discussion focused on the few decisions that
+unlock the rest of the work. The goal is not to decide every implementation
+detail in the meeting, but to answer the questions that make the next coding
+steps obvious.
 
-- `Documentation/mq-parity/00-master-index.md`
+Current supervisor decision:
+- ConcreteMQ is a realistic process-based backend today.
+- Strict Abstract lockstep parity is not currently implemented.
+- Process orchestration stays in the root `makefile` for now; a C++ process
+  manager is not part of the current MQ completion scope.
+- ConcreteMQ must still be dependable for researchers as an experiment runner:
+  repeated JSON tests and leader-owned experiment reporting are required before
+  calling the current MQ version workable.
+- Any difference from Abstract QUANTAS must be documented and validated with
+  evidence.
 
-This file is the architecture-driven work queue for the N-process ConcreteMQ
-runtime. It is ordered so each item can be attacked independently without
-mixing process management, channel semantics, peer lifecycle hooks, packet
-format, and aggregation in one large change.
+## Current Baseline
 
-Current working assumption:
-- ConcreteMQ is a realistic process-based backend today;
-- strict Abstract lockstep parity is not currently implemented;
-- any semantic difference from Abstract QUANTAS must be documented and
-  validated with evidence.
-
-Legend:
-- Done: already present in code or documentation.
-- Next: the next recommended implementation target.
-- Later: important, but should wait until earlier dependencies are stable.
-- Decision: choose and document the model before coding.
-
-## 0. Baseline Already in Place
-
-These are not the next attack targets unless they regress.
-
-Done:
+Already working:
 - [x] JSON parsing exists in both `ConcreteMqLeader` and `ConcreteMqPeer`.
 - [x] `make mq_run_all` launches one leader process plus N peer processes.
 - [x] `ProcessCoordinatorMQ` supports startup readiness, assignment delivery,
   start, done, stop, and cleanup.
 - [x] `MqTopology::buildTopology(...)` computes neighbor assignments.
-- [x] each peer process owns one inbox queue named `peer_<id>`.
+- [x] Each peer process owns one inbox queue named `peer_<id>`.
 - [x] `NetworkInterfaceConcreteMQ` checks neighbor sets before send.
 - [x] `Packet` crosses the process boundary through Boost serialization.
-- [x] peer receive/compute execution is process-local.
+- [x] Peer receive/compute execution is process-local.
 - [x] Abstract `BS::thread_pool` is not used for MQ peer execution.
-- [x] peer outputs are disambiguated per process.
+- [x] Peer outputs are disambiguated per process.
+- [ ] JSON `tests > 1` is executed by MQ instead of warning/skipping repeated
+  computations.
+- [ ] The leader writes a researcher-facing experiment report; per-peer files
+  remain debugging artifacts.
 
-Keep validating with:
-- [ ] `make mq_run_all INPUTFILE=... MQ_TOTAL_PEERS=<N> [MQ_ROUNDS=<R>]`
-- [ ] topology evidence in logs for complete, ring, grid, and userList scenarios.
+Baseline validation command:
 
-## 1. Decide the ConcreteMQ Execution Model
+```sh
+make mq_run_all INPUTFILE=... MQ_TOTAL_PEERS=<N> [MQ_ROUNDS=<R>]
+```
 
-Problem:
-- The current MQ backend behaves like a realistic process runtime with no global
-  per-round barrier.
+## 1. What Is ConcreteMQ Supposed To Be?
+
+Decision:
+- ConcreteMQ will be a realistic process/network backend like TCP.
+- It will not try to reproduce strict Abstract QUANTAS lockstep semantics in the
+  current MQ version.
+
+Main question:
+- Which Abstract behaviors still need to be documented, measured, or selectively
+  rebuilt inside this realistic backend?
+
+Why this matters:
 - Abstract QUANTAS is a lockstep simulator.
-- Future implementation choices depend on whether MQ should preserve lockstep
-  parity or intentionally study process/network timing drift.
+- ConcreteMQ currently has independent peer processes and no global per-round
+  barrier.
+- This decision controls whether MQ should accept real OS/process timing or add
+  strict Abstract-style synchronization.
 
-Recommendation:
+Confirmed answer:
 - Keep ConcreteMQ as a realistic process backend for now.
-- Do not add a per-round IPC barrier until a validation need proves strict
-  Abstract parity is required.
+- Do not add a global per-round IPC barrier unless a specific validation need
+  proves strict Abstract parity is required.
 
-Tasks:
-- [ ] Decision: record ConcreteMQ as "realistic process backend, no global round
-  barrier" in the validation docs.
-- [ ] Next: add a small round-progress evidence run that logs each peer's local
-  loop count/current round view.
-- [ ] Later: if strict parity becomes necessary, design a separate IPC round barrier
-  rather than mixing it into message delivery.
+This answer decides:
+- whether independent peer progress is acceptable;
+- whether `RoundManager`-dependent algorithms need special comparison;
+- whether a future round barrier is necessary.
 
-Done when:
-- [ ] `Documentation/logs/arch.md` and the MQ validation matrix both state the same
-  execution model;
-- [ ] a reproducible MQ run shows independent peer loop progress;
-- [ ] algorithms that depend on `RoundManager::currentRound()` are flagged for
-  careful comparison.
+## 2. Should ConcreteMQ Rebuild Abstract Channel Behavior?
 
-## 2. Define the MQ Channel-Semantics Contract
+Decision:
+- ConcreteMQ will behave as a real IPC transport backend.
+- It will not rebuild Abstract `Channel` semantics such as configured delay,
+  model drop, duplicate, reorder, `maxMsgsRec`, or channel size in the current
+  MQ version.
+- Those Abstract channel rules remain simulator-only behavior unless a future
+  research need explicitly reopens this decision.
 
-Problem:
-- ConcreteMQ currently provides raw process transport:
+Main question:
+- How should the real MQ transport behavior be documented and observed so that
+  it is not confused with Abstract simulator channel behavior?
 
-```text
-neighbor check -> Packet -> serialize -> timed_send(peer_<dest>)
-peer_<id> inbox -> deserialize -> _inStream
-```
+Abstract channel semantics:
+- delay;
+- drop;
+- duplicate;
+- reorder;
+- `maxMsgsRec`;
+- size.
 
-- Abstract QUANTAS also models channel behavior:
+Why this matters:
+- TCP behaves like a real transport backend, not like the Abstract `Channel`.
+- MQ has real OS/runtime effects such as FIFO queueing, queue capacity,
+  scheduling delay, and backpressure.
+- Those real effects are not the same as experiment-controlled Abstract channel
+  semantics.
 
-```text
-delay
-drop
-duplicate
-reorder
-maxMsgsRec
-size
-```
-
-- These semantics are not yet implemented in the MQ layer.
-- Concrete/TCP also appears to behave as a realistic transport backend rather
-  than applying Abstract `Channel` semantics directly. TCP naturally provides
-  reliable ordered byte-stream transport, but that is not equivalent to
-  QUANTAS-controlled delay/drop/duplicate/reorder/max-receive semantics.
-- MQ likewise has natural transport traits such as FIFO queueing, bounded queue
-  capacity, and backpressure, but these are OS/runtime effects, not explicit
-  experiment-model semantics.
-
-Professor decision question:
-- Should ConcreteMQ aim for Abstract simulator parity by explicitly implementing
-  configured channel semantics, or should it follow Concrete/TCP as a realistic
-  transport backend and document the semantic gap instead?
-
-Recommendation:
+Confirmed answer:
 - Keep one MQ inbox per peer.
-- Rebuild Abstract channel behavior in `NetworkInterfaceConcreteMQ`, not by
-  creating one OS queue per topology edge.
-- Add semantics incrementally, one behavior at a time.
+- Treat Boost/POSIX MQ behavior as real IPC transport behavior.
+- Do not implement Abstract channel semantics in `NetworkInterfaceConcreteMQ` for
+  the current MQ version.
+- Document any behavior difference from Abstract QUANTAS with validation
+  evidence.
 
-Tasks:
-- [ ] Decision: ask whether MQ parity target is Abstract channel semantics or
-  Concrete/TCP-style realistic transport behavior.
-- [ ] Decision: define whether channel configuration is keyed globally, per
-  destination peer, or per source/destination link.
-- [ ] Next: document the exact first M2 semantic to implement.
-- [ ] Next: choose the smallest controlled ExamplePeer input that proves the first
-  semantic.
-- [ ] Later: move each implemented behavior into
-  `Documentation/mq-parity/06-validation-matrix.md` with command evidence.
+This answer decides:
+- whether a pending-delivery buffer becomes only a structure seam or a real
+  delivery-decision layer;
+- whether `dropProbability` remains Abstract-only behavior in this backend;
+- whether delay/reorder/`maxMsgsRec` stay out of the current MQ scope;
+- whether packet metadata should focus on real IPC observation such as
+  wall-clock timestamps instead of simulated channel delivery metadata.
 
-Done when:
-- [ ] the keying rule is written down before code changes;
-- [ ] one M2 semantic has a reproducible input and expected output;
-- [ ] validation logs explain why a packet was delivered, delayed, dropped,
-  duplicated, reordered, or capped.
+## 3. What Should Message Delivery Mean In MQ?
 
-## 3. Add a Pending-Delivery Buffer
+Decision:
+- Keep MQ delivery behavior simple for the current version: a received packet is
+  deserialized and made visible to the algorithm in `_inStream`.
+- Do not add a pending-delivery buffer unless it is needed for clean
+  instrumentation. Since MQ is not rebuilding Abstract channel rules, the buffer
+  is not required for the fast dependable version.
 
-Problem:
-- Current `receive()` pushes every deserialized MQ packet directly into
-  `_inStream`.
-- That makes "received from MQ" equal "algorithm-visible now."
-- Abstract QUANTAS has a delivery decision between transport arrival and
-  algorithm visibility.
+Main question:
+- What minimal receive/send observations are needed to trust real IPC delivery?
 
-Target shape:
+Current MQ path:
 
 ```text
 peer_<id> inbox
   -> raw bytes
   -> Packet
-  -> pending-delivery buffer
-  -> delivery eligibility
   -> _inStream
 ```
 
-Tasks:
-- [ ] Next: add a local pending packet buffer to `NetworkInterfaceConcreteMQ`.
-- [ ] Next: keep initial behavior equivalent by immediately flushing all pending
-  packets into `_inStream`.
-- [ ] Next: add counters for `received_raw` and `delivered_to_instream`.
-- [ ] Later: plug delay, reorder, and `maxMsgsRec` into the buffer.
+Why this matters:
+- It keeps the IPC path easy to reason about.
+- It avoids adding simulator-parity structure that is not needed for ZeroMQ.
+- It still needs enough counters/logs to make the backend trustworthy.
 
-Done when:
-- [ ] existing MQ smoke runs still behave the same;
-- [ ] receive logs or counters distinguish raw receipt from algorithm delivery;
-- [ ] there is a clean insertion point for delay/reorder/receive-cap semantics.
+Confirmed answer:
+- Keep direct delivery to `_inStream` for now.
+- Track receive counters such as `received_raw` and `delivered_to_instream`.
+- Track send/backpressure counters such as `sent` and `dropped_backpressure`.
+- Do not claim Abstract channel parity from these counters.
 
-## 4. Separate Model Drops from Backpressure Drops
-
-Problem:
-- Current `timed_send(...)` failures are counted as drops.
-- These are OS/MQ backpressure symptoms, not simulated network loss.
-- Abstract `dropProbability` represents model behavior.
-
-Target counters:
+Related drop-counting decision:
+- Do not use one generic `drops` counter.
+- Since MQ is real IPC transport only, count OS/MQ backpressure separately and
+  keep model loss out of the current MQ behavior:
 
 ```text
 sent
-dropped_model
+received_raw
+delivered_to_instream
 dropped_backpressure
 ```
 
-Tasks:
-- [ ] Next: introduce structured counters in `NetworkInterfaceConcreteMQ`.
-- [ ] Next: rename/record timed-send failures as `dropped_backpressure`.
-- [ ] Later: implement configured `dropProbability` as `dropped_model`.
-- [ ] Later: write counters to peer output or validation logs.
+This answer decides:
+- how `NetworkInterfaceConcreteMQ::receive()` should be structured;
+- whether current `timed_send(...)` failures should be renamed to
+  `dropped_backpressure`;
+- that `dropped_model` should not be reported as active MQ behavior in the
+  current version;
+- where real transport receive/send observations should be recorded.
 
-Done when:
-- [ ] no validation output confuses model loss with queue-capacity loss;
-- [ ] backpressure drops and configured drops are independently visible;
-- [ ] a test or controlled run can force at least one backpressure drop without
-  calling it a model drop.
+## 4. What Experiment Output Does ConcreteMQ Need?
 
-## 5. Implement One Channel Semantic at a Time
+Main question:
+- What output, logs, or experiment artifacts are needed before researchers can
+  trust ConcreteMQ for algorithm experiments?
 
-Problem:
-- Implementing delay, drop, duplicate, reorder, `maxMsgsRec`, and size in one
-  patch would hide bugs and make validation weak.
+Why this matters:
+- Peer processes currently write local output files.
+- The leader waits for done messages but does not assemble one final experiment
+  report.
+- Abstract QUANTAS supports `tests > 1`; ConcreteMQ must support repeated
+  computations to be dependable as an experiment runner.
+- Process launching is intentionally handled by `make mq_run_all` for the current
+  MQ version.
 
-Recommended order:
-1. model drop;
-2. duplicate;
-3. receive cap / `maxMsgsRec`;
-4. delay readiness;
-5. reorder;
-6. queue-size semantics, if Abstract parity requires more than OS MQ capacity.
+Confirmed answer:
+- Keep predictable per-peer output files as local debugging artifacts.
+- Make the MQ leader the researcher-facing experiment logger/aggregator process.
+- Implement repeated JSON tests for the current MQ version.
+- Include experiment index and test index in MQ output/report naming.
+- Keep `make mq_run_all` as the smoke path while finishing the current MQ
+  version.
+- Defer any C++ process manager until after the makefile-orchestrated MQ backend
+  is stable and validated.
 
-Tasks for each semantic:
-- [ ] define the exact input configuration field being honored;
-- [ ] implement only that behavior;
-- [ ] add a small controlled input;
-- [ ] capture command output/log evidence;
-- [ ] update the validation matrix row.
+This answer decides:
+- whether per-peer files are only temporary/local artifacts;
+- what data peers must send or write so the leader can produce one report;
+- how Abstract-vs-MQ comparisons should be validated;
+- how repeated tests reset peer state and output names.
 
-Done when:
-- [ ] each semantic can be explained from one small run;
-- [ ] each semantic has separate counters or logs;
-- [ ] M2 distribution/channel parity can be marked PASS behavior by behavior.
+## 5. What Evidence Proves ConcreteMQ Is Complete Enough?
 
-## 6. Define the Packet Metadata Contract
+Main question:
+- What validation is enough to call the current MQ version workable and move on
+  to ZeroMQ?
 
-Problem:
-- `Packet` currently preserves source, destination, payload, and send timestamp
-  across MQ.
-- `_delay` and `_round` still exist in `Packet`, but are not serialized by the
-  MQ packet format.
-- Delivery semantics need a stable metadata contract before broad channel work.
+Recommended completion standard:
+- `ExamplePeer` topology run passes.
+- `Bitcoin3PeerMQDemo` passes with real IPC message traffic.
+- `AltBitUtility` passes with repeated JSON tests enabled.
+- Leader and all peer processes exit with code `0`.
+- Logs show topology assignment, latency, send/receive counters, and
+  backpressure drops if any occur.
+- The leader writes a final experiment/test report.
+- Per-peer debug output files are disambiguated.
+- Docs state non-goals clearly: no Abstract channel semantics, no global
+  lockstep barrier, no C++ process manager in the current version.
 
-Decision options:
-- Strict Abstract parity: serialize logical send round and delay.
-- Realistic process backend: use wall-clock delivery eligibility and local
-  receive polling.
-- Hybrid: carry both logical and wall-clock metadata only if validation needs
-  both.
+This answer decides:
+- when ConcreteMQ is dependable enough for researchers to run algorithms over a
+  real IPC transport layer;
+- when it is reasonable to stop MQ work and start the ZeroMQ backend.
 
-Recommendation:
-- Do not serialize `_delay` and `_round` blindly.
-- First choose the first channel semantic and identify what metadata it needs.
+## Suggested Meeting Order
 
-Tasks:
-- [ ] Decision: document stable serialized fields and delivery metadata fields.
-- [ ] Next: decide whether the first M2 semantic requires packet-format changes.
-- [ ] Later: if packet format changes, clean rebuild before debugging behavior.
+1. Decide whether ConcreteMQ is a realistic backend or an Abstract-parity
+   backend.
+2. Decide whether MQ should rebuild Abstract channel behavior.
+3. Confirm the minimal direct-delivery counter design.
+4. Decide the leader report and repeated-test contract.
+5. Decide what evidence is enough to call MQ complete enough for ZeroMQ.
 
-Done when:
-- [ ] `Packet` field purpose is documented;
-- [ ] MQ serialization format is documented;
-- [ ] any added field has a validation use case;
-- [ ] existing MQ smoke runs pass after packet-format changes.
+## One-Sentence Summary For The Meeting
 
-## 7. Audit Peer Lifecycle Hooks
-
-Problem:
-- Algorithm-facing computation and messaging APIs mostly survive MQ unchanged.
-- Lifecycle hooks are different:
-
-```text
-Abstract:
-  initParameters/endOfRound/endOfExperiment receive all peers
-
-ConcreteMQ today:
-  hooks receive localPeers owned by this process
-```
-
-- This can silently break algorithms that inspect global peer state.
-
-Tasks:
-- [ ] Next: audit concrete algorithms for:
-  - `initParameters(...)`;
-  - `endOfRound(...)`;
-  - `endOfExperiment(...)`;
-  - loops over `std::vector<Peer*>`;
-  - direct reads of other peer state.
-- [ ] Next: create a table with:
-  - algorithm;
-  - hook used;
-  - needs global peer vector;
-  - MQ risk;
-  - proposed contract.
-- [ ] Decision: classify each hook as local-safe, aggregation-needed, or unsupported
-  in MQ mode.
-
-Done when:
-- [ ] no algorithm hook ambiguity remains undocumented;
-- [ ] global-peer-vector assumptions are visible before more MQ parity work;
-- [ ] risky hooks have a proposed snapshot/aggregation strategy.
-
-## 8. Define Output Aggregation
-
-Problem:
-- Peer processes write local output files.
-- Leader waits for done messages.
-- No central final experiment report is assembled yet.
-
-Recommendation:
-- Start with file-based aggregation after all peers finish.
-- Avoid serializing full `Peer` objects.
-- Aggregate explicit metric snapshots or per-peer JSON outputs.
-
-Tasks:
-- [ ] Decision: choose one output contract:
-  - per-peer files only;
-  - leader-aggregated report;
-  - separate `ResultAggregator`.
-- [ ] Next: define the final report schema.
-- [ ] Next: update validation docs with expected output artifacts.
-- [ ] Later: implement aggregation after MQ channel semantics are stable enough to
-  produce meaningful metrics.
-
-Done when:
-- [ ] one completed MQ run produces predictable output artifact names;
-- [ ] the leader/simulation responsibility for aggregation is explicit;
-- [ ] `tests > 1` reporting has a place to live.
-
-## 9. Implement `tests > 1` Semantics
-
-Problem:
-- Abstract QUANTAS supports repeated tests.
-- ConcreteMQ currently warns that it executes a single test per experiment.
-
-Tasks:
-- [ ] Decision: decide whether repeated tests relaunch processes or reuse them
-  across test iterations.
-- [ ] Next: define output naming for experiment index, peer id, and test index.
-- [ ] Later: implement repeated-test execution after output aggregation is defined.
-
-Done when:
-- [ ] `tests > 1` produces deterministic per-test outputs;
-- [ ] repeated runs do not reuse stale MQ resources;
-- [ ] validation matrix records the behavior as PASS.
-
-## 10. Introduce a C++ Process Manager
-
-Problem:
-- Process launching is currently makefile/shell orchestration.
-- This proves N independent processes, but it is not an integrated Simulation
-  Component replacement.
-
-Recommendation:
-- Do not implement this before channel semantics and output contracts are
-  clearer.
-- Keep `make mq_run_all` as the smoke path until a process manager has a
-  concrete acceptance test.
-
-Tasks:
-- [ ] Later: introduce a process manager that can:
-  - parse config and determine peer count;
-  - spawn leader/peer child processes;
-  - track PIDs and exit codes;
-  - capture logs/output paths;
-  - handle startup failure, peer crash, timeout, and teardown;
-  - clean stale MQ resources deterministically.
-- [ ] Later: replace the makefile launcher only after matching its current behavior.
-
-Done when:
-- [ ] the process manager can run the same scenario as `make mq_run_all`;
-- [ ] failed peer startup produces a clear failure path;
-- [ ] all child exit codes are captured;
-- [ ] stale MQ cleanup is deterministic.
-
-## Suggested Attack Order
-
-1. [ ] Decide/document ConcreteMQ execution model.
-2. [ ] Define channel-semantics keying rule.
-3. [ ] Add pending-delivery buffer with behavior preserved.
-4. [ ] Add structured counters and separate backpressure drops.
-5. [ ] Implement one model semantic, starting with configured drop.
-6. [ ] Define packet metadata changes only when required by a semantic.
-7. [ ] Audit peer lifecycle hooks.
-8. [ ] Define output aggregation.
-9. [ ] Implement `tests > 1`.
-10. [ ] Replace makefile orchestration with a C++ process manager.
-
-This order keeps each task small and verifiable. It also prevents a process
-manager refactor from hiding the harder semantic work inside
-`NetworkInterfaceConcreteMQ`.
+ConcreteMQ will remain a realistic process backend like TCP, but it must still be
+a dependable experiment runner: finish repeated tests, leader-owned reporting,
+real IPC counters, and validation evidence before moving to ZeroMQ.

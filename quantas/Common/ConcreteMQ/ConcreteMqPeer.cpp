@@ -54,7 +54,6 @@ using MqAssignment = quantas::MqAssignment;
    - ConcreteMqPeer.cpp (worker runtime)
    - ConcreteMqLeader.cpp (leader runtime) */
 
-
 // Validate assignment bounds and basic topology invariants.
 void validateAssignment(const MqAssignment &assignment, int totalPeers) {
     if (totalPeers <= 0) throw std::runtime_error("error: totalPeers must be > 0");
@@ -79,8 +78,8 @@ void validateAssignment(const MqAssignment &assignment, int totalPeers) {
 void applyAssignment(
     const MqAssignment &assignment, quantas::NetworkInterfaceConcreteMQ *mq, quantas::Peer *peer
 ) {
-    QUANTAS_LOG_INFO("topology") << "peer " << assignment.id << " using topology="
-                                 << assignment.topologyType;
+    QUANTAS_LOG_INFO("topology") << "peer " << assignment.id
+                                 << " using topology=" << assignment.topologyType;
     mq->configure(assignment.id, assignment.neighbors);
     peer->setNetworkInterface(mq);
 }

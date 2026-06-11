@@ -12,6 +12,7 @@ struct ExperimentConfig {
     int initialPeers{0};
     std::string initialPeerType;
     nlohmann::json topology;
+    int tests{1};
 };
 
 ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
@@ -23,10 +24,12 @@ ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
     out.initialPeers = experiment["topology"].value("initialPeers", 0);
     out.initialPeerType = experiment["topology"].value("initialPeerType", "");
     out.topology = experiment["topology"];
+    out.tests = experiment.value("tests", 1);
 
     if (out.initialPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
     if (out.initialPeerType.empty())
         throw std::runtime_error("error: topology.initialPeerType is empty");
+    if (out.tests <= 0) throw std::runtime_error("error: tests must be > 0");
     return out;
 }
 
@@ -88,18 +91,26 @@ int main(int argc, char *argv[]) {
                 logFileBase, quantas::StopMode::FixedRounds
             );
             QUANTAS_LOG_INFO("coord") << "leader starting rendezvous for experiment " << expIndex
-                                      << " with totalPeers=" << exp.initialPeers;
-            coordinator.createBarrier();
-            coordinator.waitForAllReady();
+                                      << " with totalPeers=" << exp.initialPeers
+                                      << " tests=" << exp.tests;
 
-            quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
-            coordinator.sendAssignments(topology.assignments);
+            for (int testIndex = 1; testIndex <= exp.tests; ++testIndex) {
+                QUANTAS_LOG_INFO("coord") << "leader starting experiment " << expIndex << " test "
+                                          << testIndex;
 
-            coordinator.broadcastStart();
-            coordinator.waitForAllDone();
+                coordinator.createBarrier();
+                coordinator.waitForAllReady();
 
-            QUANTAS_LOG_INFO("coord") << "leader broadcasted start for experiment " << expIndex;
-            coordinator.cleanUp();
+                quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
+                coordinator.sendAssignments(topology.assignments);
+
+                coordinator.broadcastStart();
+                coordinator.waitForAllDone();
+
+                QUANTAS_LOG_INFO("coord") << "leader completed experiment " << expIndex << " test "
+                                          << testIndex;
+                coordinator.cleanUp();
+            }
         } catch (const std::exception &ex) {
             coordinator.cleanUp();
             std::cerr << "error: leader failed at experiment " << expIndex << ": " << ex.what()

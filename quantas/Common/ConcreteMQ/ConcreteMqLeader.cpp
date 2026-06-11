@@ -90,13 +90,13 @@ int main(int argc, char *argv[]) {
                 expIndex, exp.initialPeerType, true, exp.initialPeers, quantas::NO_PEER_ID,
                 logFileBase, quantas::StopMode::FixedRounds
             );
-            QUANTAS_LOG_INFO("coord") << "leader starting rendezvous for experiment " << expIndex
-                                      << " with totalPeers=" << exp.initialPeers
-                                      << " tests=" << exp.tests;
+            QUANTAS_LOG_INFO("coord")
+                << "leader starting rendezvous for experiment " << expIndex
+                << " with totalPeers=" << exp.initialPeers << " tests=" << exp.tests;
 
             for (int testIndex = 1; testIndex <= exp.tests; ++testIndex) {
-                QUANTAS_LOG_INFO("coord") << "leader starting experiment " << expIndex << " test "
-                                          << testIndex;
+                QUANTAS_LOG_INFO("coord")
+                    << "leader starting experiment " << expIndex << " test " << testIndex;
 
                 coordinator.createBarrier();
                 coordinator.waitForAllReady();
@@ -107,8 +107,8 @@ int main(int argc, char *argv[]) {
                 coordinator.broadcastStart();
                 coordinator.waitForAllDone();
 
-                QUANTAS_LOG_INFO("coord") << "leader completed experiment " << expIndex << " test "
-                                          << testIndex;
+                QUANTAS_LOG_INFO("coord")
+                    << "leader completed experiment " << expIndex << " test " << testIndex;
                 coordinator.cleanUp();
             }
         } catch (const std::exception &ex) {

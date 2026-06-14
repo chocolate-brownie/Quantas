@@ -290,3 +290,7 @@ In this file I document what I do everyday during my internship.
 - Expanded `Documentation/logs/todo.md` with component-specific TODOs for process management, output aggregation, channel/distribution semantics, peer hook contracts, MQ interface delivery buffering, and packet metadata decisions.
 - Reorganized `Documentation/logs/arch.md` into a stable component map and `Documentation/logs/todo.md` into an ordered, one-problem-at-a-time ConcreteMQ runtime backlog.
 - Converted `Documentation/logs/todo.md` into a checkbox backlog and removed the superseded `Documentation/mq-parity/` planning folder.
+
+### 14/06/2026
+
+- Completed ConcreteMQ repeated JSON tests for both leader and peer lifecycles. Validation passed for `tests = 1` with `TopologyParityInput.json` and `tests = 10` with `AltBitUtility.json`; logs show experiment/test boundaries and successful runs left no stale MQ queues in `/dev/mqueue` or `/dev/shm`.

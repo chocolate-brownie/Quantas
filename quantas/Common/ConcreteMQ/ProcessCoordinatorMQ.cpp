@@ -1,6 +1,6 @@
+#include "ProcessCoordinatorMQ.hpp"
 #include "../Logger.hpp"
 #include "MqAssignment.hpp"
-#include "ProcessCoordinatorMQ.hpp"
 #include <atomic>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -8,11 +8,13 @@
 #include <boost/interprocess/exceptions.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <chrono>
 #include <cstddef>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_set>
 #include <vector>
 
@@ -122,15 +124,23 @@ void ProcessCoordinatorMQ::createInbox() {
 void ProcessCoordinatorMQ::sendReady() {
     if (_isLeader) return;
 
-    try {
-        message_queue mq(open_only, "mq_barrier");
-        unsigned int trigger = kReadyTrigger;
-        mq.send(&trigger, sizeof(trigger), 0);
-        QUANTAS_LOG_INFO("coord") << "peer " << _myId << " sent ready to barrier";
-    } catch (const interprocess_exception &ex) {
-        throw std::runtime_error(
-            "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " + ex.what()
-        );
+    constexpr int maxAttempts = 200;
+    for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
+        try {
+            message_queue mq(open_only, "mq_barrier");
+            unsigned int trigger = kReadyTrigger;
+            mq.send(&trigger, sizeof(trigger), 0);
+            QUANTAS_LOG_INFO("coord") << "peer " << _myId << " sent ready to barrier";
+            return;
+        } catch (const interprocess_exception &ex) {
+            if (attempt == maxAttempts) {
+                throw std::runtime_error(
+                    "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " +
+                    ex.what()
+                );
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 }
 

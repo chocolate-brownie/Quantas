@@ -334,6 +334,7 @@ clean:
 	@$(RM) **/*.gch
 	@$(RM) **/*.tmp
 	@$(RM) **/*.exe
+	@$(RM) **/*.txt
 
 clean_txt: SHELL := /bin/bash -O globstar
 clean_txt:

@@ -44,10 +44,10 @@ make mq_run_all INPUTFILE=quantas/AltBitPeer/AltBitUtility.json MQ_TOTAL_PEERS=2
 ```
 
 Done when:
-- [ ] `tests = 1` still works.
-- [ ] `tests > 1` runs the expected number of test iterations.
-- [ ] Logs clearly show experiment/test boundaries.
-- [ ] No stale MQ queues or peer state leak between tests.
+- [x] `tests = 1` still works.
+- [x] `tests > 1` runs the expected number of test iterations.
+- [x] Logs clearly show experiment/test boundaries.
+- [x] No stale MQ queues or peer state leak between tests.
 
 ### 2. Add leader-owned experiment report
 
@@ -152,6 +152,6 @@ Done when:
 
 ## Next Action
 
-Start with repeated JSON tests. That changes the execution shape, so output
-naming, leader reporting, counters, and final validation should build on top of
-it.
+Build the leader-owned experiment report next. Repeated JSON tests are now
+working, so the next dependable-researcher milestone is one trusted global run
+artifact from the leader.

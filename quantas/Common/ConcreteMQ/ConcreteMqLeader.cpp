@@ -2,11 +2,13 @@
 #include "../LoggingSupport.hpp"
 #include "MqTopology.hpp"
 #include "ProcessCoordinatorMQ.hpp"
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <sys/types.h>
 
 struct ExperimentConfig {
     int initialPeers{0};
@@ -79,17 +81,24 @@ int main(int argc, char *argv[]) {
      - call `configureExperiment(..., isLeader=true, totalPeers=N, ...)`,
     - run start gate: createBarrier -> waitForAllReady -> broadcastStart. */
 
+    /* TODO:  Leader records the start/end time of the whole simulation. How long it took to do the
+     * whole thing? */
+
     for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
+        // TODO: leader records experiment start/end time, test start/end time
         try {
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
             ExperimentConfig exp = parseLeaderExp(*config, expIndex);
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
+            // TODO: leader creates a name for the final experiment file
+            // quantas::makeExperimentFileName();
 
             coordinator.configureExperiment(
                 expIndex, exp.initialPeerType, true, exp.initialPeers, quantas::NO_PEER_ID,
                 logFileBase, quantas::StopMode::FixedRounds
             );
+
             QUANTAS_LOG_INFO("coord")
                 << "leader starting rendezvous for experiment " << expIndex
                 << " with totalPeers=" << exp.initialPeers << " tests=" << exp.tests;
@@ -117,7 +126,16 @@ int main(int argc, char *argv[]) {
                       << '\n';
             return 1;
         }
+
+        // TODO: leader records experiment end time, test end time
     }
+
+    /* TODO: Generate final metric file by leader
+     * v1: leader writes a report that references peer output files and records completion
+     * status.
+     *
+     * v2: leader may aggregate peer metric JSON contents by parsing and mering peer LogWriter
+     * outputs */
 
     return 0;
 }

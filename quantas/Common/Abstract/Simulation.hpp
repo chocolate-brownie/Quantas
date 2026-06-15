@@ -60,9 +60,7 @@ inline void Simulation::run(json config) {
     int _threadCount = config.value(
         "threadCount", thread::hardware_concurrency()
     ); // By default, use as many hardware cores as possible
-    if (_threadCount <= 0) {
-        _threadCount = 1;
-    }
+    if (_threadCount <= 0) { _threadCount = 1; }
     if (_threadCount > config["topology"]["initialPeers"]) {
         _threadCount = config["topology"]["initialPeers"];
     }
@@ -107,9 +105,7 @@ inline void Simulation::run(json config) {
 
             // do the receive phase of the round
             BS::multi_future<void> receive_loop =
-                pool.parallelize_loop(networkSize, [this](int a, int b) {
-                    system.receive(a, b);
-                });
+                pool.parallelize_loop(networkSize, [this](int a, int b) { system.receive(a, b); });
             receive_loop.wait();
 
             BS::multi_future<void> compute_loop =

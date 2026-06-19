@@ -151,28 +151,15 @@ ExperimentConfig parseExperiment(
     return out;
 }
 
-std::string addTestIndexToFileName(const std::string &path, int testIndex) {
-    if (path == "cout" || path == "cerr") return path;
-
-    const size_t slash = path.find_last_of("/\\");
-    const size_t dot = path.find_last_of('.');
-    const bool hasExtension =
-        dot != std::string::npos && (slash == std::string::npos || dot > slash);
-    const size_t insertAt = hasExtension ? dot : path.size();
-
-    std::string out = path;
-    out.insert(insertAt, "_TEST" + std::to_string(testIndex));
-    return out;
-}
-
 // Resolve and configure the output destination for this experiment.
 std::string configureExperimentOutput(
-    const std::string &logFileBase, size_t expIndex, int testIndex,
+    const std::string &logFileBase, size_t expIndex, int testNumber,
     std::optional<int> processDisambiguator
 ) {
     const std::string experimentFile =
         quantas::makeExperimentFileName(logFileBase, expIndex, processDisambiguator, ".json");
-    const std::string metricsFile = addTestIndexToFileName(experimentFile, testIndex);
+    const std::string metricsFile =
+        quantas::addFileNameSuffix(experimentFile, "_TEST" + std::to_string(testNumber));
     quantas::LogWriter::setLogFile(metricsFile);
     quantas::LogWriter::setTest(0);
     return metricsFile;
@@ -260,9 +247,6 @@ void runRounds(
      * does nothing */
     localPeers.front()->endOfExperiment(localPeers);
 
-    coordinator.notifyPeerStopped(localPeers.front()->publicId());
-    coordinator.waitForStop();
-
     // Observability/debug evidence for how and why each peer’s loop terminated.
     const auto currentRound = quantas::RoundManager::currentRound();
     for (const auto *peer : localPeers) {
@@ -329,9 +313,10 @@ int main(int argc, char **argv) {
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::optional<int> processDisambiguator = cli->peerId;
 
-            for (int testIndex = 1; testIndex <= exp.tests; ++testIndex) {
+            for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
+                const int testNumber = testIndex + 1;
                 const std::string metricsFile = configureExperimentOutput(
-                    logFileBase, expIndex, testIndex, processDisambiguator
+                    logFileBase, expIndex, testNumber, processDisambiguator
                 );
                 coordinator.configureExperiment(
                     expIndex, exp.peerType, false, exp.totalPeers, cli->peerId, logFileBase,
@@ -340,7 +325,7 @@ int main(int argc, char **argv) {
                 QUANTAS_LOG_INFO("runner")
                     << "peer " << cli->peerId << " output file: " << metricsFile;
                 QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " starting experiment "
-                                           << expIndex << " test " << testIndex;
+                                           << expIndex << " test " << testNumber;
 
                 initRendezvous(coordinator, cli->peerId);
 
@@ -368,6 +353,8 @@ int main(int argc, char **argv) {
 
                 runRounds(localPeers, exp.rounds, coordinator);
                 emitFinalExperimentMetrics(startTime);
+                coordinator.notifyPeerStopped(localPeers.front()->publicId());
+                coordinator.waitForStop();
 
                 cleanUp(localPeers);
             }

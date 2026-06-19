@@ -23,6 +23,8 @@ std::string makeExperimentFileName(const std::string& base,
                                    std::optional<int> port,
                                    std::string_view defaultExtension);
 
+std::string addFileNameSuffix(const std::string& path, std::string_view suffix);
+
 LoggerActivation configureLoggerForExperiment(const nlohmann::json& rootConfig,
                                               const nlohmann::json& experimentConfig,
                                               size_t experimentIndex,

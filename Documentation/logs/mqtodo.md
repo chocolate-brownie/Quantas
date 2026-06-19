@@ -88,10 +88,10 @@ make mq_run_all INPUTFILE=quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json MQ_TOTAL_P
 
 Done when:
 
-- [ ] Leader report exists.
-- [ ] Report lists all expected peers.
-- [ ] Report references per-peer debug output files.
-- [ ] Report makes failed or missing peers visible.
+- [x] Leader report exists.
+- [x] Report lists all expected peers.
+- [x] Report references per-peer debug output files.
+- [x] Report makes failed or missing peers visible.
 
 ### 3. Add real IPC counters
 
@@ -171,9 +171,9 @@ Done when:
 
 ## Next Action
 
-Build the leader-owned experiment report next. Repeated JSON tests are now
-working, so the next dependable-researcher milestone is one trusted global run
-artifact from the leader.
+Add the real IPC counters. Repeated tests and leader-owned reports now cover
+both successful completion and timeout failures with explicit missing-peer
+evidence.
 
 ## Future goals
 

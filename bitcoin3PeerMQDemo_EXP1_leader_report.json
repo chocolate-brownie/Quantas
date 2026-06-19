@@ -1,0 +1,36 @@
+{
+    "backend": "mq",
+    "doneTimeoutMs": 30000,
+    "durationSeconds": 0.212318703,
+    "expectedPeers": [
+        0,
+        1,
+        2
+    ],
+    "experimentIndex": 0,
+    "inputFile": "quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json",
+    "peerCount": 3,
+    "peerType": "BitcoinPeer",
+    "rounds": 25,
+    "success": true,
+    "tests": [
+        {
+            "completedPeers": [
+                2,
+                1,
+                0
+            ],
+            "durationSeconds": 0.212067788,
+            "missingPeers": [],
+            "peerOutputFiles": {
+                "0": "bitcoin3PeerMQDemo_EXP1_p0_TEST1.txt",
+                "1": "bitcoin3PeerMQDemo_EXP1_p1_TEST1.txt",
+                "2": "bitcoin3PeerMQDemo_EXP1_p2_TEST1.txt"
+            },
+            "success": true,
+            "testIndex": 0,
+            "timedOut": false
+        }
+    ],
+    "topologyType": "complete"
+}

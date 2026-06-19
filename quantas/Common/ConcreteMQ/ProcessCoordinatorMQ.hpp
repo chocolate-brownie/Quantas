@@ -5,6 +5,7 @@
 #include "MqAssignment.hpp"
 #include <atomic>
 #include <boost/interprocess/ipc/message_queue.hpp>
+#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -14,6 +15,11 @@
 
 namespace quantas {
 enum class StopMode { FixedRounds, DoneSignals };
+
+struct PeerCompletionResult {
+    std::vector<interfaceId> completedPeers;
+    bool timedOut{false};
+};
 
 class ProcessCoordinatorMQ {
   private:
@@ -81,9 +87,10 @@ class ProcessCoordinatorMQ {
     StopMode stopMode() const;
     void requestStop(const std::string &reason = "");
     void broadcastStop();
+    void broadcastStopBestEffort();
     void waitForStop();
     void notifyPeerStopped(interfaceId id);
-    void waitForAllDone();
+    PeerCompletionResult waitForAllDone(std::chrono::milliseconds timeout);
 };
 
 } // namespace quantas

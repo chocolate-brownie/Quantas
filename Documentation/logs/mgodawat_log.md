@@ -294,3 +294,23 @@ In this file I document what I do everyday during my internship.
 ### 14/06/2026
 
 - Completed ConcreteMQ repeated JSON tests for both leader and peer lifecycles. Validation passed for `tests = 1` with `TopologyParityInput.json` and `tests = 10` with `AltBitUtility.json`; logs show experiment/test boundaries and successful runs left no stale MQ queues in `/dev/mqueue` or `/dev/shm`.
+
+### 17/06/2026
+
+- Started the ConcreteMQ leader-owned experiment report work. Decided to keep `LogWriter` as the peer/algorithm metrics writer and use the MQ leader for a separate researcher-facing execution report, because the leader has the global process-completion view while peer `LogWriter` files are process-local.
+- Updated `ProcessCoordinatorMQ::waitForAllDone()` to return completed peer ids so `ConcreteMqLeader.cpp` can build completion evidence instead of only blocking until peers finish.
+- Added leader-side report scaffolding in `ConcreteMqLeader.cpp`: experiment metadata (`backend`, experiment index, peer count/type, topology type, rounds), per-test duration, completed peers, missing peers, and success status. The report is currently accumulated in memory; writing the final experiment-level JSON file is the next step.
+- Fixed a compile issue caused by naming a local variable `missingPeers` while also using a helper with the same name; renamed the helper to `findMissingPeers(...)` and pushed a real test report object into `expReport["tests"]`.
+- Validation run completed for the current leader-side changes:
+  - `make -j4 mq_leader_debug`
+
+### 19/06/2026
+
+- Completed the minimal successful-run ConcreteMQ leader report. The leader now writes one JSON file per experiment with configuration metadata, expected/completed peers, zero-based test indexes, durations, success state, and per-peer output paths.
+- Centralized filename suffixing in `LoggingSupport` so peers and the leader share `_TEST<N>` naming; internal test loops are zero-based while logs and filenames remain one-based.
+- Validation passed for the 3-peer Bitcoin demo and the four-experiment, ten-test AltBit run. All processes exited `0`, generated reports parsed with `jq`, test indexes were `0..9`, and every referenced peer output file existed.
+- Added optional per-experiment `doneTimeoutMs` with a 30-second default. The leader now uses one absolute completion deadline, writes partial completion and missing-peer evidence on timeout, performs best-effort stop delivery, cleans queues, and exits `1`.
+- Updated `mq_run_all` to wait for the leader first and terminate remaining peers when the leader fails, preventing the Makefile orchestration from hanging behind an unresponsive peer.
+- Added a focused MQ coordinator timeout test covering partial completion, duplicate notifications, invalid peer ids, and bounded return time.
+- Validation passed for the normal 3-peer Bitcoin run and two timeout scenarios. Failed reports had `timedOut: true`, `success: false`, and the expected missing peers; all peer processes were reaped and no MQ queues remained.
+- Reordered the MQ peer completion lifecycle so `LogWriter::print()` flushes and closes the peer metrics file before the peer sends `done`. Normal, repeated-test, and partial-timeout runs confirmed `output printed -> notified done -> waiting for stop`, establishing the file-complete boundary needed for leader aggregation.

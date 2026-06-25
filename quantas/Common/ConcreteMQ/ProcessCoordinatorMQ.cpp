@@ -47,8 +47,34 @@ constexpr unsigned int kReadyTrigger = 1;
 constexpr unsigned int kStartTrigger = 2;
 constexpr unsigned int kStopTrigger = 3;
 constexpr unsigned int kDoneTrigger = 4;
+constexpr int kControlSendAttempts = 200;
+constexpr int kControlSendWaitMs = 10;
 std::mutex gCompletedMutex;
 std::unordered_set<interfaceId> gCompletedPeers;
+
+bool timedSendControlMessage(
+    message_queue &mq, const void *message, size_t messageSize, int waitMs
+) {
+    const auto deadline = boost::posix_time::microsec_clock::universal_time() +
+                          boost::posix_time::milliseconds(waitMs);
+    return mq.timed_send(message, messageSize, 0, deadline);
+}
+
+bool queueExists(const std::string &queueName) {
+    try {
+        message_queue mq(open_only, queueName.c_str());
+        return true;
+    } catch (const interprocess_exception &) { return false; }
+}
+
+void waitForQueueRemoval(const std::string &queueName) {
+    for (int attempt = 1; attempt <= kControlSendAttempts; ++attempt) {
+        if (!queueExists(queueName)) { return; }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kControlSendWaitMs));
+    }
+
+    throw std::runtime_error("Timed out waiting for queue removal: " + queueName);
+}
 } // namespace
 
 ProcessCoordinatorMQ &ProcessCoordinatorMQ::instance() {
@@ -91,11 +117,7 @@ void ProcessCoordinatorMQ::createBarrier() {
     message_queue::remove("mq_barrier");
     message_queue::remove("mq_done");
 
-    /* WARNING: capacity 10 is capped by the POSIX limit fs.mqueue.msg_max
-       (default 10 on Linux). The barrier needs to hold one "ready" message per
-       follower, so N > 10 peers will require `sudo sysctl
-       fs.mqueue.msg_max=<higher>` before this queue can be created with a
-       larger size */
+    // Keep shared control queues small and rely on timed sender retries while the leader drains.
     try {
         _myBarrier.emplace(create_only, "mq_barrier", 10, sizeof(unsigned int));
         message_queue doneQueue(create_only, "mq_done", 10, sizeof(interfaceId));
@@ -125,24 +147,28 @@ void ProcessCoordinatorMQ::createInbox() {
 void ProcessCoordinatorMQ::sendReady() {
     if (_isLeader) return;
 
-    constexpr int maxAttempts = 200;
-    for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
+    for (int attempt = 1; attempt <= kControlSendAttempts; ++attempt) {
         try {
             message_queue mq(open_only, "mq_barrier");
             unsigned int trigger = kReadyTrigger;
-            mq.send(&trigger, sizeof(trigger), 0);
-            QUANTAS_LOG_INFO("coord") << "peer " << _myId << " sent ready to barrier";
-            return;
+            if (timedSendControlMessage(mq, &trigger, sizeof(trigger), kControlSendWaitMs)) {
+                QUANTAS_LOG_INFO("coord") << "peer " << _myId << " sent ready to barrier";
+                return;
+            }
         } catch (const interprocess_exception &ex) {
-            if (attempt == maxAttempts) {
+            if (attempt == kControlSendAttempts) {
                 throw std::runtime_error(
                     "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " +
                     ex.what()
                 );
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kControlSendWaitMs));
     }
+
+    throw std::runtime_error(
+        "Timed out sending ready for peer " + std::to_string(_myId) + " to mq_barrier"
+    );
 }
 
 // 4. Leader reads N "ready" messages from quantas_barrier
@@ -283,8 +309,8 @@ void ProcessCoordinatorMQ::sendAssignments(const std::vector<MqAssignment> &assi
 
             peerInbox.send(bytes.data(), bytes.size(), 0);
         }
-        const std::string topologyType =
-            assignments.empty() ? "unknown" : assignments.front().topologyType;
+        const std::string topologyType = assignments.empty() ? "unknown"
+                                                             : assignments.front().topologyType;
         QUANTAS_LOG_INFO("coord") << "leader sent assignments topology=" << topologyType
                                   << " peers=" << assignments.size();
     } catch (const interprocess_exception &ex) {
@@ -335,6 +361,8 @@ void ProcessCoordinatorMQ::waitForStop() {
 
             QUANTAS_LOG_INFO("coord") << "peer " << _myId << " received stop signal";
             _stopSignal = true;
+            waitForQueueRemoval("peer_" + std::to_string(_myId));
+            _myInbox.reset();
             break;
         }
     } catch (const interprocess_exception &ex) {
@@ -382,16 +410,28 @@ void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
 
     // Follower path: send a single done notification to the leader-owned queue.
     if (!_isLeader) {
-        try {
-            message_queue doneQueue(open_only, "mq_done");
-            doneQueue.send(&id, sizeof(id), 0);
-            QUANTAS_LOG_INFO("coord") << "peer " << _myId << " notified done for peer " << id;
-        } catch (const interprocess_exception &ex) {
-            throw std::runtime_error(
-                "Failed to ::notifyPeerStopped for peer " + std::to_string(_myId) + ": " + ex.what()
-            );
+        for (int attempt = 1; attempt <= kControlSendAttempts; ++attempt) {
+            try {
+                message_queue doneQueue(open_only, "mq_done");
+                if (timedSendControlMessage(doneQueue, &id, sizeof(id), kControlSendWaitMs)) {
+                    QUANTAS_LOG_INFO("coord")
+                        << "peer " << _myId << " notified done for peer " << id;
+                    return;
+                }
+            } catch (const interprocess_exception &ex) {
+                if (attempt == kControlSendAttempts) {
+                    throw std::runtime_error(
+                        "Failed to ::notifyPeerStopped for peer " + std::to_string(_myId) + ": " +
+                        ex.what()
+                    );
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(kControlSendWaitMs));
         }
-        return;
+
+        throw std::runtime_error(
+            "Timed out sending done for peer " + std::to_string(_myId) + " to mq_done"
+        );
     }
 
     // Leader path: count unique completed peers and broadcast stop once all are done.

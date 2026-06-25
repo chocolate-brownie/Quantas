@@ -210,15 +210,19 @@ void cleanUp(std::vector<quantas::Peer *> &localPeers) {
 void runRounds(
     std::vector<quantas::Peer *> &localPeers, int rounds, quantas::ProcessCoordinatorMQ &coordinator
 ) {
-    quantas::RoundManager::asynchronous();
-    quantas::RoundManager::setCurrentRound(0);
-    quantas::RoundManager::setLastRound(rounds);
-
     size_t loopCount = 0;
     std::string stopReason = "unknown";
     const auto mode = coordinator.stopMode();
     const char *modeLabel =
         (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
+
+    if (mode == quantas::StopMode::FixedRounds) {
+        quantas::RoundManager::synchronous();
+    } else {
+        quantas::RoundManager::asynchronous();
+    }
+    quantas::RoundManager::setCurrentRound(0);
+    quantas::RoundManager::setLastRound(rounds);
 
     while (!coordinator.shouldStop()) {
         if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {

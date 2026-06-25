@@ -45,7 +45,7 @@ MQ_EXE := quantas_mq_peer.exe
 MQ_LEADER_EXE := quantas_mq_leader.exe
 MQ_PEER_ID ?= 0
 MQ_ROUNDS ?=
-MQ_TOTAL_PEERS ?= 2
+MQ_TOTAL_PEERS ?= $(shell sed -n 's/.*"initialPeers"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' $(INPUTFILE) | head -n 1)
 MQ_DEBUG_PEER_ID ?= 0
 
 # compiles all the cpps in Common and main.cpp
@@ -129,8 +129,8 @@ help:
 	@echo "  make mq_leader_run INPUTFILE=..."
 	@echo ""
 	@echo "MQ leader + peers orchestration:"
-	@echo "  make mq_run_all INPUTFILE=... MQ_TOTAL_PEERS=2 [MQ_ROUNDS=10]"
-	@echo "  make mq_run_all_debug_peer INPUTFILE=... MQ_TOTAL_PEERS=11 MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
+	@echo "  make mq_run_all INPUTFILE=... [MQ_TOTAL_PEERS=override] [MQ_ROUNDS=10]"
+	@echo "  make mq_run_all_debug_peer INPUTFILE=... [MQ_TOTAL_PEERS=override] MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
 	@echo ""
 	@echo "Tests / diagnostics:"
 	@echo "  make test"

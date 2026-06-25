@@ -12,3 +12,8 @@ AllowShortIfStatementsOnASingleLine: AllIfsAndElse
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortLoopsOnASingleLine: true
+
+BinPackArguments: false
+AllowAllArgumentsOnNextLine: false
+PenaltyBreakAssignment: 1000
+PenaltyBreakBeforeFirstCallParameter: 0

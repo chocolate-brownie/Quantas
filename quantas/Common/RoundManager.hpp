@@ -80,6 +80,10 @@ class RoundManager {
         RoundManager *inst = instance();
         inst->_synchronous = false;
     }
+    static void synchronous() {
+        RoundManager *inst = instance();
+        inst->_synchronous = true;
+    }
 };
 
 } // end namespace quantas

@@ -1,0 +1,28 @@
+{
+  "algorithms": [
+    "ExamplePeer/ExamplePeer.cpp",
+    "ExamplePeer/ExamplePeer2.cpp"
+  ],
+  "experiments": [
+    {
+      "logFile": "exampleMqDrop.txt",
+      "threadCount": 1,
+      "parameters": {
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "ONE",
+        "maxDelay": 1,
+        "maxMsgsRec": 10,
+        "dropProbability": 1.0
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 2
+    }
+  ]
+}

@@ -187,6 +187,18 @@ std::string makeExperimentFileName(const std::string& base,
     return finalPath.string();
 }
 
+std::string addFileNameSuffix(const std::string& path, std::string_view suffix) {
+    if (path == "cout" || path == "cerr" || path.empty()) {
+        return path;
+    }
+
+    std::filesystem::path outputPath(path);
+    const std::string fileName =
+        outputPath.stem().string() + std::string(suffix) + outputPath.extension().string();
+    outputPath.replace_filename(fileName);
+    return outputPath.string();
+}
+
 LoggerActivation configureLoggerForExperiment(const nlohmann::json& rootConfig,
                                               const nlohmann::json& experimentConfig,
                                               size_t experimentIndex,

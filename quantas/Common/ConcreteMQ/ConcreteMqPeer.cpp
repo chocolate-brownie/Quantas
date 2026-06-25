@@ -15,23 +15,23 @@
 #include <vector>
 
 /*
-ConcreteMQ Worker Runtime: two-phase execution model
+   ConcreteMQ Worker Runtime: two-phase execution model
 
-Phase 1 (setup / runtime assembly)
-- Parse CLI and load config.
-- Extract one experiment's runtime parameters.
-- Configure coordinator context for this experiment.
-- Resolve output destination.
-- Build local assignments and construct local peers/interfaces.
+   Phase 1 (setup / runtime assembly)
+   - Parse CLI and load config.
+   - Extract one experiment's runtime parameters.
+   - Configure coordinator context for this experiment.
+   - Resolve output destination.
+   - Build local assignments and construct local peers/interfaces.
 
-Phase 2 (execution / lifecycle)
-- Run per-round receive + compute for local peers.
-- Handle fast-path skip when no runnable local peers.
-- Cleanup peer/interface state on success and failure.
+   Phase 2 (execution / lifecycle)
+   - Run per-round receive + compute for local peers.
+   - Handle fast-path skip when no runnable local peers.
+   - Cleanup peer/interface state on success and failure.
 
-This file keeps both phases in one unit for bring-up clarity. Utility
-extraction points are grouped below to make later refactoring mechanical.
-*/
+   This file keeps both phases in one unit for bring-up clarity. Utility
+   extraction points are grouped below to make later refactoring mechanical.
+   */
 
 // --------------------------- Shared data types ---------------------------
 
@@ -45,6 +45,7 @@ struct ExperimentConfig {
     int totalPeers{0};
     std::string peerType;
     int rounds{0};
+    int tests{1};
 };
 
 using MqAssignment = quantas::MqAssignment;
@@ -53,7 +54,6 @@ using MqAssignment = quantas::MqAssignment;
    shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
    - ConcreteMqPeer.cpp (worker runtime)
    - ConcreteMqLeader.cpp (leader runtime) */
-
 
 // Validate assignment bounds and basic topology invariants.
 void validateAssignment(const MqAssignment &assignment, int totalPeers) {
@@ -79,8 +79,8 @@ void validateAssignment(const MqAssignment &assignment, int totalPeers) {
 void applyAssignment(
     const MqAssignment &assignment, quantas::NetworkInterfaceConcreteMQ *mq, quantas::Peer *peer
 ) {
-    QUANTAS_LOG_INFO("topology") << "peer " << assignment.id << " using topology="
-                                 << assignment.topologyType;
+    QUANTAS_LOG_INFO("topology") << "peer " << assignment.id
+                                 << " using topology=" << assignment.topologyType;
     mq->configure(assignment.id, assignment.neighbors);
     peer->setNetworkInterface(mq);
 }
@@ -142,20 +142,26 @@ ExperimentConfig parseExperiment(
     out.peerType = experiment["topology"].value("initialPeerType", "");
     out.rounds = roundsOverride.has_value() ? *roundsOverride
                                             : static_cast<int>(experiment.value("rounds", 0));
+    out.tests = experiment.value("tests", 1);
     if (out.totalPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
     if (out.peerType.empty()) throw std::runtime_error("error: topology.initialPeerType is empty");
     if (out.rounds <= 0) throw std::runtime_error("error: rounds must be > 0");
+    if (out.tests <= 0) throw std::runtime_error("error: tests must be > 0");
 
     return out;
 }
 
 // Resolve and configure the output destination for this experiment.
 std::string configureExperimentOutput(
-    const std::string &logFileBase, size_t expIndex, std::optional<int> processDisambiguator
+    const std::string &logFileBase, size_t expIndex, int testNumber,
+    std::optional<int> processDisambiguator
 ) {
-    const std::string metricsFile =
+    const std::string experimentFile =
         quantas::makeExperimentFileName(logFileBase, expIndex, processDisambiguator, ".json");
+    const std::string metricsFile =
+        quantas::addFileNameSuffix(experimentFile, "_TEST" + std::to_string(testNumber));
     quantas::LogWriter::setLogFile(metricsFile);
+    quantas::LogWriter::setTest(0);
     return metricsFile;
 }
 
@@ -173,7 +179,7 @@ void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
 }
 
 /* Construct all peers assigned to this worker and bind each peer to an MQ
-    interface configured from its assignment (id + neighbors). */
+   interface configured from its assignment (id + neighbors). */
 std::vector<quantas::Peer *>
 buildLocalPeers(const std::string &peerType, const std::vector<MqAssignment> &assignments) {
     std::vector<quantas::Peer *> localPeers;
@@ -204,15 +210,19 @@ void cleanUp(std::vector<quantas::Peer *> &localPeers) {
 void runRounds(
     std::vector<quantas::Peer *> &localPeers, int rounds, quantas::ProcessCoordinatorMQ &coordinator
 ) {
-    quantas::RoundManager::asynchronous();
-    quantas::RoundManager::setCurrentRound(0);
-    quantas::RoundManager::setLastRound(rounds);
-
     size_t loopCount = 0;
     std::string stopReason = "unknown";
     const auto mode = coordinator.stopMode();
     const char *modeLabel =
         (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
+
+    if (mode == quantas::StopMode::FixedRounds) {
+        quantas::RoundManager::synchronous();
+    } else {
+        quantas::RoundManager::asynchronous();
+    }
+    quantas::RoundManager::setCurrentRound(0);
+    quantas::RoundManager::setLastRound(rounds);
 
     while (!coordinator.shouldStop()) {
         if (mode == quantas::StopMode::FixedRounds && loopCount >= static_cast<size_t>(rounds)) {
@@ -240,9 +250,6 @@ void runRounds(
     /* If the algorithm layer has an `endOfExperiment` it will override otherwise the runtime layer
      * does nothing */
     localPeers.front()->endOfExperiment(localPeers);
-
-    coordinator.notifyPeerStopped(localPeers.front()->publicId());
-    coordinator.waitForStop();
 
     // Observability/debug evidence for how and why each peer’s loop terminated.
     const auto currentRound = quantas::RoundManager::currentRound();
@@ -273,12 +280,6 @@ void initializeHooks(const nlohmann::json &experiment, std::vector<quantas::Peer
     if (experiment.contains("parameters")) {
         localPeers.front()->initParameters(localPeers, experiment["parameters"]);
     }
-
-    const int testsConfigured = experiment.value("tests", 1);
-    if (testsConfigured > 1) {
-        QUANTAS_LOG_WARN("runner")
-            << "concrete MQ mode currently executes a single test per experiment";
-    }
 }
 
 void emitFinalExperimentMetrics(const std::chrono::high_resolution_clock::time_point &startTime) {
@@ -306,49 +307,61 @@ int main(int argc, char **argv) {
         std::vector<quantas::Peer *> localPeers;
         try {
             /*
-            ==================== Phase 1: Setup / Assembly ====================
-            Build all runtime state needed to execute this experiment in the
-            current worker process.
-            */
+               ==================== Phase 1: Setup / Assembly ====================
+               Build all runtime state needed to execute this experiment in the
+               current worker process.
+               */
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
             ExperimentConfig exp = parseExperiment(*config, expIndex, cli->roundsOverride);
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::optional<int> processDisambiguator = cli->peerId;
-            const std::string metricsFile =
-                configureExperimentOutput(logFileBase, expIndex, processDisambiguator);
-            coordinator.configureExperiment(
-                expIndex, exp.peerType, false, exp.totalPeers, cli->peerId, logFileBase,
-                quantas::StopMode::FixedRounds
-            );
-            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " output file: " << metricsFile;
-            initRendezvous(coordinator, cli->peerId);
 
-            std::vector<MqAssignment> assignments = coordinator.waitForAssignments();
-            if (!prepareLocalPeers(exp, assignments, localPeers)) {
+            for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
+                const int testNumber = testIndex + 1;
+                const std::string metricsFile = configureExperimentOutput(
+                    logFileBase, expIndex, testNumber, processDisambiguator
+                );
+                coordinator.configureExperiment(
+                    expIndex, exp.peerType, false, exp.totalPeers, cli->peerId, logFileBase,
+                    quantas::StopMode::FixedRounds
+                );
+                QUANTAS_LOG_INFO("runner")
+                    << "peer " << cli->peerId << " output file: " << metricsFile;
+                QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " starting experiment "
+                                           << expIndex << " test " << testNumber;
+
+                initRendezvous(coordinator, cli->peerId);
+
+                std::vector<MqAssignment> assignments = coordinator.waitForAssignments();
+                if (!prepareLocalPeers(exp, assignments, localPeers)) {
+                    cleanUp(localPeers);
+                    coordinator.cleanUp();
+                    QUANTAS_LOG_WARN("runner")
+                        << "experiment " << expIndex << ": no runnable local peers, skipping";
+                    continue;
+                }
+
+                QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
+                coordinator.waitForStart();
+                QUANTAS_LOG_INFO("runner")
+                    << "peer " << cli->peerId << " start signal acknowledged";
+
+                initializeHooks(experiment, localPeers);
+                const auto startTime = std::chrono::high_resolution_clock::now();
+
+                /*
+                   =================== Phase 2: Execute / Cleanup ====================
+                   Execute rounds for all local peers, then release experiment state.
+                   */
+
+                runRounds(localPeers, exp.rounds, coordinator);
+                emitFinalExperimentMetrics(startTime);
+                coordinator.notifyPeerStopped(localPeers.front()->publicId());
+                coordinator.waitForStop();
+
                 cleanUp(localPeers);
-                coordinator.cleanUp();
-                QUANTAS_LOG_WARN("runner")
-                    << "experiment " << expIndex << ": no runnable local peers, skipping";
-                continue;
             }
-
-            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
-            coordinator.waitForStart();
-            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " start signal acknowledged";
-
-            initializeHooks(experiment, localPeers);
-            const auto startTime = std::chrono::high_resolution_clock::now();
-
-            /*
-            =================== Phase 2: Execute / Cleanup ====================
-            Execute rounds for all local peers, then release experiment state.
-            */
-
-            runRounds(localPeers, exp.rounds, coordinator);
-            emitFinalExperimentMetrics(startTime);
-
-            cleanUp(localPeers);
             coordinator.cleanUp();
         } catch (const std::exception &ex) {
             cleanUp(localPeers);

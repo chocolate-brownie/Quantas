@@ -45,7 +45,7 @@ MQ_EXE := quantas_mq_peer.exe
 MQ_LEADER_EXE := quantas_mq_leader.exe
 MQ_PEER_ID ?= 0
 MQ_ROUNDS ?=
-MQ_TOTAL_PEERS ?= 2
+MQ_TOTAL_PEERS ?= $(shell sed -n 's/.*"initialPeers"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' $(INPUTFILE) | head -n 1)
 MQ_DEBUG_PEER_ID ?= 0
 
 # compiles all the cpps in Common and main.cpp
@@ -129,8 +129,8 @@ help:
 	@echo "  make mq_leader_run INPUTFILE=..."
 	@echo ""
 	@echo "MQ leader + peers orchestration:"
-	@echo "  make mq_run_all INPUTFILE=... MQ_TOTAL_PEERS=2 [MQ_ROUNDS=10]"
-	@echo "  make mq_run_all_debug_peer INPUTFILE=... MQ_TOTAL_PEERS=11 MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
+	@echo "  make mq_run_all INPUTFILE=... [MQ_TOTAL_PEERS=override] [MQ_ROUNDS=10]"
+	@echo "  make mq_run_all_debug_peer INPUTFILE=... [MQ_TOTAL_PEERS=override] MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
 	@echo ""
 	@echo "Tests / diagnostics:"
 	@echo "  make test"
@@ -182,16 +182,21 @@ mq_run_all: mq_peer_release mq_leader_release
 		echo "[mq_run_all] started peer $$i pid=$$pid"; \
 		peer_pids="$$peer_pids $$i:$$pid"; \
 	done; \
-	overall=0; \
+	wait $$leader_pid; leader_ec=$$?; \
+	echo "[mq_run_all] leader (pid $$leader_pid) exit code=$$leader_ec"; \
+	overall=$$leader_ec; \
+	if [ $$leader_ec -ne 0 ]; then \
+		for entry in $$peer_pids; do \
+			pid=$${entry##*:}; \
+			kill $$pid 2>/dev/null || true; \
+		done; \
+	fi; \
 	for entry in $$peer_pids; do \
 		peer_id=$${entry%%:*}; pid=$${entry##*:}; \
 		wait $$pid; peer_ec=$$?; \
 		echo "[mq_run_all] peer $$peer_id (pid $$pid) exit code=$$peer_ec"; \
 		if [ $$peer_ec -ne 0 ] && [ $$overall -eq 0 ]; then overall=$$peer_ec; fi; \
 	done; \
-	wait $$leader_pid; leader_ec=$$?; \
-	echo "[mq_run_all] leader (pid $$leader_pid) exit code=$$leader_ec"; \
-	if [ $$leader_ec -ne 0 ] && [ $$overall -eq 0 ]; then overall=$$leader_ec; fi; \
 	if [ $$overall -ne 0 ]; then $(call check_failure); exit $$overall; fi
 
 mq_run_all_debug_peer: mq_peer_debug mq_leader_debug
@@ -276,12 +281,19 @@ rand_test: quantas/Tests/randtest.cpp
 	@$(CXX) $(CXXFLAGS) $^ -o $@.exe
 	@./$@.exe
 	@echo ""
+
+mq_timeout_test: quantas/Tests/processCoordinatorMQTimeoutTest.cpp \
+		quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp
+	@echo "Testing MQ completion timeout..."
+	@$(CXX) $(CXXFLAGS) $^ -o $@.exe $(MQ_LDLIBS)
+	@./$@.exe
+	@echo ""
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test
+test: check-version rand_test mq_timeout_test
 	@make --no-print-directory clean
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
@@ -334,6 +346,7 @@ clean:
 	@$(RM) **/*.gch
 	@$(RM) **/*.tmp
 	@$(RM) **/*.exe
+	@$(RM) **/*.txt
 
 clean_txt: SHELL := /bin/bash -O globstar
 clean_txt:
@@ -344,4 +357,4 @@ clean_txt:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test clean_txt
+.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test mq_timeout_test test clean_txt

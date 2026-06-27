@@ -15,8 +15,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "../Json.hpp"
-#include "../Packet.hpp"
+#include "quantas/Common/Json.hpp"
+#include "quantas/Common/Packet.hpp"
 
 namespace quantas {
 

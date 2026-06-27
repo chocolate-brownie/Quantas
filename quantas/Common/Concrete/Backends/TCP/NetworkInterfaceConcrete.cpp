@@ -1,6 +1,6 @@
-#include "NetworkInterfaceConcrete.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.hpp"
 #include <deque>
-#include "ProcessCoordinator.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.hpp"
 
 namespace quantas {
 

@@ -1,7 +1,15 @@
 # ConcreteMQ v1 Minimal TODO
 
-Goal: finish ConcreteMQ v1 as a dependable makefile-orchestrated real IPC
-backend for running QUANTAS algorithms, then move on to ZeroMQ.
+Goal: finish ConcreteMQ / BoostMq v1 as a dependable makefile-orchestrated
+real IPC backend for running QUANTAS algorithms, then move on to ZeroMQ.
+
+Current source layout:
+
+```text
+quantas/Common/Concrete/Runtime/
+quantas/Common/Concrete/Backends/BoostMq/
+quantas/Common/Concrete/Backends/ZeroMq/
+```
 
 ## Architectural Decisions
 
@@ -112,7 +120,7 @@ delivered_to_instream
 dropped_backpressure
 ```
 
-- Rename ambiguous `dropped=` logs to `dropped_backpressure=`.
+- Keep backpressure logs named `dropped_backpressure=`.
 - Do not add `dropped_model`.
 - Do not add a pending-delivery buffer unless the counter implementation becomes
   messy without it.
@@ -130,7 +138,8 @@ Done when:
 - [ ] Sends increment `sent`.
 - [ ] MQ receives increment `received_raw`.
 - [ ] Packets pushed to `_inStream` increment `delivered_to_instream`.
-- [ ] Send timeouts increment `dropped_backpressure`.
+- [x] Send timeout logs use `dropped_backpressure`.
+- [ ] Send timeouts increment a reportable `dropped_backpressure` counter.
 - [ ] Logs or reports show per-peer MQ stats.
 
 ### 4. Run final ConcreteMQ v1 validation

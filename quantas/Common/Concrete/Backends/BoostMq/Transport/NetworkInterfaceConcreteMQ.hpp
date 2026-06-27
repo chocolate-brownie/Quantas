@@ -1,8 +1,8 @@
 #ifndef NETWORK_INTERFACE_CONCRETE_MQ_HPP
 #define NETWORK_INTERFACE_CONCRETE_MQ_HPP
 
-#include "../../../quantas/Common/Json.hpp"
-#include "../NetworkInterface.hpp"
+#include "quantas/Common/Json.hpp"
+#include "quantas/Common/NetworkInterface.hpp"
 #include <atomic>
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/ipc/message_queue.hpp>

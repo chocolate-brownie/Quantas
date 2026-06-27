@@ -2,7 +2,7 @@
 #include <thread>
 #include <vector>
 #include <cassert>
-#include "../Common/RandomUtil.hpp"
+#include "quantas/Common/RandomUtil.hpp"
 
 void getRandomInts(std::vector<int> &randomInts, int howMany)
 {

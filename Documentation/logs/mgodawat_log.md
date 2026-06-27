@@ -314,3 +314,10 @@ In this file I document what I do everyday during my internship.
 - Added a focused MQ coordinator timeout test covering partial completion, duplicate notifications, invalid peer ids, and bounded return time.
 - Validation passed for the normal 3-peer Bitcoin run and two timeout scenarios. Failed reports had `timedOut: true`, `success: false`, and the expected missing peers; all peer processes were reaped and no MQ queues remained.
 - Reordered the MQ peer completion lifecycle so `LogWriter::print()` flushes and closes the peer metrics file before the peer sends `done`. Normal, repeated-test, and partial-timeout runs confirmed `output printed -> notified done -> waiting for stop`, establishing the file-complete boundary needed for leader aggregation.
+
+### 27/06/2026
+
+- Reorganized the concrete runtime architecture under `quantas/Common/Concrete/`: shared `Runtime/{Config,Topology}`, `Backends/BoostMq`, `Backends/TCP`, and a scaffolded `Backends/ZeroMq`.
+- Updated Makefile object paths, root-qualified includes, and `.clangd` include flags so BoostMQ, TCP, and shared runtime files resolve cleanly for both builds and editor navigation.
+- Aligned current ConcreteMQ/BoostMq documentation with the new folder layout and cleaned stale live comments around the done/stop protocol and backpressure drop logging.
+- Revalidated with `mq_peer_debug`, `mq_leader_debug`, clang syntax checks for BoostMQ, and a 3-peer Bitcoin MQ smoke run with all processes exiting `0`.

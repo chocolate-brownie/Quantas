@@ -1,8 +1,8 @@
 #ifndef PROCESS_COORDINATOR_MQ_HPP
 #define PROCESS_COORDINATOR_MQ_HPP
 
-#include "../NetworkInterface.hpp" // IWYU pragma: keep
-#include "MqAssignment.hpp"
+#include "quantas/Common/Concrete/Runtime/Topology/PeerAssignment.hpp"
+#include "quantas/Common/NetworkInterface.hpp" // IWYU pragma: keep
 #include <atomic>
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <chrono>
@@ -74,8 +74,8 @@ class ProcessCoordinatorMQ {
     void waitForStart();
 
     // -------------------- assignment protocol scaffolding --------------------
-    void sendAssignments(const std::vector<MqAssignment> &assignments);
-    std::vector<MqAssignment> waitForAssignments();
+    void sendAssignments(const std::vector<PeerAssignment> &assignments);
+    std::vector<PeerAssignment> waitForAssignments();
 
     /* -------------------- Cleanup/lifecycle helpers --------------------
     Remove MQ queues created for this experiment/process */

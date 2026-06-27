@@ -1,0 +1,130 @@
+{
+    "backend": "mq",
+    "doneTimeoutMs": 30000,
+    "durationSeconds": 0.20611618,
+    "expectedPeers": [
+        0,
+        1,
+        2
+    ],
+    "experimentIndex": 0,
+    "inputFile": "quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json",
+    "peerCount": 3,
+    "peerType": "BitcoinPeer",
+    "rounds": 25,
+    "success": true,
+    "tests": [
+        {
+            "completedPeers": [
+                2,
+                0,
+                1
+            ],
+            "durationSeconds": 0.205260595,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 4736.0,
+                    "RunTime": 0.001369254,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                2.0
+                            ],
+                            "dagCommonRootParasites": [
+                                1.0
+                            ],
+                            "dagForks": [
+                                {}
+                            ],
+                            "dagLongestChainLength": [
+                                2.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                6.0
+                            ]
+                        }
+                    ]
+                },
+                "1": {
+                    "Peak Memory KB": 4624.0,
+                    "RunTime": 0.001598162,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                3.0
+                            ],
+                            "dagCommonRootParasites": [
+                                2.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "2": 2
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                3.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                7.0
+                            ]
+                        }
+                    ]
+                },
+                "2": {
+                    "Peak Memory KB": 4628.0,
+                    "RunTime": 0.001070779,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                2.0
+                            ],
+                            "dagCommonRootParasites": [
+                                2.0
+                            ],
+                            "dagForks": [
+                                {}
+                            ],
+                            "dagLongestChainLength": [
+                                2.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                6.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "peerOutputFiles": {
+                "0": "bitcoin3PeerMQDemo_EXP1_p0_TEST1.txt",
+                "1": "bitcoin3PeerMQDemo_EXP1_p1_TEST1.txt",
+                "2": "bitcoin3PeerMQDemo_EXP1_p2_TEST1.txt"
+            },
+            "success": true,
+            "testIndex": 0,
+            "timedOut": false
+        }
+    ],
+    "topologyType": "complete"
+}

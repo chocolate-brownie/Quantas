@@ -1,13 +1,13 @@
-#include "../LogWriter.hpp"
-#include "../Logger.hpp"
-#include "../LoggingSupport.hpp"
-#include "../Peer.hpp"
-#include "../memoryUtil.hpp"
-#include "MqAssignment.hpp"
-#include "NetworkInterfaceConcreteMQ.hpp"
-#include "ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.hpp"
+#include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
+#include "quantas/Common/Concrete/Runtime/Topology/PeerAssignment.hpp"
+#include "quantas/Common/LogWriter.hpp"
+#include "quantas/Common/Logger.hpp"
+#include "quantas/Common/LoggingSupport.hpp"
+#include "quantas/Common/Peer.hpp"
+#include "quantas/Common/memoryUtil.hpp"
 #include <chrono>
-#include <fstream>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
@@ -41,22 +41,15 @@ struct CliArgs {
     std::optional<int> roundsOverride;
 };
 
-struct ExperimentConfig {
-    int totalPeers{0};
-    std::string peerType;
-    int rounds{0};
-    int tests{1};
-};
-
-using MqAssignment = quantas::MqAssignment;
+using PeerAssignment = quantas::PeerAssignment;
 
 /* The helpers below are intentionally written so they can later be moved to a
-   shared module (e.g. ConcreteMQRuntime.hpp/.cpp) and reused by both:
+   shared runtime module and reused by both:
    - ConcreteMqPeer.cpp (worker runtime)
    - ConcreteMqLeader.cpp (leader runtime) */
 
 // Validate assignment bounds and basic topology invariants.
-void validateAssignment(const MqAssignment &assignment, int totalPeers) {
+void validateAssignment(const PeerAssignment &assignment, int totalPeers) {
     if (totalPeers <= 0) throw std::runtime_error("error: totalPeers must be > 0");
     if (assignment.id < 0 || assignment.id >= totalPeers)
         throw std::runtime_error(
@@ -77,7 +70,7 @@ void validateAssignment(const MqAssignment &assignment, int totalPeers) {
 
 // Bind assignment data to the MQ interface, then attach it to the peer.
 void applyAssignment(
-    const MqAssignment &assignment, quantas::NetworkInterfaceConcreteMQ *mq, quantas::Peer *peer
+    const PeerAssignment &assignment, quantas::NetworkInterfaceConcreteMQ *mq, quantas::Peer *peer
 ) {
     QUANTAS_LOG_INFO("topology") << "peer " << assignment.id
                                  << " using topology=" << assignment.topologyType;
@@ -104,51 +97,6 @@ std::optional<CliArgs> parseArgs(int argc, char **argv) {
         std::cerr << "error: invalid CLI arguments: " << ex.what() << '\n';
         return std::nullopt;
     }
-}
-
-// Load root configuration and validate experiments array exists.
-std::optional<nlohmann::json> loadConfig(const std::string &jsonPath) {
-    try {
-        std::ifstream inFile(jsonPath);
-
-        if (!inFile.is_open())
-            throw std::runtime_error(std::string("error: cannot open input file: ") + jsonPath);
-
-        nlohmann::json config;
-        inFile >> config;
-
-        if (!config.contains("experiments") || !config["experiments"].is_array() ||
-            config["experiments"].empty()) {
-            throw std::runtime_error("error: configuration missing non-empty 'experiments' array");
-        }
-
-        return config;
-    } catch (const std::exception &ex) {
-        std::cerr << ex.what() << '\n';
-        return std::nullopt;
-    }
-}
-
-// Extract one experiment's runtime parameters for this worker.
-ExperimentConfig parseExperiment(
-    const nlohmann::json &config, size_t expIndex, const std::optional<int> &roundsOverride
-) {
-    const nlohmann::json experiment = config["experiments"].at(expIndex);
-    if (!experiment.contains("topology"))
-        throw std::runtime_error("error: experiment missing 'topology'");
-
-    ExperimentConfig out;
-    out.totalPeers = experiment["topology"].value("initialPeers", 0);
-    out.peerType = experiment["topology"].value("initialPeerType", "");
-    out.rounds = roundsOverride.has_value() ? *roundsOverride
-                                            : static_cast<int>(experiment.value("rounds", 0));
-    out.tests = experiment.value("tests", 1);
-    if (out.totalPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
-    if (out.peerType.empty()) throw std::runtime_error("error: topology.initialPeerType is empty");
-    if (out.rounds <= 0) throw std::runtime_error("error: rounds must be > 0");
-    if (out.tests <= 0) throw std::runtime_error("error: tests must be > 0");
-
-    return out;
 }
 
 // Resolve and configure the output destination for this experiment.
@@ -181,7 +129,7 @@ void initRendezvous(quantas::ProcessCoordinatorMQ &coord, int myId) {
 /* Construct all peers assigned to this worker and bind each peer to an MQ
    interface configured from its assignment (id + neighbors). */
 std::vector<quantas::Peer *>
-buildLocalPeers(const std::string &peerType, const std::vector<MqAssignment> &assignments) {
+buildLocalPeers(const std::string &peerType, const std::vector<PeerAssignment> &assignments) {
     std::vector<quantas::Peer *> localPeers;
     localPeers.reserve(assignments.size());
 
@@ -265,14 +213,14 @@ void runRounds(
 
 // Try to build peers from topology rules
 bool prepareLocalPeers(
-    const ExperimentConfig &exp, const std::vector<MqAssignment> &assignments,
+    const quantas::RuntimeExperimentConfig &exp, const std::vector<PeerAssignment> &assignments,
     std::vector<quantas::Peer *> &localPeers
 ) {
     if (assignments.empty()) return false;
 
-    for (const auto &assignment : assignments) { validateAssignment(assignment, exp.totalPeers); }
+    for (const auto &assignment : assignments) { validateAssignment(assignment, exp.initialPeers); }
 
-    localPeers = buildLocalPeers(exp.peerType, assignments);
+    localPeers = buildLocalPeers(exp.initialPeerType, assignments);
     return !localPeers.empty();
 }
 
@@ -298,7 +246,7 @@ int main(int argc, char **argv) {
     auto cli = parseArgs(argc, argv); // CLI input validation
     if (!cli) return 1;
 
-    auto config = loadConfig(cli->jsonPath);
+    auto config = quantas::loadRuntimeConfig(cli->jsonPath);
     if (!config) return 1;
 
     auto &coordinator = quantas::ProcessCoordinatorMQ::instance();
@@ -312,7 +260,8 @@ int main(int argc, char **argv) {
                current worker process.
                */
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
-            ExperimentConfig exp = parseExperiment(*config, expIndex, cli->roundsOverride);
+            quantas::RuntimeExperimentConfig exp =
+                quantas::parseRuntimeExperiment(*config, expIndex, cli->roundsOverride);
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::optional<int> processDisambiguator = cli->peerId;
@@ -323,7 +272,12 @@ int main(int argc, char **argv) {
                     logFileBase, expIndex, testNumber, processDisambiguator
                 );
                 coordinator.configureExperiment(
-                    expIndex, exp.peerType, false, exp.totalPeers, cli->peerId, logFileBase,
+                    expIndex,
+                    exp.initialPeerType,
+                    false,
+                    exp.initialPeers,
+                    cli->peerId,
+                    logFileBase,
                     quantas::StopMode::FixedRounds
                 );
                 QUANTAS_LOG_INFO("runner")
@@ -333,7 +287,7 @@ int main(int argc, char **argv) {
 
                 initRendezvous(coordinator, cli->peerId);
 
-                std::vector<MqAssignment> assignments = coordinator.waitForAssignments();
+                std::vector<PeerAssignment> assignments = coordinator.waitForAssignments();
                 if (!prepareLocalPeers(exp, assignments, localPeers)) {
                     cleanUp(localPeers);
                     coordinator.cleanUp();

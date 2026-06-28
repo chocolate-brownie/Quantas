@@ -1,4 +1,4 @@
-#include "../Common/ConcreteMQ/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <cassert>
 #include <chrono>

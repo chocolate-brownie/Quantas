@@ -4,14 +4,14 @@
 #include <optional>
 #include <thread>
 
-#include "../Logger.hpp"
-#include "../LoggingSupport.hpp"
-#include "../OutputWriter.hpp"
-#include "../Peer.hpp"
-#include "../RoundManager.hpp"
-#include "../memoryUtil.hpp"
-#include "NetworkInterfaceConcrete.hpp"
-#include "ProcessCoordinator.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.hpp"
+#include "quantas/Common/LogWriter.hpp"
+#include "quantas/Common/Logger.hpp"
+#include "quantas/Common/LoggingSupport.hpp"
+#include "quantas/Common/Peer.hpp"
+#include "quantas/Common/RoundManager.hpp"
+#include "quantas/Common/memoryUtil.hpp"
 
 namespace quantas {
 
@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 
         const std::string metricsFile =
             makeExperimentFileName(logFileBase, expIndex, portForLog, ".json");
-        OutputWriter::setLogFile(metricsFile);
+        LogWriter::setLogFile(metricsFile);
 
         QUANTAS_LOG_INFO("runner") << "starting experiment " << expIndex;
         QUANTAS_LOG_INFO("runner")
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
 
         const auto startTime = std::chrono::high_resolution_clock::now();
 
-        OutputWriter::instance()->setTest(0);
+        LogWriter::instance()->setTest(0);
         RoundManager::asynchronous();
         RoundManager::setCurrentRound(0);
         coordinator.markReady();
@@ -246,12 +246,12 @@ int main(int argc, char **argv) {
 
         const auto endTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> duration = endTime - startTime;
-        OutputWriter::setValue("RunTime", duration.count());
-        OutputWriter::setValue(
+        LogWriter::setValue("RunTime", duration.count());
+        LogWriter::setValue(
             "Peak Memory KB", static_cast<double>(getPeakMemoryKB())
         );
         QUANTAS_LOG_INFO("runner") << "printing output";
-        OutputWriter::print();
+        LogWriter::print();
         QUANTAS_LOG_INFO("runner") << "output printed";
 
         for (Peer *peer : localPeers) {

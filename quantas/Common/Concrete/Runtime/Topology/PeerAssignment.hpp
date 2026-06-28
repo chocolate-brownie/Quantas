@@ -1,14 +1,14 @@
-#ifndef QUANTAS_COMMON_CONCRETEMQ_MQASSIGNMENT_HPP
-#define QUANTAS_COMMON_CONCRETEMQ_MQASSIGNMENT_HPP
+#ifndef QUANTAS_COMMON_RUNTIME_TOPOLOGY_PEERASSIGNMENT_HPP
+#define QUANTAS_COMMON_RUNTIME_TOPOLOGY_PEERASSIGNMENT_HPP
 
-#include "../Packet.hpp"
+#include "quantas/Common/Packet.hpp"
 #include <boost/serialization/set.hpp>
 #include <set>
 #include <string>
 
 namespace quantas {
 
-struct MqAssignment {
+struct PeerAssignment {
     interfaceId id{NO_PEER_ID};
     std::string topologyType;
     std::set<interfaceId> neighbors;

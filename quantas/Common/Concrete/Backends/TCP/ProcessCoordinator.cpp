@@ -1,4 +1,4 @@
-#include "ProcessCoordinator.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.hpp"
 
 #include <arpa/inet.h>
 #include <chrono>
@@ -15,10 +15,10 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "../Logger.hpp"
-#include "../LoggingSupport.hpp"
-#include "NetworkInterfaceConcrete.hpp"
-#include "ipUtil.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/ipUtil.hpp"
+#include "quantas/Common/Logger.hpp"
+#include "quantas/Common/LoggingSupport.hpp"
 
 namespace quantas {
 

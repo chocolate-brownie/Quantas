@@ -6,7 +6,14 @@ CXXFLAGS := -pthread -std=c++17
 
 CONFIGFILE := config0.json
 
-OBJS := ../quantas/Common/Concrete/concreteSimulation.o ../quantas/Common/Concrete/ipUtil.o ../quantas/AltBitPeer/AltBitPeer.o ../quantas/Common/Abstract/Channel.o
+OBJS := ../quantas/Common/Concrete/Backends/TCP/concreteSimulation.o \
+	../quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
+	../quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
+	../quantas/Common/Concrete/Backends/TCP/ipUtil.o \
+	../quantas/AltBitPeer/AltBitPeer.o \
+	../quantas/Common/Abstract/Channel.o \
+	../quantas/Common/Logger.o \
+	../quantas/Common/LoggingSupport.o
 
 $(EXE): $(OBJS)
 	@$(CXX) $(CXXFLAGS) $^ -o $(EXE)

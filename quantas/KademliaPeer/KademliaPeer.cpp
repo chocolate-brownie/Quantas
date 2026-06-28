@@ -9,17 +9,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public 
 You should have received a copy of the GNU General Public License along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "KademliaPeer.hpp"
+#include "quantas/KademliaPeer/KademliaPeer.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 
-#include "../Common/Abstract/NetworkInterfaceAbstract.hpp"
-#include "../Common/Concrete/NetworkInterfaceConcrete.hpp"
-#include "../Common/LogWriter.hpp"
-#include "../Common/RandomUtil.hpp"
-#include "../Common/RoundManager.hpp"
+#include "quantas/Common/Abstract/NetworkInterfaceAbstract.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.hpp"
+#include "quantas/Common/LogWriter.hpp"
+#include "quantas/Common/RandomUtil.hpp"
+#include "quantas/Common/RoundManager.hpp"
 
 namespace quantas {
 

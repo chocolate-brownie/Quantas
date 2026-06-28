@@ -3,8 +3,8 @@
 
 #include <atomic>
 
-#include "../NetworkInterface.hpp"
-#include "ProcessCoordinator.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.hpp"
+#include "quantas/Common/NetworkInterface.hpp"
 
 namespace quantas {
 

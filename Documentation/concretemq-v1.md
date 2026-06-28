@@ -1,8 +1,26 @@
-# ConcreteMQ v1
+# ConcreteMQ / BoostMq v1
 
-ConcreteMQ is an experimental multi-process backend for QUANTAS. It runs one OS process per peer and uses Boost message queues for local IPC.
+ConcreteMQ is the experimental multi-process backend for QUANTAS. The current implementation lives under `quantas/Common/Concrete/Backends/BoostMq/` and uses Boost message queues for local IPC.
 
 Use it when you want evidence that an algorithm can run outside the single-process Abstract simulator. Do not treat it as full Abstract simulator parity yet.
+
+## Source Layout
+
+```text
+quantas/Common/Concrete/
+  Runtime/
+    Config/        shared experiment config parsing
+    Topology/      shared peer assignment and topology planning
+  Backends/
+    BoostMq/
+      Entrypoints/ peer and leader executables
+      Control/     ready/assignment/start/done/stop protocol
+      Transport/   Boost message queue network interface
+    TCP/           older TCP concrete backend
+    ZeroMq/        scaffold for the future ZeroMQ backend
+```
+
+`ConcreteMQ` is still used in target names and executable names for continuity. `BoostMq` is the folder name that identifies the transport implementation.
 
 ## Build
 
@@ -56,6 +74,7 @@ Peer metric files:
 
 The leader report records:
 
+- backend name (`mq` for this implementation)
 - expected peers
 - completed peers
 - missing peers
@@ -91,6 +110,7 @@ Current limitations:
 - MQ v1 does not implement full Abstract channel semantics such as configured delay, duplicate, reorder, and `maxMsgsRec` behavior.
 - Large complete topologies may hit process, queue, or message-size limits.
 - The leader report embeds peer metrics, but final Abstract-style metric aggregation is still a separate step.
+- IPC counters are still minimal. Backpressure drops are logged as `dropped_backpressure`, but full per-peer `sent`, `received_raw`, and `delivered_to_instream` reporting is still a TODO.
 
 ## Future ZeroMQ Backend
 

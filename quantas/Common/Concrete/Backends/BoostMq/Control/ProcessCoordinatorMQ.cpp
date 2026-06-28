@@ -1,6 +1,6 @@
-#include "ProcessCoordinatorMQ.hpp"
-#include "../Logger.hpp"
-#include "MqAssignment.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Runtime/Topology/PeerAssignment.hpp"
+#include "quantas/Common/Logger.hpp"
 #include <atomic>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -20,24 +20,12 @@
 #include <vector>
 
 /*
- * TODO::
- *
- * The TCP coordinator's stop mechanism is quite specificm peers send a "done"
- signal to the leader, the leader counts how many have finished, then
- broadcasts "stop" to all.
-
- * How will it work in the MQ version?
-
- * for example, whether peers signal the logger directly, whether the logger
- decides when to stop based on a timer or peer count, or something else
- entirely.
-
- * Since the logger is the leader in our design the stop logic ties directly
- into the logger's responsibility.
-
- * No stop/done signal. The TCP coordinator has `notifyPeerStopped()` /
- `waitForStop()` / `broadcastStop()` — peers signal when they finish so the
- simulation knows when to shut down. The MQ version has no equivalent yet */
+ * BoostMQ control protocol:
+ * - leader creates shared control queues;
+ * - peers create per-peer inboxes and send ready;
+ * - leader sends topology assignments, start, and stop signals;
+ * - peers send done notifications so the leader can build completion evidence.
+ */
 
 using namespace boost::interprocess;
 
@@ -286,11 +274,11 @@ void ProcessCoordinatorMQ::waitForStart() {
     }
 }
 
-void ProcessCoordinatorMQ::sendAssignments(const std::vector<MqAssignment> &assignments) {
+void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment> &assignments) {
     if (!_isLeader) return;
 
     try {
-        for (const MqAssignment &assignment : assignments) {
+        for (const PeerAssignment &assignment : assignments) {
             std::stringstream ss;
             boost::archive::binary_oarchive oa(ss);
             oa << assignment;
@@ -318,7 +306,7 @@ void ProcessCoordinatorMQ::sendAssignments(const std::vector<MqAssignment> &assi
     }
 }
 
-std::vector<MqAssignment> ProcessCoordinatorMQ::waitForAssignments() {
+std::vector<PeerAssignment> ProcessCoordinatorMQ::waitForAssignments() {
     if (_isLeader) return {};
 
     try {
@@ -331,7 +319,7 @@ std::vector<MqAssignment> ProcessCoordinatorMQ::waitForAssignments() {
         std::stringstream ss(std::string(buffer.data(), recvdSize));
         boost::archive::binary_iarchive ia(ss);
 
-        MqAssignment assignment;
+        PeerAssignment assignment;
         ia >> assignment;
 
         return {assignment};

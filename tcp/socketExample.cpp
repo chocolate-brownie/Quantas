@@ -8,9 +8,9 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "../quantas/Common/Concrete/ipUtil.hpp"
-#include "../quantas/Common/Json.hpp"
-#include "../quantas/Common/LogWriter.hpp"
+#include "quantas/Common/Concrete/Backends/TCP/ipUtil.hpp"
+#include "quantas/Common/Json.hpp"
+#include "quantas/Common/LogWriter.hpp"
 
 using json = nlohmann::json;
 using quantas::LogWriter;

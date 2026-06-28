@@ -1,6 +1,6 @@
-#include "../Logger.hpp"
-#include "../Packet.hpp"
-#include "NetworkInterfaceConcreteMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.hpp"
+#include "quantas/Common/Logger.hpp"
+#include "quantas/Common/Packet.hpp"
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -85,7 +85,7 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
             );
 
         /* NOTE: Backpressure guard: avoid indefinite blocking on full peer queues by
-           bounding send wait time. Track per-destination drops so ottlenecked
+           bounding send wait time. Track per-destination drops so bottlenecked
            peers are visible during debugging. */
         static std::mutex dropsMutex;
         static std::unordered_map<interfaceId, unsigned long> dropsByDest;
@@ -98,7 +98,8 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
             auto &count = dropsByDest[dest];
             ++count;
             if ((count % 100) == 0)
-                std::cerr << "unicastTo: peer_" << dest << " dropped=" << count << "\n";
+                std::cerr << "unicastTo: peer_" << dest << " dropped_backpressure=" << count
+                          << "\n";
             return;
         }
 

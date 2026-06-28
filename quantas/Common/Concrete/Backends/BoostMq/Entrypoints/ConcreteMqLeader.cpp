@@ -1,7 +1,8 @@
-#include "../Logger.hpp"
-#include "../LoggingSupport.hpp"
-#include "MqTopology.hpp"
-#include "ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
+#include "quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.hpp"
+#include "quantas/Common/Logger.hpp"
+#include "quantas/Common/LoggingSupport.hpp"
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -10,15 +11,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-struct ExperimentConfig {
-    int initialPeers{0};
-    std::string initialPeerType;
-    nlohmann::json topology;
-    int tests{1};
-    int rounds{0};
-    int doneTimeoutMs{30000};
-};
 
 struct TestReportInfo {
     size_t testIndex{0};
@@ -30,32 +22,6 @@ struct TestReportInfo {
 };
 
 /*
- * Purpose: Read and validate one experiment's leader-side runtime settings.
- * Used by: `main()` before configuring the coordinator and starting that experiment.
- */
-ExperimentConfig parseLeaderExp(const nlohmann::json &config, size_t expIndex) {
-    const nlohmann::json experiment = config["experiments"].at(expIndex);
-    if (!experiment.contains("topology"))
-        throw std::runtime_error("error: experiment missing 'topology'");
-
-    ExperimentConfig out;
-    out.initialPeers = experiment["topology"].value("initialPeers", 0);
-    out.initialPeerType = experiment["topology"].value("initialPeerType", "");
-    out.topology = experiment["topology"];
-    out.tests = experiment.value("tests", 1);
-    out.rounds = experiment.value("rounds", 0);
-    out.doneTimeoutMs = experiment.value("doneTimeoutMs", 30000);
-
-    if (out.initialPeers <= 0) throw std::runtime_error("error: topology.initialPeers must be > 0");
-    if (out.initialPeerType.empty())
-        throw std::runtime_error("error: topology.initialPeerType is empty");
-    if (out.tests <= 0) throw std::runtime_error("error: tests must be > 0");
-    if (out.rounds <= 0) throw std::runtime_error("error: rounds must be > 0");
-    if (out.doneTimeoutMs <= 0) throw std::runtime_error("error: doneTimeoutMs must be > 0");
-    return out;
-}
-
-/*
  * Purpose: Load the input JSON and verify that it contains at least one experiment.
  * Used by: `main()` at startup so execution stops early when the input is unusable.
  */
@@ -65,31 +31,14 @@ std::optional<nlohmann::json> parseAndLoadConfig(int argc, char **argv) {
         return std::nullopt;
     }
 
-    try {
-        std::ifstream inFile(argv[1]);
-        if (!inFile.is_open())
-            throw std::runtime_error(std::string("error: cannot open input file: ") + argv[1]);
-
-        nlohmann::json config;
-        inFile >> config;
-
-        if (!config.contains("experiments") || !config["experiments"].is_array() ||
-            config["experiments"].empty()) {
-            throw std::runtime_error("error: configuration missing non-empty 'experiments' array");
-        }
-
-        return config;
-    } catch (const std::exception &ex) {
-        std::cerr << ex.what() << '\n';
-        return std::nullopt;
-    }
+    return quantas::loadRuntimeConfig(argv[1]);
 }
 
 /*
  * Purpose: Create the experiment-level report metadata and an empty test list.
  * Used by: `main()` as the report object that receives every test result.
  */
-nlohmann::json makeBaseExperimentReport(size_t expIndex, const ExperimentConfig &exp) {
+nlohmann::json makeBaseExperimentReport(size_t expIndex, const quantas::RuntimeExperimentConfig &exp) {
     nlohmann::json report;
     report["backend"] = "mq";
     report["experimentIndex"] = expIndex;
@@ -265,7 +214,7 @@ int main(int argc, char *argv[]) {
             expStartTime = std::chrono::high_resolution_clock::now();
 
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
-            ExperimentConfig exp = parseLeaderExp(*config, expIndex);
+            quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(*config, expIndex);
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::string reportPath = makeLeaderReportPath(logFileBase, expIndex);

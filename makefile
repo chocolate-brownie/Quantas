@@ -56,27 +56,29 @@ ABSTRACT_OBJS := $(COMMON_OBJS) \
 	quantas/Common/Abstract/abstractSimulation.o \
 	quantas/Common/Abstract/Channel.o \
 	quantas/Common/Abstract/Network.o \
-	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
-	quantas/Common/Concrete/ProcessCoordinator.o \
-	quantas/Common/Concrete/ipUtil.o
+	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
+	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
+	quantas/Common/Concrete/Backends/TCP/ipUtil.o
 CONCRETE_OBJS := $(COMMON_OBJS) \
-	quantas/Common/Concrete/concreteSimulation.o \
-	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
-	quantas/Common/Concrete/ProcessCoordinator.o \
-	quantas/Common/Concrete/ipUtil.o
+	quantas/Common/Concrete/Backends/TCP/concreteSimulation.o \
+	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
+	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
+	quantas/Common/Concrete/Backends/TCP/ipUtil.o
 MQ_OBJS := $(COMMON_OBJS) \
-	quantas/Common/ConcreteMQ/ConcreteMqPeer.o \
-	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o \
-	quantas/Common/ConcreteMQ/MqTopology.o \
-	quantas/Common/ConcreteMQ/NetworkInterfaceConcreteMQ.o \
+	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqPeer.o \
+	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
+	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o \
+	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
+	quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.o \
 	quantas/Common/Abstract/Channel.o \
-	quantas/Common/Concrete/NetworkInterfaceConcrete.o \
-	quantas/Common/Concrete/ProcessCoordinator.o \
-	quantas/Common/Concrete/ipUtil.o
+	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
+	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
+	quantas/Common/Concrete/Backends/TCP/ipUtil.o
 MQ_LEADER_OBJS := $(COMMON_OBJS) \
-	quantas/Common/ConcreteMQ/ConcreteMqLeader.o \
-	quantas/Common/ConcreteMQ/MqTopology.o \
-	quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.o
+	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.o \
+	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
+	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
+	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o
 
 # compiles all cpps specified as necessary in the INPUTFILE
 ALGS := $(shell sed -n '/"algorithms"/,/]/p' $(INPUTFILE) \
@@ -85,7 +87,8 @@ ALG_OBJS += $(ALGS:.cpp=.o)
 
 # necessary flags
 CXX := g++
-CXXFLAGS := -pthread -std=c++17
+CXXFLAGS := -pthread -std=c++17 -I.
+LDFLAGS :=
 MQ_LDLIBS := -lboost_serialization -lrt
 GCC_VERSION := $(shell $(CXX) $(CXXFLAGS) -dumpversion)
 GCC_MIN_VERSION := 8
@@ -93,16 +96,19 @@ GCC_MIN_VERSION := 8
 ############################### Build Types ###############################
 
 # release for faster runtime, debug for debugging
-release: CXXFLAGS += -O3 -s
+release: CXXFLAGS += -O3
+release: LDFLAGS += -s
 release: check-version $(EXE)
 debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG 
 # -fsanitize=address,undefined -fno-omit-frame-pointer # flag helps with double delete errors
 debug: check-version $(EXE)
-mq_peer_release: CXXFLAGS += -O3 -s
+mq_peer_release: CXXFLAGS += -O3
+mq_peer_release: LDFLAGS += -s
 mq_peer_release: check-version $(MQ_EXE)
 mq_peer_debug: CXXFLAGS += -O0 -g
 mq_peer_debug: check-version $(MQ_EXE)
-mq_leader_release: CXXFLAGS += -O3 -s
+mq_leader_release: CXXFLAGS += -O3
+mq_leader_release: LDFLAGS += -s
 mq_leader_release: check-version $(MQ_LEADER_EXE)
 mq_leader_debug: CXXFLAGS += -O0 -g
 mq_leader_debug: check-version $(MQ_LEADER_EXE)
@@ -139,6 +145,8 @@ help:
 
 # When running on windows use make clang
 clang: CXX := clang++
+clang: CXXFLAGS += -isystem /usr/include/c++/13 -isystem /usr/include/x86_64-linux-gnu/c++/13
+clang: LDFLAGS += -L/usr/lib/gcc/x86_64-linux-gnu/13
 clang: release
 	@echo running with input: $(INPUTFILE)
 	@./$(EXE) $(INPUTFILE)
@@ -283,7 +291,7 @@ rand_test: quantas/Tests/randtest.cpp
 	@echo ""
 
 mq_timeout_test: quantas/Tests/processCoordinatorMQTimeoutTest.cpp \
-		quantas/Common/ConcreteMQ/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp
+		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp
 	@echo "Testing MQ completion timeout..."
 	@$(CXX) $(CXXFLAGS) $^ -o $@.exe $(MQ_LDLIBS)
 	@./$@.exe
@@ -326,13 +334,13 @@ check-version:
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then exit 1; fi
 
 $(EXE): $(ALG_OBJS) $(ABSTRACT_OBJS)
-	@$(CXX) $(CXXFLAGS) $^ -o $(EXE)
+	@$(CXX) $(CXXFLAGS) $^ -o $(EXE) $(LDFLAGS)
 
 $(MQ_EXE): $(ALG_OBJS) $(MQ_OBJS)
-	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_EXE) $(MQ_LDLIBS)
+	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_EXE) $(LDFLAGS) $(MQ_LDLIBS)
 
 $(MQ_LEADER_EXE): $(MQ_LEADER_OBJS)
-	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_LEADER_EXE) $(MQ_LDLIBS)
+	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_LEADER_EXE) $(LDFLAGS) $(MQ_LDLIBS)
 
 ############################### Cleanup ###############################
 

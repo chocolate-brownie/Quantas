@@ -38,7 +38,8 @@ std::optional<nlohmann::json> parseAndLoadConfig(int argc, char **argv) {
  * Purpose: Create the experiment-level report metadata and an empty test list.
  * Used by: `main()` as the report object that receives every test result.
  */
-nlohmann::json makeBaseExperimentReport(size_t expIndex, const quantas::RuntimeExperimentConfig &exp) {
+nlohmann::json
+makeBaseExperimentReport(size_t expIndex, const quantas::RuntimeExperimentConfig &exp) {
     nlohmann::json report;
     report["backend"] = "mq";
     report["experimentIndex"] = expIndex;
@@ -214,7 +215,10 @@ int main(int argc, char *argv[]) {
             expStartTime = std::chrono::high_resolution_clock::now();
 
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
-            quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(*config, expIndex);
+            quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
+                *config,
+                expIndex
+            );
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::string reportPath = makeLeaderReportPath(logFileBase, expIndex);

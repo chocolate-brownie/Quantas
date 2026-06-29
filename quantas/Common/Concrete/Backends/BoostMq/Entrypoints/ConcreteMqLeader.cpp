@@ -22,16 +22,17 @@ struct TestReportInfo {
 };
 
 /*
- * Purpose: Load the input JSON and verify that it contains at least one experiment.
- * Used by: `main()` at startup so execution stops early when the input is unusable.
+ * Purpose: Load the input JSON and verify that it contains at least one
+ * experiment. Used by: `main()` at startup so execution stops early when the
+ * input is unusable.
  */
-std::optional<nlohmann::json> parseAndLoadConfig(int argc, char **argv) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <input_json>\n";
-        return std::nullopt;
-    }
+std::optional<nlohmann::json> parseAndLoadConfig(const std::string &inputPath) {
+    return quantas::loadRuntimeConfig(inputPath);
+}
 
-    return quantas::loadRuntimeConfig(argv[1]);
+void printUsage(const char *programName) {
+    std::cerr << "Usage: " << programName << " <input_json>\n"
+              << "       " << programName << " --check-capacity <input_json>\n";
 }
 
 /*
@@ -54,8 +55,9 @@ makeBaseExperimentReport(size_t expIndex, const quantas::RuntimeExperimentConfig
 }
 
 /*
- * Purpose: Convert one completed test's timing, peer completion, and output paths into JSON.
- * Used by: `main()` before appending the test result to the experiment report.
+ * Purpose: Convert one completed test's timing, peer completion, and output
+ * paths into JSON. Used by: `main()` before appending the test result to the
+ * experiment report.
  */
 nlohmann::json makeTestReport(const TestReportInfo &info) {
     nlohmann::json testReport;
@@ -82,8 +84,9 @@ std::vector<quantas::interfaceId> expectedPeers(int totalPeers) {
 }
 
 /*
- * Purpose: Compare completed peer ids with the expected id range and return any missing peers.
- * Used by: `main()` to determine each test's completion status and failure evidence.
+ * Purpose: Compare completed peer ids with the expected id range and return any
+ * missing peers. Used by: `main()` to determine each test's completion status
+ * and failure evidence.
  */
 std::vector<quantas::interfaceId>
 findMissingPeers(int totalPeers, const std::vector<quantas::interfaceId> &completedPeers) {
@@ -100,8 +103,9 @@ findMissingPeers(int totalPeers, const std::vector<quantas::interfaceId> &comple
 }
 
 /*
- * Purpose: Derive the experiment-specific leader report destination from the configured log base.
- * Used by: `main()` before execution so the final report has a stable output path.
+ * Purpose: Derive the experiment-specific leader report destination from the
+ * configured log base. Used by: `main()` before execution so the final report
+ * has a stable output path.
  */
 std::string makeLeaderReportPath(const std::string &logFileBase, size_t expIndex) {
     if (logFileBase == "cout" || logFileBase == "cerr") { return logFileBase; }
@@ -118,8 +122,9 @@ std::string makeLeaderReportPath(const std::string &logFileBase, size_t expIndex
 }
 
 /*
- * Purpose: Map every expected peer id to the metrics file produced for one test.
- * Used by: `main()` to include peer output references in each test report.
+ * Purpose: Map every expected peer id to the metrics file produced for one
+ * test. Used by: `main()` to include peer output references in each test
+ * report.
  */
 nlohmann::json makePeerOutputFiles(
     const std::string &logFileBase, size_t expIndex, int testNumber, int totalPeers
@@ -141,8 +146,9 @@ nlohmann::json makePeerOutputFiles(
 }
 
 /*
- * Purpose: Serialize the completed leader report to its configured file or standard stream.
- * Used by: `main()` after all available test results and experiment status are finalized.
+ * Purpose: Serialize the completed leader report to its configured file or
+ * standard stream. Used by: `main()` after all available test results and
+ * experiment status are finalized.
  */
 void writeLeaderReport(const std::string &path, const nlohmann::json &report) {
     if (path == "cout") {
@@ -177,8 +183,8 @@ nlohmann::json readPeerMetricFile(const std::string &path) {
 }
 
 /*
- * Purpose: Copy completed peer metric files into the leader report without inventing merge rules.
- * Used by: `main()` before appending each test report.
+ * Purpose: Copy completed peer metric files into the leader report without
+ * inventing merge rules. Used by: `main()` before appending each test report.
  */
 nlohmann::json readCompletedPeerMetrics(
     const nlohmann::json &peerOutputFiles, const std::vector<quantas::interfaceId> &completedPeers
@@ -195,30 +201,79 @@ nlohmann::json readCompletedPeerMetrics(
     return peerMetrics;
 }
 
+/*
+ * Purpose: Copy completed peer metric files into the leader report without
+ * inventing merge rules. Used by: `main()` before appending each test report.
+ */
+bool parseValidateCapacity(std::optional<nlohmann::json> &config) {
+    try {
+        std::ifstream input("/proc/sys/fs/mqueue/msg_max");
+        unsigned int capacity = 0;
+        if (!(input >> capacity)) {
+            throw std::runtime_error("error: cannot read /proc/sys/fs/mqueue/msg_max");
+        }
+        QUANTAS_LOG_INFO("quantas") << "cat /proc/sys/fs/mqueue/msg_max: " << capacity;
+
+        for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
+            const quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
+                *config,
+                expIndex
+            );
+            if (capacity < exp.initialPeers) {
+                throw std::runtime_error(
+                    "BoostMQ control-plane capacity check failed: "
+                    "peer_count = " +
+                    std::to_string(exp.initialPeers) +
+                    " required_capacity = " + std::to_string(exp.initialPeers) +
+                    " system fs.mqueue.msg_max = " + std::to_string(capacity) +
+                    ". Run: sudo sysctl -w fs.mqueue.msg_max=" + std::to_string(exp.initialPeers)
+                );
+            }
+        }
+    } catch (const std::exception &ex) {
+        std::cerr << "error: capacity preflight failed: " << ex.what() << '\n';
+        return false;
+    }
+
+    return true;
+}
+
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char *argv[]) {
+    bool capacityCheckOnly = argc >= 3 && std::string(argv[1]) == "--check-capacity";
+    if (argc < 2 || (std::string(argv[1]) == "--check-capacity" && argc < 3)) {
+        printUsage(argv[0]);
+        return 1;
+    }
+
+    const std::string inputPath = capacityCheckOnly ? argv[2] : argv[1];
     /* Parse cli args and load the json config file for the leader process */
-    auto config = parseAndLoadConfig(argc, argv);
+    auto config = parseAndLoadConfig(inputPath);
     if (!config) return 1;
 
-    /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol API
-     * (`createBarrier`, `waitForAllReady`, `broadcastStart`, `configureExperiment`). */
+    if (!parseValidateCapacity(config)) return 1;
+    if (capacityCheckOnly) return 0;
+
+    /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol
+     * API
+     * (`createBarrier`, `waitForAllReady`, `broadcastStart`,
+     * `configureExperiment`). */
     auto &coordinator = quantas::ProcessCoordinatorMQ::instance();
 
-    /* TODO:  Leader records the start/end time of the whole simulation. How long it took to do the
-     * whole thing? */
+    /* TODO:  Leader records the start/end time of the whole simulation. How
+     * long it took to do the whole thing? */
 
     for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
         try {
-            std::chrono::time_point<std::chrono::high_resolution_clock> expStartTime, expEndTime;
-            std::chrono::duration<double> expDuration;
-            expStartTime = std::chrono::high_resolution_clock::now();
-
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
             quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
                 *config,
                 expIndex
             );
+
+            std::chrono::time_point<std::chrono::high_resolution_clock> expStartTime, expEndTime;
+            std::chrono::duration<double> expDuration;
+            expStartTime = std::chrono::high_resolution_clock::now();
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::string reportPath = makeLeaderReportPath(logFileBase, expIndex);
@@ -238,7 +293,7 @@ int main(int argc, char *argv[]) {
                 << " with totalPeers=" << exp.initialPeers << " tests=" << exp.tests;
 
             nlohmann::json expReport = makeBaseExperimentReport(expIndex, exp);
-            expReport["inputFile"] = argv[1];
+            expReport["inputFile"] = inputPath;
             expReport["expectedPeers"] = expectedPeers(exp.initialPeers);
             bool allTestsSucceeded = true;
             bool experimentTimedOut = false;
@@ -255,7 +310,7 @@ int main(int argc, char *argv[]) {
                     testEndTime;
                 testStartTime = std::chrono::high_resolution_clock::now();
 
-                coordinator.createBarrier();
+                coordinator.createBarrier(exp.initialPeers);
                 coordinator.waitForAllReady();
                 quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
                 coordinator.sendAssignments(topology.assignments);

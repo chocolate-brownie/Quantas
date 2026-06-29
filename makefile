@@ -174,6 +174,8 @@ mq_leader_run: mq_leader_release
 
 mq_run_all: mq_peer_release mq_leader_release
 	@echo running MQ leader + peers with input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
+	@./$(MQ_LEADER_EXE) --check-capacity $(INPUTFILE); exit_code=$$?; \
+	if [ $$exit_code -ne 0 ]; then exit $$exit_code; fi
 	@rm -f /dev/shm/mq_barrier
 	@for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do rm -f /dev/shm/peer_$$i; done
 	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \

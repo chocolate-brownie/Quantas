@@ -1,3 +1,30 @@
+/* @brief
+`mq_timeout_test` is a small test target in the `makefile` that checks the BoostMQ leader’s
+**done-wait timeout behavior**.
+
+It builds/runs this file:
+
+```text
+quantas/Tests/processCoordinatorMQTimeoutTest.cpp
+```
+
+The test exercises `ProcessCoordinatorMQ::waitForAllDone(...)`.
+
+Conceptually, it creates the leader-side control queues, sends a few fake `done` messages, and
+verifies that the leader behaves correctly when not all peers finish before the timeout.
+
+It checks cases like:
+
+```text
+peer 0 sends done
+peer 0 sends duplicate done
+invalid peer id 99 sends done
+peer 1 sends done
+peer 2 never sends done
+leader times out waiting for peer 2
+```
+*/
+
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <cassert>
@@ -10,9 +37,15 @@ int main() {
 
     auto &coordinator = quantas::ProcessCoordinatorMQ::instance();
     coordinator.configureExperiment(
-        0, "test", true, 3, quantas::NO_PEER_ID, "cout", quantas::StopMode::FixedRounds
+        0,
+        "test",
+        true,
+        3,
+        quantas::NO_PEER_ID,
+        "cout",
+        quantas::StopMode::FixedRounds
     );
-    coordinator.createBarrier();
+    coordinator.createBarrier(3);
 
     std::thread sender([] {
         std::this_thread::sleep_for(10ms);

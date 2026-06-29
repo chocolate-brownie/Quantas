@@ -66,7 +66,7 @@ class ProcessCoordinatorMQ {
     void configureProcess(bool isLeader, size_t totalPeers, interfaceId myId);
 
     // -------------------- start-gate handshake protocol --------------------
-    void createBarrier();
+    void createBarrier(unsigned int controlCapacity);
     void createInbox();
     void sendReady();
     void waitForAllReady();

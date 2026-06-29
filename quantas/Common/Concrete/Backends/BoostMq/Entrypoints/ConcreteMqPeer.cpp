@@ -104,10 +104,16 @@ std::string configureExperimentOutput(
     const std::string &logFileBase, size_t expIndex, int testNumber,
     std::optional<int> processDisambiguator
 ) {
-    const std::string experimentFile =
-        quantas::makeExperimentFileName(logFileBase, expIndex, processDisambiguator, ".json");
-    const std::string metricsFile =
-        quantas::addFileNameSuffix(experimentFile, "_TEST" + std::to_string(testNumber));
+    const std::string experimentFile = quantas::makeExperimentFileName(
+        logFileBase,
+        expIndex,
+        processDisambiguator,
+        ".json"
+    );
+    const std::string metricsFile = quantas::addFileNameSuffix(
+        experimentFile,
+        "_TEST" + std::to_string(testNumber)
+    );
     quantas::LogWriter::setLogFile(metricsFile);
     quantas::LogWriter::setTest(0);
     return metricsFile;
@@ -161,8 +167,8 @@ void runRounds(
     size_t loopCount = 0;
     std::string stopReason = "unknown";
     const auto mode = coordinator.stopMode();
-    const char *modeLabel =
-        (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
+    const char *modeLabel = (mode == quantas::StopMode::FixedRounds) ? "FixedRounds"
+                                                                     : "DoneSignals";
 
     if (mode == quantas::StopMode::FixedRounds) {
         quantas::RoundManager::synchronous();
@@ -260,8 +266,11 @@ int main(int argc, char **argv) {
                current worker process.
                */
             const nlohmann::json &experiment = (*config)["experiments"].at(expIndex);
-            quantas::RuntimeExperimentConfig exp =
-                quantas::parseRuntimeExperiment(*config, expIndex, cli->roundsOverride);
+            quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
+                *config,
+                expIndex,
+                cli->roundsOverride
+            );
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::optional<int> processDisambiguator = cli->peerId;
@@ -269,7 +278,10 @@ int main(int argc, char **argv) {
             for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
                 const int testNumber = testIndex + 1;
                 const std::string metricsFile = configureExperimentOutput(
-                    logFileBase, expIndex, testNumber, processDisambiguator
+                    logFileBase,
+                    expIndex,
+                    testNumber,
+                    processDisambiguator
                 );
                 coordinator.configureExperiment(
                     expIndex,

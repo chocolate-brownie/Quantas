@@ -78,6 +78,7 @@ MQ_LEADER_OBJS := $(COMMON_OBJS) \
 	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.o \
 	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
 	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
+	quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.o \
 	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o
 
 # compiles all cpps specified as necessary in the INPUTFILE

@@ -21,4 +21,3 @@ quantas/Common/Concrete/
     TCP/           older TCP concrete backend
     ZeroMq/        scaffold for the future ZeroMQ backend
 ```
-

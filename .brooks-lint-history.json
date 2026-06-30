@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-06-30",
+    "mode": "Architecture Audit",
+    "score": 89,
+    "findings": {
+      "critical": 0,
+      "warning": 2,
+      "suggestion": 1
+    },
+    "scope": "Incremental audit: BoostMQ capacity-preflight feature and immediate Concrete runtime boundaries"
+  }
+]

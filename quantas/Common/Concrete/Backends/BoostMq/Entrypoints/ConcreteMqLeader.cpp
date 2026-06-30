@@ -1,3 +1,4 @@
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.hpp"
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
 #include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.hpp"
@@ -201,44 +202,6 @@ nlohmann::json readCompletedPeerMetrics(
     return peerMetrics;
 }
 
-/*
- * @brief reads /proc/sys/fs/mqueue/msg_max, parses every experiment in the JSON, compares
- * exp.initialPeers against system capacity returns false if any experiment requires more capacity
- * than Linux allows
- */
-bool parseValidateCapacity(std::optional<nlohmann::json> &config) {
-    try {
-        std::ifstream input("/proc/sys/fs/mqueue/msg_max");
-        unsigned int capacity = 0;
-        if (!(input >> capacity)) {
-            throw std::runtime_error("error: cannot read /proc/sys/fs/mqueue/msg_max");
-        }
-        QUANTAS_LOG_INFO("quantas") << "cat /proc/sys/fs/mqueue/msg_max: " << capacity;
-
-        for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
-            const quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
-                *config,
-                expIndex
-            );
-            if (capacity < exp.initialPeers) {
-                throw std::runtime_error(
-                    "BoostMQ control-plane capacity check failed: "
-                    "peer_count = " +
-                    std::to_string(exp.initialPeers) +
-                    " required_capacity = " + std::to_string(exp.initialPeers) +
-                    " system fs.mqueue.msg_max = " + std::to_string(capacity) +
-                    ". Run: sudo sysctl -w fs.mqueue.msg_max=" + std::to_string(exp.initialPeers)
-                );
-            }
-        }
-    } catch (const std::exception &ex) {
-        std::cerr << "error: capacity preflight failed: " << ex.what() << '\n';
-        return false;
-    }
-
-    return true;
-}
-
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char *argv[]) {
     bool capacityCheck = (argc >= 3 && (std::string(argv[1])) == "--check-capacity");
@@ -253,7 +216,9 @@ int main(int argc, char *argv[]) {
     auto config = parseAndLoadConfig(inputPath);
     if (!config) return 1;
 
-    if (!parseValidateCapacity(config)) return 1;
+    const quantas::CapacityPreflight capacityPreflight;
+    if (!capacityPreflight.validate(config)) return 1;
+
     if (capacityCheck == true) return 0;
 
     /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol

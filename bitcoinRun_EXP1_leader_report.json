@@ -1,0 +1,812 @@
+{
+    "backend": "mq",
+    "doneTimeoutMs": 30000,
+    "durationSeconds": 11.650978286,
+    "expectedPeers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ],
+    "experimentIndex": 0,
+    "inputFile": "quantas/BitcoinPeer/BitcoinPeerInput.json",
+    "peerCount": 11,
+    "peerType": "BitcoinPeer",
+    "rounds": 1000,
+    "success": true,
+    "tests": [
+        {
+            "completedPeers": [
+                2,
+                6,
+                5,
+                0,
+                4,
+                3,
+                9,
+                1,
+                7,
+                8,
+                10
+            ],
+            "durationSeconds": 11.650271394,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 6944.0,
+                    "RunTime": 11.29553029,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                417.0
+                            ],
+                            "dagCommonRootParasites": [
+                                208.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 7,
+                                    "2": 1
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                417.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                3188.0
+                            ]
+                        }
+                    ]
+                },
+                "1": {
+                    "Peak Memory KB": 7228.0,
+                    "RunTime": 11.40804976,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                462.0
+                            ],
+                            "dagCommonRootParasites": [
+                                231.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 8,
+                                    "2": 1
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                462.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                3415.0
+                            ]
+                        }
+                    ]
+                },
+                "10": {
+                    "Peak Memory KB": 7240.0,
+                    "RunTime": 11.438455974,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                489.0
+                            ],
+                            "dagCommonRootParasites": [
+                                244.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 2,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 9,
+                                    "2": 1
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                489.0
+                            ],
+                            "dagTotalForkPoints": [
+                                2.0
+                            ],
+                            "minedBlocks": [
+                                3446.0
+                            ]
+                        }
+                    ]
+                },
+                "2": {
+                    "Peak Memory KB": 6532.0,
+                    "RunTime": 11.070354169,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                405.0
+                            ],
+                            "dagCommonRootParasites": [
+                                202.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 4,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 9
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                405.0
+                            ],
+                            "dagTotalForkPoints": [
+                                2.0
+                            ],
+                            "minedBlocks": [
+                                2878.0
+                            ]
+                        }
+                    ]
+                },
+                "3": {
+                    "Peak Memory KB": 7088.0,
+                    "RunTime": 11.371369586,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                449.0
+                            ],
+                            "dagCommonRootParasites": [
+                                224.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 8
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                449.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                3231.0
+                            ]
+                        }
+                    ]
+                },
+                "4": {
+                    "Peak Memory KB": 6660.0,
+                    "RunTime": 11.2994765,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                416.0
+                            ],
+                            "dagCommonRootParasites": [
+                                210.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 8
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 6
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 4
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 5
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 5
+                                    },
+                                    {
+                                        "height": 3,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 3,
+                                    "2": 3,
+                                    "4": 1,
+                                    "5": 2,
+                                    "6": 1,
+                                    "8": 1
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                416.0
+                            ],
+                            "dagTotalForkPoints": [
+                                2.0
+                            ],
+                            "minedBlocks": [
+                                2982.0
+                            ]
+                        }
+                    ]
+                },
+                "5": {
+                    "Peak Memory KB": 6724.0,
+                    "RunTime": 11.215345965,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                413.0
+                            ],
+                            "dagCommonRootParasites": [
+                                206.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 8
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                413.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                2848.0
+                            ]
+                        }
+                    ]
+                },
+                "6": {
+                    "Peak Memory KB": 6704.0,
+                    "RunTime": 11.08327794,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                410.0
+                            ],
+                            "dagCommonRootParasites": [
+                                205.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 8
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                410.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                2875.0
+                            ]
+                        }
+                    ]
+                },
+                "7": {
+                    "Peak Memory KB": 7056.0,
+                    "RunTime": 11.420354173,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                461.0
+                            ],
+                            "dagCommonRootParasites": [
+                                230.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 8
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                461.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                3168.0
+                            ]
+                        }
+                    ]
+                },
+                "8": {
+                    "Peak Memory KB": 6824.0,
+                    "RunTime": 11.42067913,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                469.0
+                            ],
+                            "dagCommonRootParasites": [
+                                234.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 8
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                469.0
+                            ],
+                            "dagTotalForkPoints": [
+                                1.0
+                            ],
+                            "minedBlocks": [
+                                3304.0
+                            ]
+                        }
+                    ]
+                },
+                "9": {
+                    "Peak Memory KB": 7068.0,
+                    "RunTime": 11.396685232,
+                    "tests": [
+                        {
+                            "dagCommonRootHeight": [
+                                462.0
+                            ],
+                            "dagCommonRootParasites": [
+                                233.0
+                            ],
+                            "dagForkLocations": [
+                                [
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 0,
+                                        "length": 1
+                                    },
+                                    {
+                                        "height": 2,
+                                        "length": 2
+                                    },
+                                    {
+                                        "height": 4,
+                                        "length": 3
+                                    }
+                                ]
+                            ],
+                            "dagForks": [
+                                {
+                                    "1": 7,
+                                    "2": 2,
+                                    "3": 1
+                                }
+                            ],
+                            "dagLongestChainLength": [
+                                462.0
+                            ],
+                            "dagTotalForkPoints": [
+                                3.0
+                            ],
+                            "minedBlocks": [
+                                3317.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "peerOutputFiles": {
+                "0": "bitcoinRun_EXP1_p0_TEST1.txt",
+                "1": "bitcoinRun_EXP1_p1_TEST1.txt",
+                "10": "bitcoinRun_EXP1_p10_TEST1.txt",
+                "2": "bitcoinRun_EXP1_p2_TEST1.txt",
+                "3": "bitcoinRun_EXP1_p3_TEST1.txt",
+                "4": "bitcoinRun_EXP1_p4_TEST1.txt",
+                "5": "bitcoinRun_EXP1_p5_TEST1.txt",
+                "6": "bitcoinRun_EXP1_p6_TEST1.txt",
+                "7": "bitcoinRun_EXP1_p7_TEST1.txt",
+                "8": "bitcoinRun_EXP1_p8_TEST1.txt",
+                "9": "bitcoinRun_EXP1_p9_TEST1.txt"
+            },
+            "success": true,
+            "testIndex": 0,
+            "timedOut": false
+        }
+    ],
+    "topologyType": "complete"
+}

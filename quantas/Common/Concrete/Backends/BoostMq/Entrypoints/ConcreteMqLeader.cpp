@@ -202,8 +202,9 @@ nlohmann::json readCompletedPeerMetrics(
 }
 
 /*
- * Purpose: Copy completed peer metric files into the leader report without
- * inventing merge rules. Used by: `main()` before appending each test report.
+ * @brief reads /proc/sys/fs/mqueue/msg_max, parses every experiment in the JSON, compares
+ * exp.initialPeers against system capacity returns false if any experiment requires more capacity
+ * than Linux allows
  */
 bool parseValidateCapacity(std::optional<nlohmann::json> &config) {
     try {
@@ -240,19 +241,20 @@ bool parseValidateCapacity(std::optional<nlohmann::json> &config) {
 
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char *argv[]) {
-    bool capacityCheckOnly = argc >= 3 && std::string(argv[1]) == "--check-capacity";
+    bool capacityCheck = (argc >= 3 && (std::string(argv[1])) == "--check-capacity");
+
     if (argc < 2 || (std::string(argv[1]) == "--check-capacity" && argc < 3)) {
         printUsage(argv[0]);
         return 1;
     }
 
-    const std::string inputPath = capacityCheckOnly ? argv[2] : argv[1];
+    const std::string inputPath = capacityCheck ? argv[2] : argv[1];
     /* Parse cli args and load the json config file for the leader process */
     auto config = parseAndLoadConfig(inputPath);
     if (!config) return 1;
 
     if (!parseValidateCapacity(config)) return 1;
-    if (capacityCheckOnly) return 0;
+    if (capacityCheck == true) return 0;
 
     /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol
      * API

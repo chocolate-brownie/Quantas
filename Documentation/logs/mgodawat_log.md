@@ -306,7 +306,7 @@ In this file I document what I do everyday during my internship.
 
 ### 19/06/2026
 
-- Completed the minimal successful-run ConcreteMQ leader report. The leader now writes one JSON file per experiment with configuration metadata, expected/completed peers, zero-based test indexes, durations, success state, and per-peer output paths.
+- Completed the minimal successful-runl ConcreteMQ leader report. The leader now writes one JSON file per experiment with configuration metadata, expected/completed peers, zero-based test indexes, durations, success state, and per-peer output paths.
 - Centralized filename suffixing in `LoggingSupport` so peers and the leader share `_TEST<N>` naming; internal test loops are zero-based while logs and filenames remain one-based.
 - Validation passed for the 3-peer Bitcoin demo and the four-experiment, ten-test AltBit run. All processes exited `0`, generated reports parsed with `jq`, test indexes were `0..9`, and every referenced peer output file existed.
 - Added optional per-experiment `doneTimeoutMs` with a 30-second default. The leader now uses one absolute completion deadline, writes partial completion and missing-peer evidence on timeout, performs best-effort stop delivery, cleans queues, and exits `1`.
@@ -321,3 +321,7 @@ In this file I document what I do everyday during my internship.
 - Updated Makefile object paths, root-qualified includes, and `.clangd` include flags so BoostMQ, TCP, and shared runtime files resolve cleanly for both builds and editor navigation.
 - Aligned current ConcreteMQ/BoostMq documentation with the new folder layout and cleaned stale live comments around the done/stop protocol and backpressure drop logging.
 - Revalidated with `mq_peer_debug`, `mq_leader_debug`, clang syntax checks for BoostMQ, and a 3-peer Bitcoin MQ smoke run with all processes exiting `0`.
+
+### 30/06/2026
+
+- Made a simple function that can execute a shell cmd to check for the system's msgqueue capacity. We grab the output and compare it with the experiement's initial peer count and adjust the boost message queue size and the kernal's capacity to hold N number of msgques. One little clean up I did was to make the leader and peer binary executes cleanly if ONLY capactiy check passes 

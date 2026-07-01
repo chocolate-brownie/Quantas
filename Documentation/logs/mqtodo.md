@@ -1,107 +1,6 @@
-# ConcreteMQ v1 Minimal TODO
+# Remaining might todos
 
-Goal: finish ConcreteMQ / BoostMq v1 as a dependable makefile-orchestrated
-real IPC backend for running QUANTAS algorithms, then move on to ZeroMQ.
-
-Current source layout:
-
-```text
-quantas/Common/Concrete/Runtime/
-quantas/Common/Concrete/Backends/BoostMq/
-quantas/Common/Concrete/Backends/ZeroMq/
-```
-
-## Architectural Decisions
-
-Keep these fixed while coding:
-
-- ConcreteMQ is a realistic IPC/process backend, not an Abstract simulator clone.
-- Do not implement Abstract channel semantics in ConcreteMQ v1:
-    - no configured delay;
-    - no model drop;
-    - no duplicate;
-    - no reorder;
-    - no `maxMsgsRec`;
-    - no Abstract channel-size behavior.
-- Keep process orchestration in the root `makefile`.
-- Do not build a C++ process manager for v1.
-- Keep per-peer output files as debugging artifacts.
-- Make the leader responsible for the researcher-facing experiment report.
-- Support JSON `tests > 1`; otherwise ConcreteMQ is not dependable enough for
-  researchers.
-
-## Work Items
-
-### 1. Implement repeated JSON tests
-
-Why:
-
-- Abstract QUANTAS repeats experiments with `tests`.
-- Researchers need repeated runs, not one IPC demo run.
-
-Do:
-
-- Add a test loop around the current MQ experiment lifecycle.
-- For each test, run fresh readiness, assignment, start, rounds, done, stop, and
-  cleanup.
-- Reset peer-local state, `RoundManager`, interfaces, and output selection per
-  test.
-- Include experiment index, test index, and peer id in output names.
-
-Verify:
-
-```sh
-make -j4 mq_peer_debug mq_leader_debug
-make mq_run_all INPUTFILE=quantas/AltBitPeer/AltBitUtility.json MQ_TOTAL_PEERS=2
-```
-
-Done when:
-
-- [x] `tests = 1` still works.
-- [x] `tests > 1` runs the expected number of test iterations.
-- [x] Logs clearly show experiment/test boundaries.
-- [x] No stale MQ queues or peer state leak between tests.
-
-### 2. Add leader-owned experiment report
-
-Why:
-
-- Peer files are useful for debugging, but the leader is the only process with a
-  global view of the run.
-- Researchers need one trusted artifact that says what ran and whether it
-  completed.
-
-Do:
-
-- Make the leader write a report per run, experiment, or test.
-- Keep the first report simple.
-- Include:
-    - input/config name;
-    - experiment index;
-    - test index;
-    - peer count;
-    - peer type;
-    - topology type;
-    - round count;
-    - peer completion status;
-    - per-peer output paths;
-    - final success/failure status.
-
-Verify:
-
-```sh
-make -j4 mq_peer_debug mq_leader_debug
-make mq_run_all INPUTFILE=quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json MQ_TOTAL_PEERS=3
-```
-
-Done when:
-
-- [x] Leader report exists.
-- [x] Report lists all expected peers.
-- [x] Report references per-peer debug output files.
-- [x] Report makes failed or missing peers visible.
-
-### 3. Add real IPC counters
+### Add real IPC countes
 
 Why:
 
@@ -124,14 +23,6 @@ dropped_backpressure
 - Do not add `dropped_model`.
 - Do not add a pending-delivery buffer unless the counter implementation becomes
   messy without it.
-
-Verify:
-
-```sh
-make -j4 mq_peer_debug mq_leader_debug
-make mq_run_all INPUTFILE=quantas/ExamplePeer/TopologyParityInput.json MQ_TOTAL_PEERS=4 MQ_ROUNDS=1
-make mq_run_all INPUTFILE=quantas/BitcoinPeer/Bitcoin3PeerMQDemo.json MQ_TOTAL_PEERS=3
-```
 
 Done when:
 
@@ -178,14 +69,49 @@ Done when:
     - no global lockstep barrier;
     - no C++ process manager.
 
-## Next Action
+# TODO for the next phase 
 
-Add the real IPC counters. Repeated tests and leader-owned reports now cover
-both successful completion and timeout failures with explicit missing-peer
-evidence.
+**Experiment Goal**
 
-## Future goals
+The goal is to understand whether the abstract simulation model can approximate the real BoostMQ execution model closely enough to be useful.
 
-- make the user provided json file responsible for which commuinication layer does quantas
-  triggers the experiement, I have to have an option added into the json file that says
-  `ipc = "abstract/boostmq/zeromq/tcp"` such something
+More specifically, we want to check whether different random-delay settings in the abstract model can produce results that match the BoostMQ backend within an acceptable margin, for example within 5%.
+
+**Main Question**
+
+Can we tune the abstract model’s delay parameters so that its behavior becomes comparable to the real message queue implementation?
+
+**Planned Experiment**
+
+Run the same experiments using both backends:
+
+1. Abstract simulation backend.
+2. BoostMQ/message queue backend.
+
+For each example algorithm, run the same configuration under both settings and compare the results.
+
+**Comparison Method**
+
+Use the current configuration files as the starting point.
+
+For the abstract backend, vary the average/random delay settings from `1` to `5`.
+
+For the BoostMQ backend, measure real execution time.
+
+Then compare the abstract results against the BoostMQ results to see which delay setting gives the closest match.
+
+**Purpose**
+
+The purpose is to get a practical sense of whether the abstract model is realistic.
+
+If the abstract model can match BoostMQ results within roughly 5%, then it may be useful for faster experimentation.
+
+If the results differ significantly, then the abstract backend may need better delay modeling, or we need to clearly document that it is only a logical simulator and not a realistic timing model.
+
+**Refined Notes**
+
+We want to run equivalent experiments in both the abstract backend and the BoostMQ backend. The objective is to determine whether the random delay parameters in the abstract model can be tuned so that the abstract execution time approximates the real BoostMQ execution time within about 5%.
+
+Using the current configuration files, we should run all available examples with both backends, collect timing results, and compare them. For the abstract backend, we will vary the average delay from 1 to 5 and observe which setting most closely matches the measured real time of the BoostMQ backend.
+
+The larger research question is whether the abstract simulation model is realistic enough for performance-oriented experiments, or whether it should only be used for logical correctness and algorithm behavior.

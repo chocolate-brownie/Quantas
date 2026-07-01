@@ -78,7 +78,7 @@ In this file I document what I do everyday during my internship.
     2. Phase 1 (next) — 1 machine, N+1 processes, Boost message queues replace Channel deques
     3. Phase 2 (later) — Docker containers + Mininet network + UDP sockets
 - Professor assigned: study Boost message queues from "The Boost C++ Libraries" by Boris Schaling and think about how to design the new concrete communication class
-- Professor assigned: read *Distributed Algorithms for Message-Passing Systems* by Michel Raynal as a reference textbook
+- Professor assigned: read _Distributed Algorithms for Message-Passing Systems_ by Michel Raynal as a reference textbook
 - Tasks before Wednesday 22/04/2026: understand Boost message queue API, design how `unicastTo()` and `receive()` would work in the new concrete class
 
 ### 16/04/2026
@@ -114,9 +114,10 @@ In this file I document what I do everyday during my internship.
 - I am trying to come up with a design that can replace the channel queue with boost message queue with the function unicast and receive
 
 ### 21/04/2026
+
 - Today I spend time trying to come up with a solution on how I should implement the boost mq to `unicastTo()` and `receive()`. Then after reading the new updated TCP solution files I understood some possible solutions
-- The main challenge with the setup is to solve the *barrier synchronization* problem in the tcp solution. A solution has been already implemented called the
-*rendezvous protocol* I can implement the same thing but compatible for the boost mq.
+- The main challenge with the setup is to solve the _barrier synchronization_ problem in the tcp solution. A solution has been already implemented called the
+  _rendezvous protocol_ I can implement the same thing but compatible for the boost mq.
 
 ### 22/04/2026
 
@@ -156,7 +157,7 @@ In this file I document what I do everyday during my internship.
     - Coordinator dynamically assigns peer IDs (peers register via a temp reply queue and get back an ID `0..N-1`) — interchangeable processes for the eventual Docker phase
     - Add `setNetworkInterface()` to `Peer.hpp` so any algorithm swaps from Abstract → MQ → 0MQ without per-algorithm subclasses
     - Logger aggregates metrics into a single combined output file; fixed round count from JSON; separate control vs data queues per peer; `receive()` drains all per round; raise `mq_msgsize` via sysctl rather than write fragmentation logic
-- Professor confirmed the next phase will replace Boost MQ with ZeroMQ — design philosophy locked in: *throwaway code, non-throwaway protocol* (Boost MQ and 0MQ are the same async-messaging paradigm, so the protocol shape translates directly)
+- Professor confirmed the next phase will replace Boost MQ with ZeroMQ — design philosophy locked in: _throwaway code, non-throwaway protocol_ (Boost MQ and 0MQ are the same async-messaging paradigm, so the protocol shape translates directly)
 
 ### 04/05/2026
 
@@ -208,10 +209,10 @@ In this file I document what I do everyday during my internship.
 - Cleaned `ConcreteMqLeader.cpp` by removing non-essential J8 output setup and trimming unused includes so the file stays control-plane focused.
 - Revalidated compilation with `make mq_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json` after the leader and naming updates.
 - Added root `makefile` orchestration targets for MQ leader/peer workflows:
-  - `mq_peer_debug` / `mq_peer_release`
-  - `mq_leader_debug` / `mq_leader_release`
-  - `mq_peer_run`, `mq_leader_run`, `mq_run_all`
-  - `help` target with concrete usage examples.
+    - `mq_peer_debug` / `mq_peer_release`
+    - `mq_leader_debug` / `mq_leader_release`
+    - `mq_peer_run`, `mq_leader_run`, `mq_run_all`
+    - `help` target with concrete usage examples.
 - Added `mq_run_all` PID/exit diagnostics and a single-terminal debug orchestration target `mq_run_all_debug_peer` to run one peer in `gdb` while launching remaining peers in background.
 - Verified with Bitcoin single-experiment input (`initialPeers = 11`) that J8 control-plane synchronization is working: all peers reach `Rendezvous done` under leader coordination.
 - Identified current blocker beyond J8: repeated peer crashes (`exit code 139`) in the data-plane send path. `gdb` backtrace points to Boost serialization construction inside `NetworkInterfaceConcreteMQ::unicastTo(...)` (`binary_oarchive` path), while leader process exits normally.
@@ -222,37 +223,36 @@ In this file I document what I do everyday during my internship.
 - Applied makefile fix: removed `-D_GLIBCXX_DEBUG` from MQ debug targets only (`mq_peer_debug`, `mq_leader_debug`) and kept the rest of the build matrix unchanged.
 - Identified second runtime issue as liveness/backpressure (not memory crash): blocking `message_queue::send(...)` could stall peers under bursty broadcast and limited queue depth.
 - Applied MQ liveness fix in `NetworkInterfaceConcreteMQ::unicastTo(...)`:
-  - replaced blocking `send(...)` with `timed_send(...)` using a 5ms deadline,
-  - dropped message on timeout to prevent indefinite blocking,
-  - added per-destination drop counters with periodic logging,
-  - documented the backpressure guard with a short block comment.
+    - replaced blocking `send(...)` with `timed_send(...)` using a 5ms deadline,
+    - dropped message on timeout to prevent indefinite blocking,
+    - added per-destination drop counters with periodic logging,
+    - documented the backpressure guard with a short block comment.
 - Validation run succeeded with orchestrated debug command:
-  - `make mq_run_all_debug_peer INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_DEBUG_PEER_ID=0 MQ_ROUNDS=10`
-  - gdb inferior exited normally,
-  - no serialization segfault,
-  - no stuck send deadlock,
-  - all peer and leader processes exited with code `0`.
+    - `make mq_run_all_debug_peer INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_DEBUG_PEER_ID=0 MQ_ROUNDS=10`
+    - gdb inferior exited normally,
+    - no serialization segfault,
+    - no stuck send deadlock,
+    - all peer and leader processes exited with code `0`.
 - Remaining note: high latency spikes are still visible under load and should be treated as performance/backpressure tuning work (not a correctness crash).
 
 ### 22/05/2026
 
 - Added structured lifecycle logging for the MQ runtime using the shared logger macros (`QUANTAS_LOG_INFO/WARN/ERROR`) instead of ad-hoc `std::cout` in start-gate paths:
-  - follower-side rendezvous markers in `ConcreteMqPeer.cpp` (configure/create inbox/send ready/wait start/start acknowledged),
-  - leader/coordinator markers in `ConcreteMqLeader.cpp` and `ProcessCoordinatorMQ.cpp` (barrier creation, wait-all-ready, broadcast start, start receive).
+    - follower-side rendezvous markers in `ConcreteMqPeer.cpp` (configure/create inbox/send ready/wait start/start acknowledged),
+    - leader/coordinator markers in `ConcreteMqLeader.cpp` and `ProcessCoordinatorMQ.cpp` (barrier creation, wait-all-ready, broadcast start, start receive).
 - Ran an MQ-only stability gate (not full QUANTAS scope) aligned with current project objective from logs (`J8 baseline readiness before branch split):
-  - `make clean && make -j4 mq_peer_debug mq_leader_debug`
-  - `make mq_run_all INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_ROUNDS=5`
+    - `make clean && make -j4 mq_peer_debug mq_leader_debug`
+    - `make mq_run_all INPUTFILE=quantas/BitcoinPeer/BitcoinPeerInput.json MQ_TOTAL_PEERS=11 MQ_ROUNDS=5`
 - Validation result for MQ scope:
-  - leader and all 11 peers completed rendezvous/start sequence successfully,
-  - all processes exited with code `0`,
-  - no crash in MQ send path during this run,
-  - structured start-gate evidence now visible in logger output.
+    - leader and all 11 peers completed rendezvous/start sequence successfully,
+    - all processes exited with code `0`,
+    - no crash in MQ send path during this run,
+    - structured start-gate evidence now visible in logger output.
 - Build-system hardening done while validating branch-freeze readiness:
-  - fixed abstract/concrete link coverage in `makefile` so concrete-interface symbols resolve consistently when algorithm files register `*Concrete` peer factories,
-  - corrected `make test` Bitcoin input path from `quantas/BitcoinPeer/BitcoinInput.json` to `quantas/BitcoinPeer/BitcoinPeerInput.json`.
+    - fixed abstract/concrete link coverage in `makefile` so concrete-interface symbols resolve consistently when algorithm files register `*Concrete` peer factories,
+    - corrected `make test` Bitcoin input path from `quantas/BitcoinPeer/BitcoinInput.json` to `quantas/BitcoinPeer/BitcoinPeerInput.json`.
 - Scope decision recorded: full QUANTAS valgrind suite is intentionally not the gating criterion for this checkpoint; the freeze criterion is MQ progress validity (current J8/J2-J7 baseline) before moving to feature branches.
 - Project management decision: treat current `master` as MQ baseline checkpoint and continue next work in scoped sub-branches (`J9/J10/J11/J12` progression) with issue-first + evidence-based workflow.
-
 
 ### 26/05/2026
 
@@ -302,11 +302,11 @@ In this file I document what I do everyday during my internship.
 - Added leader-side report scaffolding in `ConcreteMqLeader.cpp`: experiment metadata (`backend`, experiment index, peer count/type, topology type, rounds), per-test duration, completed peers, missing peers, and success status. The report is currently accumulated in memory; writing the final experiment-level JSON file is the next step.
 - Fixed a compile issue caused by naming a local variable `missingPeers` while also using a helper with the same name; renamed the helper to `findMissingPeers(...)` and pushed a real test report object into `expReport["tests"]`.
 - Validation run completed for the current leader-side changes:
-  - `make -j4 mq_leader_debug`
+    - `make -j4 mq_leader_debug`
 
 ### 19/06/2026
 
-- Completed the minimal successful-run ConcreteMQ leader report. The leader now writes one JSON file per experiment with configuration metadata, expected/completed peers, zero-based test indexes, durations, success state, and per-peer output paths.
+- Completed the minimal successful-runl ConcreteMQ leader report. The leader now writes one JSON file per experiment with configuration metadata, expected/completed peers, zero-based test indexes, durations, success state, and per-peer output paths.
 - Centralized filename suffixing in `LoggingSupport` so peers and the leader share `_TEST<N>` naming; internal test loops are zero-based while logs and filenames remain one-based.
 - Validation passed for the 3-peer Bitcoin demo and the four-experiment, ten-test AltBit run. All processes exited `0`, generated reports parsed with `jq`, test indexes were `0..9`, and every referenced peer output file existed.
 - Added optional per-experiment `doneTimeoutMs` with a 30-second default. The leader now uses one absolute completion deadline, writes partial completion and missing-peer evidence on timeout, performs best-effort stop delivery, cleans queues, and exits `1`.
@@ -321,3 +321,23 @@ In this file I document what I do everyday during my internship.
 - Updated Makefile object paths, root-qualified includes, and `.clangd` include flags so BoostMQ, TCP, and shared runtime files resolve cleanly for both builds and editor navigation.
 - Aligned current ConcreteMQ/BoostMq documentation with the new folder layout and cleaned stale live comments around the done/stop protocol and backpressure drop logging.
 - Revalidated with `mq_peer_debug`, `mq_leader_debug`, clang syntax checks for BoostMQ, and a 3-peer Bitcoin MQ smoke run with all processes exiting `0`.
+
+### 30/06/2026
+
+- Made a simple function that can execute a shell cmd to check for the system's msgqueue capacity. We grab the output and compare it with the experiement's initial peer count and adjust the boost message queue size and the kernal's capacity to hold N number of msgques. One little clean up I did was to make the leader and peer binary executes cleanly if ONLY capactiy check passes
+- Each peer's inboxe `_myInbox` has been also adjusted to hold N number of peers as well.
+- Made an interactive program where the user gets to change the `/proc/sys/fs/mqueue/msg_max` if everything is good we let the user to run the experiemnts. All the code regarding to the capacity check has been moved to `CapacityPreflight.cpp` file
+- Validated the BoostMQ changes with `mq_leader_debug`, `mq_peer_debug`, `mq_timeout_test`, and `git diff --check`.
+
+### 01/07/2026
+
+- 1 assignment message for a 300-peer complete topology cannot fit inside a 1024 byte peer inbox message. So I changed the MAX_MSG_SIZE to 4096 would cover around 300 peer complete assignment since it needs 2473 bytes. This is not really the best because what if the use just add 500 peers? I need a way that I can interactive change the MAX_MSG_SIZE just like I changed msgqueue size (maybe I can implement this before starting experiemnts). What would be the best solution for this
+
+- The better long-term design is not “interactive change MAX_MSG_SIZE.” It is:
+    - Parse the experiment.
+    - Build or estimate the largest assignment payload.
+    - Check it against the configured app message size.
+    - Check it against /proc/sys/fs/mqueue/msgsize_max.
+    - Fail fast with a clear message if unsafe.
+
+- Interactive msgque cap change is working `const std::string cmd = "sudo sysctl -w fs.mqueue.msg_max=" + std::to_string(requiredCapacity)` 

@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#define MAX_MSG_SIZE 1024
+#define MAX_MSG_SIZE 4096
 
 namespace quantas {
 enum class StopMode { FixedRounds, DoneSignals };
@@ -66,7 +66,7 @@ class ProcessCoordinatorMQ {
     void configureProcess(bool isLeader, size_t totalPeers, interfaceId myId);
 
     // -------------------- start-gate handshake protocol --------------------
-    void createBarrier();
+    void createBarrier(unsigned int controlCapacity);
     void createInbox();
     void sendReady();
     void waitForAllReady();

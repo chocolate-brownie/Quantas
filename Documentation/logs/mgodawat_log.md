@@ -328,3 +328,16 @@ In this file I document what I do everyday during my internship.
 - Each peer's inboxe `_myInbox` has been also adjusted to hold N number of peers as well.
 - Made an interactive program where the user gets to change the `/proc/sys/fs/mqueue/msg_max` if everything is good we let the user to run the experiemnts. All the code regarding to the capacity check has been moved to `CapacityPreflight.cpp` file
 - Validated the BoostMQ changes with `mq_leader_debug`, `mq_peer_debug`, `mq_timeout_test`, and `git diff --check`.
+
+### 01/07/2026
+
+- 1 assignment message for a 300-peer complete topology cannot fit inside a 1024 byte peer inbox message. So I changed the MAX_MSG_SIZE to 4096 would cover around 300 peer complete assignment since it needs 2473 bytes. This is not really the best because what if the use just add 500 peers? I need a way that I can interactive change the MAX_MSG_SIZE just like I changed msgqueue size (maybe I can implement this before starting experiemnts). What would be the best solution for this
+
+- The better long-term design is not “interactive change MAX_MSG_SIZE.” It is:
+    - Parse the experiment.
+    - Build or estimate the largest assignment payload.
+    - Check it against the configured app message size.
+    - Check it against /proc/sys/fs/mqueue/msgsize_max.
+    - Fail fast with a clear message if unsafe.
+
+- Interactive msgque cap change is working `const std::string cmd = "sudo sysctl -w fs.mqueue.msg_max=" + std::to_string(requiredCapacity)` 

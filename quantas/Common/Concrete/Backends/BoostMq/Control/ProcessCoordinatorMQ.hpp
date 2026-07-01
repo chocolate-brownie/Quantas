@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#define MAX_MSG_SIZE 1024
+#define MAX_MSG_SIZE 4096
 
 namespace quantas {
 enum class StopMode { FixedRounds, DoneSignals };

@@ -142,7 +142,8 @@ help:
 	@echo "Tests / diagnostics:"
 	@echo "  make test"
 	@echo "  make run_simple_memory INPUTFILE=..."
-	@echo "  make clean"
+	@echo "  make clean_outputs    # remove root generated .txt/.json outputs"
+	@echo "  make clean            # remove build artifacts, binaries, and generated outputs"
 
 # When running on windows use make clang
 clang: CXX := clang++
@@ -349,7 +350,7 @@ $(MQ_LEADER_EXE): $(MQ_LEADER_OBJS)
 
 # enables recursive glob patterns for bash to clean out unecessary files
 clean: SHELL := /bin/bash -O globstar
-clean:
+clean: clean_outputs
 	@$(RM) **/*.out
 	@$(RM) **/*.o
 	@$(RM) **/*.d
@@ -357,15 +358,15 @@ clean:
 	@$(RM) **/*.gch
 	@$(RM) **/*.tmp
 	@$(RM) **/*.exe
-	@$(RM) **/*.txt
 
-clean_txt: SHELL := /bin/bash -O globstar
-clean_txt:
-	@$(RM) **/*.txt
+clean_outputs:
+	@$(RM) ./*.txt ./*.json
+
+clean_txt: clean_outputs
 
 # -include $(OBJS:.o=.d)
 
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test mq_timeout_test test clean_txt
+.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test mq_timeout_test test clean_outputs clean_txt

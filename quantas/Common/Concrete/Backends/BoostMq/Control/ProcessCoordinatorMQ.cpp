@@ -98,17 +98,18 @@ void ProcessCoordinatorMQ::configureProcess(bool isLeader, size_t totalPeers, in
 }
 
 // 1. Leader creates quantas_barrier queue first
-void ProcessCoordinatorMQ::createBarrier() {
+void ProcessCoordinatorMQ::createBarrier(unsigned int controlCapacity) {
     if (!_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "creating barrier queue mq_barrier";
     message_queue::remove("mq_barrier");
     message_queue::remove("mq_done");
 
-    // Keep shared control queues small and rely on timed sender retries while the leader drains.
+    // Keep shared control queues small and rely on timed sender retries while
+    // the leader drains.
     try {
-        _myBarrier.emplace(create_only, "mq_barrier", 10, sizeof(unsigned int));
-        message_queue doneQueue(create_only, "mq_done", 10, sizeof(interfaceId));
+        _myBarrier.emplace(create_only, "mq_barrier", controlCapacity, sizeof(unsigned int));
+        message_queue doneQueue(create_only, "mq_done", controlCapacity, sizeof(interfaceId));
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(std::string("Failed to ::createBarrier queue: ") + ex.what());
     }
@@ -123,7 +124,9 @@ void ProcessCoordinatorMQ::createInbox() {
     message_queue::remove(queueName.c_str());
 
     try {
-        _myInbox.emplace(create_only, queueName.c_str(), 10, MAX_MSG_SIZE);
+        // Conservative upper bound: topology assignment is not known when the
+        // inbox is created, so allow one queued message per experiment peer.
+        _myInbox.emplace(create_only, queueName.c_str(), _totalPeers, MAX_MSG_SIZE);
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "Failed to ::createInbox queue for peer " + std::to_string(_myId) + ": " + ex.what()
@@ -422,7 +425,8 @@ void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
         );
     }
 
-    // Leader path: count unique completed peers and broadcast stop once all are done.
+    // Leader path: count unique completed peers and broadcast stop once all are
+    // done.
     bool shouldBroadcast = false;
     {
         std::scoped_lock lock(gCompletedMutex);
@@ -463,7 +467,8 @@ PeerCompletionResult ProcessCoordinatorMQ::waitForAllDone(std::chrono::milliseco
 
             if (recvd_size != sizeof(doneId)) {
                 throw std::runtime_error(
-                    "Unexpected done message size at ::waitForAllDone for leader " +
+                    "Unexpected done message size at ::waitForAllDone for "
+                    "leader " +
                     std::to_string(_myId)
                 );
             }
@@ -473,8 +478,8 @@ PeerCompletionResult ProcessCoordinatorMQ::waitForAllDone(std::chrono::milliseco
                 continue;
             }
 
-            /* avoid reporting duplicate peer IDs if something goes wrong and a peer sends more than
-             * one done message. */
+            /* avoid reporting duplicate peer IDs if something goes wrong and a
+             * peer sends more than one done message. */
             if (seenPeers.insert(doneId).second) {
                 result.completedPeers.push_back(doneId);
                 notifyPeerStopped(doneId);

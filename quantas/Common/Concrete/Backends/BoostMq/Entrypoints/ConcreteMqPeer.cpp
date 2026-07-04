@@ -236,11 +236,51 @@ void initializeHooks(const nlohmann::json &experiment, std::vector<quantas::Peer
     }
 }
 
-void emitFinalExperimentMetrics(const std::chrono::high_resolution_clock::time_point &startTime) {
+quantas::TransportMetrics collectTransportMetrics(const std::vector<quantas::Peer *> &localPeers) {
+    quantas::TransportMetrics totals;
+    for (const auto *peer : localPeers) {
+        if (!peer) continue;
+        const auto *mq = dynamic_cast<const quantas::NetworkInterfaceConcreteMQ *>(
+            peer->getNetworkInterface()
+        );
+        if (!mq) continue;
+
+        const auto metrics = mq->transportMetrics();
+        totals.sent += metrics.sent;
+        totals.receivedRaw += metrics.receivedRaw;
+        totals.deliveredToInstream += metrics.deliveredToInstream;
+        totals.droppedBackpressure += metrics.droppedBackpressure;
+    }
+    return totals;
+}
+
+void resetTransportMetrics(const std::vector<quantas::Peer *> &localPeers) {
+    for (const auto *peer : localPeers) {
+        if (!peer) continue;
+        auto *mq = dynamic_cast<quantas::NetworkInterfaceConcreteMQ *>(peer->getNetworkInterface());
+        if (mq) { mq->resetTransportMetrics(); }
+    }
+}
+
+void emitFinalExperimentMetrics(
+    const std::chrono::high_resolution_clock::time_point &startTime,
+    const std::vector<quantas::Peer *> &localPeers
+) {
     const auto endTime = std::chrono::high_resolution_clock::now();
     const std::chrono::duration<double> duration = endTime - startTime;
+    const auto transportMetrics = collectTransportMetrics(localPeers);
+
     quantas::LogWriter::setValue("RunTime", duration.count());
     quantas::LogWriter::setValue("Peak Memory KB", static_cast<double>(getPeakMemoryKB()));
+    quantas::LogWriter::setValue(
+        "transportMetrics",
+        nlohmann::json{
+            {"sent", transportMetrics.sent},
+            {"received_raw", transportMetrics.receivedRaw},
+            {"delivered_to_instream", transportMetrics.deliveredToInstream},
+            {"dropped_backpressure", transportMetrics.droppedBackpressure}
+        }
+    );
     QUANTAS_LOG_INFO("runner") << "printing output";
     quantas::LogWriter::print();
     QUANTAS_LOG_INFO("runner") << "output printed";
@@ -307,6 +347,7 @@ int main(int argc, char **argv) {
                         << "experiment " << expIndex << ": no runnable local peers, skipping";
                     continue;
                 }
+                resetTransportMetrics(localPeers);
 
                 QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
                 coordinator.waitForStart();
@@ -322,7 +363,7 @@ int main(int argc, char **argv) {
                    */
 
                 runRounds(localPeers, exp.rounds, coordinator);
-                emitFinalExperimentMetrics(startTime);
+                emitFinalExperimentMetrics(startTime, localPeers);
                 coordinator.notifyPeerStopped(localPeers.front()->publicId());
                 coordinator.waitForStop();
 

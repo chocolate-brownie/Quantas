@@ -143,6 +143,7 @@ help:
 	@echo "  make test"
 	@echo "  make run_simple_memory INPUTFILE=..."
 	@echo "  make clean_outputs    # remove root generated .txt/.json outputs"
+	@echo "  make clean_txt        # remove root generated .txt outputs only"
 	@echo "  make clean            # remove build artifacts, binaries, and generated outputs"
 
 # When running on windows use make clang
@@ -362,7 +363,8 @@ clean: clean_outputs
 clean_outputs:
 	@$(RM) ./*.txt ./*.json
 
-clean_txt: clean_outputs
+clean_txt:
+	@$(RM) ./*.txt
 
 # -include $(OBJS:.o=.d)
 

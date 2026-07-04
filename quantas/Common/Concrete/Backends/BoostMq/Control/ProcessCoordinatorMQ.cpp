@@ -124,9 +124,12 @@ void ProcessCoordinatorMQ::createInbox() {
     message_queue::remove(queueName.c_str());
 
     try {
-        // Conservative upper bound: topology assignment is not known when the
-        // inbox is created, so allow one queued message per experiment peer.
-        _myInbox.emplace(create_only, queueName.c_str(), _totalPeers, MAX_MSG_SIZE);
+        /* Conservative upper bound: topology assignment is not known when the
+        inbox is created, so allow one queued message per experiment peer.
+
+        We add _totalPeers + 50 to potentially avoid causing backpressure but its not really a
+        viable solution.*/
+        _myInbox.emplace(create_only, queueName.c_str(), _totalPeers + 100, MAX_MSG_SIZE);
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
             "Failed to ::createInbox queue for peer " + std::to_string(_myId) + ": " + ex.what()

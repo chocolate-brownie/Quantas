@@ -1,10 +1,11 @@
+#include "../Control/ProcessCoordinatorMQ.hpp"
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.hpp"
-#include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
 #include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.hpp"
 #include "quantas/Common/Logger.hpp"
 #include "quantas/Common/LoggingSupport.hpp"
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -202,6 +203,35 @@ nlohmann::json readCompletedPeerMetrics(
     return peerMetrics;
 }
 
+nlohmann::json summarizeTransportReliability(const nlohmann::json &peerMetrics) {
+    uint64_t sentTotal = 0;
+    uint64_t receivedRawTotal = 0;
+    uint64_t deliveredToInstreamTotal = 0;
+    uint64_t droppedBackpressureTotal = 0;
+
+    for (const auto &[peerId, metrics] : peerMetrics.items()) {
+        if (!metrics.contains("transportMetrics")) { continue; }
+
+        const auto &transportMetrics = metrics["transportMetrics"];
+        sentTotal += transportMetrics.value("sent", 0);
+        receivedRawTotal += transportMetrics.value("received_raw", 0);
+        deliveredToInstreamTotal += transportMetrics.value("delivered_to_instream", 0);
+        droppedBackpressureTotal += transportMetrics.value("dropped_backpressure", 0);
+    }
+
+    const bool reliable = sentTotal == receivedRawTotal &&
+                          receivedRawTotal == deliveredToInstreamTotal &&
+                          droppedBackpressureTotal == 0;
+
+    return nlohmann::json{
+        {"sent_total", sentTotal},
+        {"received_raw_total", receivedRawTotal},
+        {"delivered_to_instream_total", deliveredToInstreamTotal},
+        {"dropped_backpressure_total", droppedBackpressureTotal},
+        {"reliable", reliable}
+    };
+}
+
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char *argv[]) {
     bool capacityCheck = (argc >= 3 && (std::string(argv[1])) == "--check-capacity");
@@ -308,6 +338,9 @@ int main(int argc, char *argv[]) {
                 testReport["peerMetrics"] = readCompletedPeerMetrics(
                     testInfo.peerOutputFiles,
                     testInfo.completedPeers
+                );
+                testReport["transportReliability"] = summarizeTransportReliability(
+                    testReport["peerMetrics"]
                 );
 
                 expReport["tests"].push_back(testReport);

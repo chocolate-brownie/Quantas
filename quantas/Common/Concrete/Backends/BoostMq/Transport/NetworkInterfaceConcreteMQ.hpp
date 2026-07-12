@@ -1,6 +1,7 @@
 #ifndef NETWORK_INTERFACE_CONCRETE_MQ_HPP
 #define NETWORK_INTERFACE_CONCRETE_MQ_HPP
 
+#include "quantas/Common/Concrete/Runtime/Metrics/TransportMetrics.hpp"
 #include "quantas/Common/Json.hpp"
 #include "quantas/Common/NetworkInterface.hpp"
 #include <atomic>
@@ -15,6 +16,7 @@ class NetworkInterfaceConcreteMQ : public NetworkInterface {
   private:
     std::atomic<bool> _configured{false};
     std::optional<boost::interprocess::message_queue> _myInbox;
+    TransportMetrics _transportMetrics;
 
   public:
     NetworkInterfaceConcreteMQ();
@@ -30,6 +32,9 @@ class NetworkInterfaceConcreteMQ : public NetworkInterface {
     void clearAll() override;
 
     void requestStop();
+
+    TransportMetrics transportMetrics() const;
+    void resetTransportMetrics();
 };
 } // namespace quantas
 

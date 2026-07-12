@@ -45,6 +45,18 @@ quantas/Common/Concrete/
 
 Run `make help` for Makefile instruction if necessary
 
+Install the Boost development package used by this backend before building on Ubuntu or Linux Mint:
+
+```sh
+sudo apt install libboost-serialization-dev
+```
+
+You can verify the local dependency setup with:
+
+```sh
+make check_mq_deps
+```
+
 Run the full BoostMQ workflow from the repository root with:
 
 ```sh
@@ -72,6 +84,19 @@ sudo sysctl -w fs.mqueue.msg_max=N
 This change applies to the current boot. If you decline the prompt or the `sysctl` command fails, the run stops before any peer binaries are launched.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer.
+
+## How to interpret report metrics
+
+BoostMQ report metrics describe real IPC behavior, not Abstract simulator channel behavior:
+
+- `sent`: messages successfully placed into destination peer queues.
+- `received_raw`: raw messages pulled from a peer queue.
+- `delivered_to_instream`: received packets decoded and pushed into the peer input stream.
+- `dropped_backpressure`: send attempts dropped because the destination queue did not accept the message before the send timeout.
+
+The leader also summarizes these counters in `transportReliability`. Treat `dropped_backpressure_total == 0` and `received_raw_total == delivered_to_instream_total` as the primary transport-health check for the current implementation.
+
+The stricter `sent_total == received_raw_total` check can fail when fixed-round shutdown leaves final-round messages still queued. That is reported as pending-at-shutdown behavior, not automatically as modelled packet loss.
 
 ## Common failure messages
 

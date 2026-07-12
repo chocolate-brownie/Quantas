@@ -25,19 +25,27 @@ received a copy of the GNU General Public License along with QUANTAS. If not, se
 #include "Json.hpp"
 #include "RandomUtil.hpp"
 #include "RoundManager.hpp"
-#include <boost/serialization/access.hpp>
-#include <boost/serialization/split_member.hpp>
-#include <boost/serialization/string.hpp>
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <string>
+
+#if defined(__has_include)
+#if __has_include(<boost/serialization/access.hpp>) &&                                           \
+    __has_include(<boost/serialization/split_member.hpp>) &&                                     \
+    __has_include(<boost/serialization/string.hpp>)
+#define QUANTAS_HAS_BOOST_SERIALIZATION 1
+#include <boost/serialization/access.hpp>
+#include <boost/serialization/split_member.hpp>
+#include <boost/serialization/string.hpp>
+#endif
+#endif
 
 namespace quantas {
 
 using nlohmann::json;
 using std::string;
 using std::unique_ptr;
-using namespace boost::archive;
 
 typedef long interfaceId;
 
@@ -52,6 +60,7 @@ class Packet {
     int _delay{0};                     // Transmission delay
     int _round{-1};                    // Round message was sent
 
+#ifdef QUANTAS_HAS_BOOST_SERIALIZATION
     /* ------------- Boost Serialization --------------- */
     friend class boost::serialization::access;
     std::int64_t _sendTimestamp{0};
@@ -77,6 +86,9 @@ class Packet {
 
     BOOST_SERIALIZATION_SPLIT_MEMBER()
     /* ------------------------------------------------ */
+#else
+    std::int64_t _sendTimestamp{0};
+#endif
 
   public:
     inline Packet();
@@ -120,8 +132,7 @@ inline Packet::Packet(const Packet &rhs)
       _round(rhs._round), _sendTimestamp(rhs._sendTimestamp) {}
 
 inline Packet &Packet::operator=(const Packet &rhs) {
-    if (this == &rhs)
-        return *this;
+    if (this == &rhs) return *this;
     _targetId = rhs._targetId;
     _sourceId = rhs._sourceId;
     _delay = rhs._delay;
@@ -132,12 +143,9 @@ inline Packet &Packet::operator=(const Packet &rhs) {
 }
 
 inline void Packet::setDelay(int maxDelay, int minDelay) {
-    if (maxDelay < 1)
-        maxDelay = 1;
-    if (minDelay < 1)
-        minDelay = 1;
-    if (minDelay > maxDelay)
-        minDelay = maxDelay;
+    if (maxDelay < 1) maxDelay = 1;
+    if (minDelay < 1) minDelay = 1;
+    if (minDelay > maxDelay) minDelay = maxDelay;
     _delay = uniformInt(minDelay, maxDelay);
 }
 

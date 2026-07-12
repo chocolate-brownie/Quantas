@@ -26,12 +26,12 @@ dropped_backpressure
 
 Done when:
 
-- [ ] Sends increment `sent`.
-- [ ] MQ receives increment `received_raw`.
-- [ ] Packets pushed to `_inStream` increment `delivered_to_instream`.
+- [x] Sends increment `sent`.
+- [x] MQ receives increment `received_raw`.
+- [x] Packets pushed to `_inStream` increment `delivered_to_instream`.
 - [x] Send timeout logs use `dropped_backpressure`.
-- [ ] Send timeouts increment a reportable `dropped_backpressure` counter.
-- [ ] Logs or reports show per-peer MQ stats.
+- [x] Send timeouts increment a reportable `dropped_backpressure` counter.
+- [x] Logs or reports show per-peer MQ stats.
 
 ### 4. Run final ConcreteMQ v1 validation
 

@@ -42,8 +42,8 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
         neighborList << neighbor;
         first = false;
     }
-    QUANTAS_LOG_INFO("topology")
-        << "configured MQ peer " << _publicId << " neighbors=[" << neighborList.str() << "]";
+    QUANTAS_LOG_INFO("topology") << "configured MQ peer " << _publicId << " neighbors=["
+                                 << neighborList.str() << "]";
 
     std::string queueName = "peer_" + std::to_string(id);
 
@@ -61,7 +61,6 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
   → send stringstream's bytes over MQ */
 void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId &dest) {
     if (_neighbors.find(dest) == _neighbors.end()) return;
-
     Packet p;
     p.setSource(publicId());
     p.setTarget(dest);
@@ -86,7 +85,12 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
 
         /* NOTE: Backpressure guard: avoid indefinite blocking on full peer queues by
            bounding send wait time. Track per-destination drops so bottlenecked
-           peers are visible during debugging. */
+           peers are visible during debugging.
+
+           What is the meaning of backpressure?
+
+           "The sender tried to deliver a real message, but the destination queue could not accept
+           it in time" */
         static std::mutex dropsMutex;
         static std::unordered_map<interfaceId, unsigned long> dropsByDest;
 
@@ -97,11 +101,15 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
             std::lock_guard<std::mutex> lock(dropsMutex);
             auto &count = dropsByDest[dest];
             ++count;
-            if ((count % 100) == 0)
+            if ((count % 100) == 0) {
                 std::cerr << "unicastTo: peer_" << dest << " dropped_backpressure=" << count
                           << "\n";
+            }
+            _transportMetrics.droppedBackpressure++;
             return;
         }
+
+        _transportMetrics.sent++;
 
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(
@@ -122,6 +130,8 @@ void NetworkInterfaceConcreteMQ::receive() {
         message_queue::size_type recvd_size;
 
         while (_myInbox->try_receive(buffer.data(), buffer.size(), recvd_size, priority)) {
+            _transportMetrics.receivedRaw++;
+
             std::stringstream ss(std::string(buffer.data(), recvd_size));
             boost::archive::binary_iarchive ia(ss);
             Packet p;
@@ -139,6 +149,7 @@ void NetworkInterfaceConcreteMQ::receive() {
 
             std::lock_guard<std::mutex> lock(_inStream_mtx);
             _inStream.push_back(std::move(p));
+            _transportMetrics.deliveredToInstream++;
         }
     } catch (const interprocess_exception &ex) {
         throw std::runtime_error(std::string("receive: ") + ex.what());
@@ -146,5 +157,9 @@ void NetworkInterfaceConcreteMQ::receive() {
 }
 
 void NetworkInterfaceConcreteMQ::clearAll() { NetworkInterface::clearAll(); }
+
+TransportMetrics NetworkInterfaceConcreteMQ::transportMetrics() const { return _transportMetrics; }
+
+void NetworkInterfaceConcreteMQ::resetTransportMetrics() { _transportMetrics = {}; }
 
 } // namespace quantas

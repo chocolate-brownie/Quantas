@@ -15,6 +15,12 @@ sudo apt update
 sudo apt install g++-9
 ```
 
+The ConcreteMQ / BoostMq backend also needs Boost headers and the Boost.Serialization library:
+
+```sh
+sudo apt install libboost-serialization-dev
+```
+
 If you prefer Clang, build with `make clang`.
 
 External libraries bundled in the repository:

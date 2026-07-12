@@ -80,6 +80,14 @@ MQ_LEADER_OBJS := $(COMMON_OBJS) \
 	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
 	quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.o \
 	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o
+MQ_DEP_OBJS := \
+	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqPeer.o \
+	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.o \
+	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
+	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
+	quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.o \
+	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o \
+	quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.o
 
 # compiles all cpps specified as necessary in the INPUTFILE
 ALGS := $(shell sed -n '/"algorithms"/,/]/p' $(INPUTFILE) \
@@ -93,6 +101,7 @@ LDFLAGS :=
 MQ_LDLIBS := -lboost_serialization -lrt
 GCC_VERSION := $(shell $(CXX) $(CXXFLAGS) -dumpversion)
 GCC_MIN_VERSION := 8
+MQ_DEP_CHECK := /tmp/quantas_mq_dep_check
 
 ############################### Build Types ###############################
 
@@ -140,9 +149,11 @@ help:
 	@echo "  make mq_run_all_debug_peer INPUTFILE=... [MQ_TOTAL_PEERS=override] MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
 	@echo ""
 	@echo "Tests / diagnostics:"
+	@echo "  make check_mq_deps # verify BoostMQ compile/link dependencies"
 	@echo "  make test"
 	@echo "  make run_simple_memory INPUTFILE=..."
 	@echo "  make clean_outputs    # remove root generated .txt/.json outputs"
+	@echo "  make clean_txt        # remove root generated .txt outputs only"
 	@echo "  make clean            # remove build artifacts, binaries, and generated outputs"
 
 # When running on windows use make clang
@@ -295,7 +306,7 @@ rand_test: quantas/Tests/randtest.cpp
 	@echo ""
 
 mq_timeout_test: quantas/Tests/processCoordinatorMQTimeoutTest.cpp \
-		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp
+		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp | check_mq_deps
 	@echo "Testing MQ completion timeout..."
 	@$(CXX) $(CXXFLAGS) $^ -o $@.exe $(MQ_LDLIBS)
 	@./$@.exe
@@ -337,13 +348,30 @@ check-version:
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then echo "To change the default version visit: https://linuxconfig.org/how-to-switch-between-multiple-gcc-and-g-compiler-versions-on-ubuntu-20-04-lts-focal-fossa"; fi
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then exit 1; fi
 
+check_mq_deps:
+	@printf '%s\n' \
+		'#include <boost/interprocess/ipc/message_queue.hpp>' \
+		'#include <boost/archive/binary_oarchive.hpp>' \
+		'#include <boost/serialization/set.hpp>' \
+		'int main() { return 0; }' \
+		| $(CXX) $(CXXFLAGS) -x c++ - -o $(MQ_DEP_CHECK) $(LDFLAGS) $(MQ_LDLIBS) \
+			>/tmp/quantas_mq_dep_check.out 2>/tmp/quantas_mq_dep_check.err || { \
+				echo "Missing BoostMQ build dependencies."; \
+				echo "On Ubuntu/Linux Mint install: sudo apt install libboost-serialization-dev"; \
+				cat /tmp/quantas_mq_dep_check.err; \
+				exit 1; \
+			}
+	@$(RM) $(MQ_DEP_CHECK) /tmp/quantas_mq_dep_check.out /tmp/quantas_mq_dep_check.err
+
 $(EXE): $(ALG_OBJS) $(ABSTRACT_OBJS)
 	@$(CXX) $(CXXFLAGS) $^ -o $(EXE) $(LDFLAGS)
 
-$(MQ_EXE): $(ALG_OBJS) $(MQ_OBJS)
+$(MQ_DEP_OBJS): | check_mq_deps
+
+$(MQ_EXE): $(ALG_OBJS) $(MQ_OBJS) | check_mq_deps
 	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_EXE) $(LDFLAGS) $(MQ_LDLIBS)
 
-$(MQ_LEADER_EXE): $(MQ_LEADER_OBJS)
+$(MQ_LEADER_EXE): $(MQ_LEADER_OBJS) | check_mq_deps
 	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_LEADER_EXE) $(LDFLAGS) $(MQ_LDLIBS)
 
 ############################### Cleanup ###############################
@@ -362,11 +390,12 @@ clean: clean_outputs
 clean_outputs:
 	@$(RM) ./*.txt ./*.json
 
-clean_txt: clean_outputs
+clean_txt:
+	@$(RM) ./*.txt
 
 # -include $(OBJS:.o=.d)
 
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test mq_timeout_test test clean_outputs clean_txt
+.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version check_mq_deps rand_test mq_timeout_test test clean_outputs clean_txt

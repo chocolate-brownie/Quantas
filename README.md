@@ -40,7 +40,7 @@ Clone the repository, pick the algorithm/input configuration you want to exercis
    ```sh
    make run
    ```
-   Use `make debug` for an unoptimised build with extra assertions, or `make run_memory` / `make run_debug` for valgrind and gdb helpers.
+   Use `make debug` for an unoptimised build with debug symbols, or `make run_memory` / `make run_debug` for valgrind and gdb helpers.
 
 ## Running the ConcreteMQ / BoostMq Backend
 

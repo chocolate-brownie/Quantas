@@ -109,7 +109,7 @@ MQ_DEP_CHECK := /tmp/quantas_mq_dep_check
 release: CXXFLAGS += -O3
 release: LDFLAGS += -s
 release: check-version $(EXE)
-debug: CXXFLAGS += -O0 -g -D_GLIBCXX_DEBUG 
+debug: CXXFLAGS += -O0 -g
 # -fsanitize=address,undefined -fno-omit-frame-pointer # flag helps with double delete errors
 debug: check-version $(EXE)
 mq_peer_release: CXXFLAGS += -O3

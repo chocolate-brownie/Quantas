@@ -1,7 +1,6 @@
-
 CompileFlags:
   Compiler: /usr/bin/g++
   Add:
     - -std=c++17
     - -pthread
-    - -I/home/milangodawatta/Documents/Quantas
+    - -I/home/mgodawat/Documents/Quantas

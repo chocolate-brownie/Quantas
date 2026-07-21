@@ -19,6 +19,7 @@
 *.filters
 *.user
 *.txt
+!compile_flags.txt
 Debug/
 enc_temp_folder/
 quantas/TrailPeer/*.txt

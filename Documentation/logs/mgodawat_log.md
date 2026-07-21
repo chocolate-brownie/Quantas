@@ -341,3 +341,9 @@ In this file I document what I do everyday during my internship.
     - Fail fast with a clear message if unsafe.
 
 - Interactive msgque cap change is working `const std::string cmd = "sudo sysctl -w fs.mqueue.msg_max=" + std::to_string(requiredCapacity)` 
+
+### 14/07/2026
+
+- Split BoostMQ per-peer queues into `peer_<id>_control` for assignment/start/stop messages and `peer_<id>_data` for algorithm packets, removing the main control/data message confusion path.
+- Validated with `make -j4 mq_peer_debug mq_leader_debug`, `make mq_timeout_test`, topology parity MQ smoke, AltBit repeated-test MQ smoke, and `git diff --check`.
+- Replaced `.clang-format` with a small reusable C/C++ style profile based on LLVM, 4-space indentation, 100-column width, and conservative one-line formatting rules.

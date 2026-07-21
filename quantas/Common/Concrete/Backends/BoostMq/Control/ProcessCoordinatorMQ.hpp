@@ -41,9 +41,9 @@ class ProcessCoordinatorMQ {
 
     /* -------------------- Rendezvous transport handles --------------------
     _myBarrier: leader-side barrier queue used for ready fan-in.
-    _myInbox: per-peer inbox used for start (and later control) messages */
+    _myControlInbox: per-peer inbox used for assignment/start/stop control messages */
     std::optional<boost::interprocess::message_queue> _myBarrier;
-    std::optional<boost::interprocess::message_queue> _myInbox;
+    std::optional<boost::interprocess::message_queue> _myControlInbox;
 
     // -------------------- Lifetime/singleton control --------------------
     ProcessCoordinatorMQ() = default;
@@ -59,8 +59,8 @@ class ProcessCoordinatorMQ {
     Primary entry point used by MQ runtimes to bind this coordinator to one
     experiment's role and stop policy */
     void configureExperiment(
-        size_t experimentIndex, const std::string &peerType, bool isLeader, size_t totalPeers,
-        interfaceId myId, const std::string &logFileBase, StopMode stopMode
+        size_t experimentIndex, const std::string &peerType, bool isLeader, size_t totalPeers, interfaceId myId,
+        const std::string &logFileBase, StopMode stopMode
     );
     // Legacy wrapper kept for compatibility with older call sites.
     void configureProcess(bool isLeader, size_t totalPeers, interfaceId myId);

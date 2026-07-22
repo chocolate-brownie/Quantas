@@ -347,3 +347,9 @@ In this file I document what I do everyday during my internship.
 - Split BoostMQ per-peer queues into `peer_<id>_control` for assignment/start/stop messages and `peer_<id>_data` for algorithm packets, removing the main control/data message confusion path.
 - Validated with `make -j4 mq_peer_debug mq_leader_debug`, `make mq_timeout_test`, topology parity MQ smoke, AltBit repeated-test MQ smoke, and `git diff --check`.
 - Replaced `.clang-format` with a small reusable C/C++ style profile based on LLVM, 4-space indentation, 100-column width, and conservative one-line formatting rules.
+
+### 22/07/2026
+
+- Updated GitLab parent issue #25 so BoostMQ queue configuration issue #29 is the next sequential implementation gate; algorithm compatibility issue #40 now uses AltBit, PBFT, and Kademlia/LinearChord evidence gates.
+- Renamed the working branch to `fix/boostmq-queue-configuration-29` and kept the provisional #40 compatibility document in a separate named stash.
+- Reframed GitLab issue #40 for colleague review around unchanged researcher source, framework-only adaptation, configuration-scoped rejection, and the unresolved `Peer*` process-boundary question.

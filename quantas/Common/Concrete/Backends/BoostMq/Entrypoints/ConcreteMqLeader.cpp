@@ -311,8 +311,10 @@ int main(int argc, char* argv[]) {
                 quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
                 coordinator.sendAssignments(topology.assignments);
                 coordinator.broadcastStart();
+
                 const quantas::PeerCompletionResult completion =
                     coordinator.waitForAllDone(std::chrono::milliseconds(exp.doneTimeoutMs));
+
                 testInfo.completedPeers = completion.completedPeers;
                 testInfo.timedOut = completion.timedOut;
 

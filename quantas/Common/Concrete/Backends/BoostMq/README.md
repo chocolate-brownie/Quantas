@@ -67,21 +67,7 @@ This builds and runs the two BoostMQ binaries: `quantas_mq_leader.exe` and `quan
 
 Use `MQ_TOTAL_PEERS=N` only when you need to override the peer count used by the makefile launcher. The leader still reads the experiment configuration from the JSON, so this value should match `topology.initialPeers` unless you are deliberately debugging launcher behavior. Use `MQ_ROUNDS=N` when you want to override the number of rounds from the input JSON for a quick run.
 
-BoostMQ depends on the Linux POSIX message queue limit `/proc/sys/fs/mqueue/msg_max`. Linux commonly defaults this value to `10`, while the kernel hard cap is `65536`. Before launching peers, `mq_run_all` asks the leader to run a capacity preflight check. If the experiment needs more capacity than the system allows, the leader prints the required capacity and asks whether it should update the system limit.
-
-Check the current system limit with:
-
-```sh
-cat /proc/sys/fs/mqueue/msg_max
-```
-
-If you accept the prompt, the leader runs:
-
-```sh
-sudo sysctl -w fs.mqueue.msg_max=N
-```
-
-This change applies to the current boot. If you decline the prompt or the `sysctl` command fails, the run stops before any peer binaries are launched.
+The leader sizes the shared `mq_barrier` and `mq_done` queues from the experiment peer count so each peer has room for one ready or done signal. These Boost.Interprocess queues are backed by shared-memory resources on the supported Linux environment and are not governed by the POSIX message-queue setting `fs.mqueue.msg_max`.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer.
 
@@ -100,7 +86,6 @@ The stricter `sent_total == received_raw_total` check can fail when fixed-round 
 
 ## Common failure messages
 
-- capacity check failed → raise `fs.mqueue.msg_max`
-- queue creation failed → stale queues or low system limit
+- queue creation failed → stale queues or insufficient shared-memory resources
 - peer timeout → peer crashed or did not send `done`
 - message too large → increase `MAX_MSG_SIZE` or reduce payload size

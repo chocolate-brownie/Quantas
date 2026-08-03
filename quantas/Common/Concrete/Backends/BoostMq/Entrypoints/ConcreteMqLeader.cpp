@@ -1,4 +1,3 @@
-#include "quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.hpp"
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
 #include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.hpp"
@@ -33,8 +32,7 @@ std::optional<nlohmann::json> parseAndLoadConfig(const std::string& inputPath) {
 }
 
 void printUsage(const char* programName) {
-    std::cerr << "Usage: " << programName << " <input_json>\n"
-              << "       " << programName << " --check-capacity <input_json>\n";
+    std::cerr << "Usage: " << programName << " <input_json>\n";
 }
 
 /*
@@ -234,25 +232,16 @@ nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics) 
 
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char* argv[]) {
-    bool capacityCheck = (argc >= 3 && (std::string(argv[1])) == "--check-capacity");
-
-    if (argc < 2 || (std::string(argv[1]) == "--check-capacity" && argc < 3)) {
+    if (argc < 2) {
         printUsage(argv[0]);
         return 1;
     }
 
-    const std::string inputPath = capacityCheck ? argv[2] : argv[1];
+    const std::string inputPath = argv[1];
     /* Parse cli args and load the json config file for the leader process */
     auto config = parseAndLoadConfig(inputPath);
     if (!config)
         return 1;
-
-    const quantas::CapacityPreflight capacityPreflight;
-    if (!capacityPreflight.validate(config))
-        return 1;
-
-    if (capacityCheck == true)
-        return 0;
 
     /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol
      * API

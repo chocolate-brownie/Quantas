@@ -55,10 +55,7 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
 
     std::string queueName = peerDataQueueName(id);
 
-    /* WARNING: capacity 10 is capped by the POSIX limit fs.mqueue.msg_max
-       (default 10 on Linux). Algorithms with more peers/traffic (PBFT, Bitcoin,
-       Kademlia) will need `sudo sysctl fs.mqueue.msg_max=<higher>` raised
-       before this queue can be created with a larger size */
+    // ProcessCoordinatorMQ creates the data queue before this interface opens it.
     _myInbox.emplace(boost::interprocess::open_only, queueName.c_str());
     _configured = true;
 }

@@ -115,3 +115,8 @@ We want to run equivalent experiments in both the abstract backend and the Boost
 Using the current configuration files, we should run all available examples with both backends, collect timing results, and compare them. For the abstract backend, we will vary the average delay from 1 to 5 and observe which setting most closely matches the measured real time of the BoostMQ backend.
 
 The larger research question is whether the abstract simulation model is realistic enough for performance-oriented experiments, or whether it should only be used for logical correctness and algorithm behavior.
+
+
+---
+
+How we do we know the maximum number of messages waiting to be received properly so we can adjust the size using `sudo sysctl -w fs.mqueue.msg_max=N` if thats necessary

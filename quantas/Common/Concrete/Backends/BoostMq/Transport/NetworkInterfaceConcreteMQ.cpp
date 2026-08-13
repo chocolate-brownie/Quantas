@@ -45,8 +45,7 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
     std::ostringstream neighborList;
     bool first = true;
     for (const auto neighbor : _neighbors) {
-        if (!first)
-            neighborList << ',';
+        if (!first) neighborList << ',';
         neighborList << neighbor;
         first = false;
     }
@@ -55,10 +54,7 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
 
     std::string queueName = peerDataQueueName(id);
 
-    /* WARNING: capacity 10 is capped by the POSIX limit fs.mqueue.msg_max
-       (default 10 on Linux). Algorithms with more peers/traffic (PBFT, Bitcoin,
-       Kademlia) will need `sudo sysctl fs.mqueue.msg_max=<higher>` raised
-       before this queue can be created with a larger size */
+    // ProcessCoordinatorMQ creates the data queue before this interface opens it.
     _myInbox.emplace(boost::interprocess::open_only, queueName.c_str());
     _configured = true;
 }
@@ -68,8 +64,7 @@ void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId>
   → write Packet to boost::archive::binary_oarchive backed by std::stringstream
   → send stringstream's bytes over MQ */
 void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId& dest) {
-    if (_neighbors.find(dest) == _neighbors.end())
-        return;
+    if (_neighbors.find(dest) == _neighbors.end()) return;
     Packet p;
     p.setSource(publicId());
     p.setTarget(dest);
@@ -86,10 +81,11 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
         std::string queueName = peerDataQueueName(dest);
         message_queue mq(open_only, queueName.c_str());
         if (bytes.size() > mq.get_max_msg_size())
-            throw std::runtime_error("unicastTo: packet to peer_" + std::to_string(dest) + " is " +
-                                     std::to_string(bytes.size()) +
-                                     " bytes, exceeds queue limit of " +
-                                     std::to_string(mq.get_max_msg_size()));
+            throw std::runtime_error(
+                "unicastTo: packet to peer_" + std::to_string(dest) + " is " +
+                std::to_string(bytes.size()) + " bytes, exceeds queue limit of " +
+                std::to_string(mq.get_max_msg_size())
+            );
 
         /* NOTE: Backpressure guard: avoid indefinite blocking on full peer
            queues by bounding send wait time. Track per-destination drops so
@@ -120,8 +116,9 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
         _transportMetrics.sent++;
 
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("unicastTo: failed to open peer_" + std::to_string(dest) +
-                                 " queue: " + ex.what());
+        throw std::runtime_error(
+            "unicastTo: failed to open peer_" + std::to_string(dest) + " queue: " + ex.what()
+        );
     }
 }
 
@@ -136,6 +133,12 @@ void NetworkInterfaceConcreteMQ::receive() {
         unsigned int priority;
         message_queue::size_type recvd_size;
 
+        // Largest queue size we observed so far
+        const auto currentUsage = _myInbox->get_num_msg();
+
+        // How many messages are waiting right now
+        _transportMetrics.peakQueueUsage = std::max(_transportMetrics.peakQueueUsage, currentUsage);
+
         while (_myInbox->try_receive(buffer.data(), buffer.size(), recvd_size, priority)) {
             _transportMetrics.receivedRaw++;
 
@@ -146,7 +149,8 @@ void NetworkInterfaceConcreteMQ::receive() {
 
             // Compute latency
             auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                             std::chrono::system_clock::now().time_since_epoch())
+                             std::chrono::system_clock::now().time_since_epoch()
+            )
                              .count();
 
             std::int64_t latency = nowNs - p.getSendTime();

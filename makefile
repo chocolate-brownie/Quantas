@@ -45,54 +45,38 @@ MQ_EXE := quantas_mq_peer.exe
 MQ_LEADER_EXE := quantas_mq_leader.exe
 MQ_PEER_ID ?= 0
 MQ_ROUNDS ?=
-MQ_TOTAL_PEERS ?= $(shell sed -n 's/.*"initialPeers"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' $(INPUTFILE) | head -n 1)
+MQ_TOTAL_PEERS ?= $(shell python3 -c 'import json, sys; values = {e["topology"]["initialPeers"] for e in json.load(open(sys.argv[1]))["experiments"]}; print(next(iter(values))) if len(values) == 1 else sys.exit("MQ input experiments must use one peer count; set MQ_TOTAL_PEERS explicitly")' "$(INPUTFILE)")
 MQ_DEBUG_PEER_ID ?= 0
 
-# compiles all the cpps in Common and main.cpp
+# Sources shared by each executable.
 COMMON_SRCS := $(wildcard quantas/Common/*.cpp)
-COMMON_OBJS := $(COMMON_SRCS:.cpp=.o)
-
-ABSTRACT_OBJS := $(COMMON_OBJS) \
-	quantas/Common/Abstract/abstractSimulation.o \
-	quantas/Common/Abstract/Channel.o \
-	quantas/Common/Abstract/Network.o \
-	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
-	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
-	quantas/Common/Concrete/Backends/TCP/ipUtil.o
-CONCRETE_OBJS := $(COMMON_OBJS) \
-	quantas/Common/Concrete/Backends/TCP/concreteSimulation.o \
-	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
-	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
-	quantas/Common/Concrete/Backends/TCP/ipUtil.o
-MQ_OBJS := $(COMMON_OBJS) \
-	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqPeer.o \
-	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
-	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o \
-	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
-	quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.o \
-	quantas/Common/Abstract/Channel.o \
-	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.o \
-	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.o \
-	quantas/Common/Concrete/Backends/TCP/ipUtil.o
-MQ_LEADER_OBJS := $(COMMON_OBJS) \
-	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.o \
-	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
-	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
-	quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.o \
-	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o
-MQ_DEP_OBJS := \
-	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqPeer.o \
-	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.o \
-	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.o \
-	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.o \
-	quantas/Common/Concrete/Backends/BoostMq/Control/CapacityPreflight.o \
-	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.o \
-	quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.o
+ABSTRACT_SRCS := $(COMMON_SRCS) \
+	quantas/Common/Abstract/abstractSimulation.cpp \
+	quantas/Common/Abstract/Channel.cpp \
+	quantas/Common/Abstract/Network.cpp \
+	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.cpp \
+	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.cpp \
+	quantas/Common/Concrete/Backends/TCP/ipUtil.cpp
+MQ_SRCS := $(COMMON_SRCS) \
+	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqPeer.cpp \
+	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp \
+	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.cpp \
+	quantas/Common/Abstract/Channel.cpp \
+	quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.cpp \
+	quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.cpp \
+	quantas/Common/Concrete/Backends/TCP/ipUtil.cpp
+MQ_LEADER_SRCS := $(COMMON_SRCS) \
+	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.cpp \
+	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp \
+	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp
 
 # compiles all cpps specified as necessary in the INPUTFILE
-ALGS := $(shell sed -n '/"algorithms"/,/]/p' $(INPUTFILE) \
-         | sed -n 's/.*"\([^"]*\.cpp\)".*/quantas\/\1/p')
-ALG_OBJS += $(ALGS:.cpp=.o)
+ALGS := $(shell python3 -c 'import json, sys; print(" ".join("quantas/" + path for path in json.load(open(sys.argv[1]))["algorithms"]))' "$(INPUTFILE)")
 
 # necessary flags
 CXX := g++
@@ -103,25 +87,33 @@ GCC_VERSION := $(shell $(CXX) $(CXXFLAGS) -dumpversion)
 GCC_MIN_VERSION := 8
 MQ_DEP_CHECK := /tmp/quantas_mq_dep_check
 
+RELEASE_ABSTRACT_OBJS := $(addprefix build/release/,$(ABSTRACT_SRCS:.cpp=.o) $(ALGS:.cpp=.o))
+DEBUG_ABSTRACT_OBJS := $(addprefix build/debug/,$(ABSTRACT_SRCS:.cpp=.o) $(ALGS:.cpp=.o))
+CLANG_ABSTRACT_OBJS := $(addprefix build/clang/,$(ABSTRACT_SRCS:.cpp=.o) $(ALGS:.cpp=.o))
+RELEASE_MQ_OBJS := $(addprefix build/release/,$(MQ_SRCS:.cpp=.o) $(ALGS:.cpp=.o))
+DEBUG_MQ_OBJS := $(addprefix build/debug/,$(MQ_SRCS:.cpp=.o) $(ALGS:.cpp=.o))
+RELEASE_MQ_LEADER_OBJS := $(addprefix build/release/,$(MQ_LEADER_SRCS:.cpp=.o))
+DEBUG_MQ_LEADER_OBJS := $(addprefix build/debug/,$(MQ_LEADER_SRCS:.cpp=.o))
+
+ALL_DEPFILES := $(RELEASE_ABSTRACT_OBJS:.o=.d) $(DEBUG_ABSTRACT_OBJS:.o=.d) \
+	$(CLANG_ABSTRACT_OBJS:.o=.d) $(RELEASE_MQ_OBJS:.o=.d) $(DEBUG_MQ_OBJS:.o=.d) \
+	$(RELEASE_MQ_LEADER_OBJS:.o=.d) $(DEBUG_MQ_LEADER_OBJS:.o=.d)
+
 ############################### Build Types ###############################
 
 # release for faster runtime, debug for debugging
-release: CXXFLAGS += -O3
-release: LDFLAGS += -s
-release: check-version $(EXE)
-debug: CXXFLAGS += -O0 -g
-# -fsanitize=address,undefined -fno-omit-frame-pointer # flag helps with double delete errors
-debug: check-version $(EXE)
-mq_peer_release: CXXFLAGS += -O3
-mq_peer_release: LDFLAGS += -s
-mq_peer_release: check-version $(MQ_EXE)
-mq_peer_debug: CXXFLAGS += -O0 -g
-mq_peer_debug: check-version $(MQ_EXE)
-mq_leader_release: CXXFLAGS += -O3
-mq_leader_release: LDFLAGS += -s
-mq_leader_release: check-version $(MQ_LEADER_EXE)
-mq_leader_debug: CXXFLAGS += -O0 -g
-mq_leader_debug: check-version $(MQ_LEADER_EXE)
+release: check-version build/release/$(EXE)
+	@ln -sfn build/release/$(EXE) $(EXE)
+debug: check-version build/debug/$(EXE)
+	@ln -sfn build/debug/$(EXE) $(EXE)
+mq_peer_release: check-version build/release/$(MQ_EXE)
+	@ln -sfn build/release/$(MQ_EXE) $(MQ_EXE)
+mq_peer_debug: check-version build/debug/$(MQ_EXE)
+	@ln -sfn build/debug/$(MQ_EXE) $(MQ_EXE)
+mq_leader_release: check-version build/release/$(MQ_LEADER_EXE)
+	@ln -sfn build/release/$(MQ_LEADER_EXE) $(MQ_LEADER_EXE)
+mq_leader_debug: check-version build/debug/$(MQ_LEADER_EXE)
+	@ln -sfn build/debug/$(MQ_LEADER_EXE) $(MQ_LEADER_EXE)
 
 # Backward-compatible aliases (prefer mq_peer_release / mq_peer_debug).
 mq_release: mq_peer_release
@@ -156,11 +148,9 @@ help:
 	@echo "  make clean_txt        # remove root generated .txt outputs only"
 	@echo "  make clean            # remove build artifacts, binaries, and generated outputs"
 
-# When running on windows use make clang
-clang: CXX := clang++
-clang: CXXFLAGS += -isystem /usr/include/c++/13 -isystem /usr/include/x86_64-linux-gnu/c++/13
-clang: LDFLAGS += -L/usr/lib/gcc/x86_64-linux-gnu/13
-clang: release
+# Build and run abstract mode with the platform's normal Clang toolchain.
+clang: check-clang build/clang/$(EXE)
+	@ln -sfn build/clang/$(EXE) $(EXE)
 	@echo running with input: $(INPUTFILE)
 	@./$(EXE) $(INPUTFILE)
 
@@ -187,10 +177,8 @@ mq_leader_run: mq_leader_release
 
 mq_run_all: mq_peer_release mq_leader_release
 	@echo running MQ leader + peers with input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
-	@./$(MQ_LEADER_EXE) --check-capacity $(INPUTFILE); exit_code=$$?; \
-	if [ $$exit_code -ne 0 ]; then exit $$exit_code; fi
-	@rm -f /dev/shm/mq_barrier
-	@for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do rm -f /dev/shm/peer_$$i; done
+	@./$(MQ_LEADER_EXE) --preflight $(INPUTFILE)
+	@$(MAKE) --no-print-directory clean_mq_queues MQ_TOTAL_PEERS=$(MQ_TOTAL_PEERS)
 	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \
 	echo "[mq_run_all] started leader pid=$$leader_pid"; \
 	sleep 0.2; \
@@ -224,8 +212,8 @@ mq_run_all: mq_peer_release mq_leader_release
 
 mq_run_all_debug_peer: mq_peer_debug mq_leader_debug
 	@echo running MQ leader + peers with gdb on peer $(MQ_DEBUG_PEER_ID), input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
-	@rm -f /dev/shm/mq_barrier
-	@for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do rm -f /dev/shm/peer_$$i; done
+	@./$(MQ_LEADER_EXE) --preflight $(INPUTFILE)
+	@$(MAKE) --no-print-directory clean_mq_queues MQ_TOTAL_PEERS=$(MQ_TOTAL_PEERS)
 	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \
 	echo "[mq_run_all_debug_peer] started leader pid=$$leader_pid"; \
 	sleep 0.2; \
@@ -268,7 +256,7 @@ mq_run_all_debug_peer: mq_peer_debug mq_leader_debug
 # runs the program with full Valgrind to trace memory leaks
 run_memory: debug
 	@echo running: $(INPUTFILE) with valgrind
-	@valgrind --leak-check=full \
+	@valgrind --error-exitcode=99 --leak-check=full \
          --show-leak-kinds=all \
          --track-origins=yes \
 		 ./$(EXE) $(INPUTFILE)
@@ -277,8 +265,11 @@ run_memory: debug
 run_simple_memory: debug
 	@echo ""
 	@echo running: $(INPUTFILE) with valgrind
-	@valgrind --leak-check=full ./$(EXE) $(INPUTFILE) 2>&1 \
-		| grep -E "HEAP SUMMARY|in use|LEAK SUMMARY|definitely lost: |indirectly lost: |possibly lost: |still reachable: |ERROR SUMMARY"
+	@mkdir -p build/tests
+	@valgrind --error-exitcode=99 --leak-check=full ./$(EXE) $(INPUTFILE) \
+		>build/tests/valgrind.log 2>&1; status=$$?; \
+	grep -E "HEAP SUMMARY|in use|LEAK SUMMARY|definitely lost: |indirectly lost: |possibly lost: |still reachable: |ERROR SUMMARY" build/tests/valgrind.log; \
+	exit $$status
 	@echo ""
 
 # runs the program with GDB for more advanced error viewing
@@ -298,30 +289,35 @@ run_debug: debug
 ############################### Tests ###############################
 
 # Test thread based random number generation
-rand_test: quantas/Tests/randtest.cpp
+rand_test: build/tests/rand_test.exe
 	@echo "Testing thread based random number generation..."
-	@make --no-print-directory clean
-	@$(CXX) $(CXXFLAGS) $^ -o $@.exe
-	@./$@.exe
+	@./build/tests/rand_test.exe
 	@echo ""
 
-mq_timeout_test: quantas/Tests/processCoordinatorMQTimeoutTest.cpp \
-		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp | check_mq_deps
+mq_timeout_test: build/tests/mq_timeout_test.exe
 	@echo "Testing MQ completion timeout..."
-	@$(CXX) $(CXXFLAGS) $^ -o $@.exe $(MQ_LDLIBS)
-	@./$@.exe
+	@./build/tests/mq_timeout_test.exe
+	@echo ""
+
+mq_queue_config_test: build/tests/mq_queue_config_test.exe
+	@echo "Testing BoostMQ queue configuration..."
+	@./build/tests/mq_queue_config_test.exe
+	@echo ""
+
+mq_transport_metrics_test: build/tests/mq_transport_metrics_test.exe
+	@echo "Testing BoostMQ transport metrics..."
+	@./build/tests/mq_transport_metrics_test.exe
 	@echo ""
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test
-	@make --no-print-directory clean
+test: check-version rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
-		$(MAKE) --no-print-directory run_simple_memory INPUTFILE="$$file"; \
+		$(MAKE) --no-print-directory run_simple_memory INPUTFILE="$$file" || exit $$?; \
 	done
 
 ############################### Helpers ###############################
@@ -338,15 +334,30 @@ define check_failure
     } | grep -iE 'oom|killed|segfault|error' || echo "No relevant logs found."
 endef
 
-%.o: %.cpp
+build/release/%.o: %.cpp
+	@mkdir -p $(dir $@)
 	@echo compiling $<
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -O3 -MMD -MP -c $< -o $@
+
+build/debug/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@echo compiling $<
+	@$(CXX) $(CXXFLAGS) -O0 -g -MMD -MP -c $< -o $@
+
+build/clang/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	@echo compiling $<
+	@clang++ $(CXXFLAGS) -O3 -MMD -MP -c $< -o $@
 
 # check the version of the GCC compiler being used is above a threshold
 check-version:
-	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then echo "Default version of g++ must be higher than 8."; fi
-	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then echo "To change the default version visit: https://linuxconfig.org/how-to-switch-between-multiple-gcc-and-g-compiler-versions-on-ubuntu-20-04-lts-focal-fossa"; fi
-	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then exit 1; fi
+	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then \
+		echo "$(CXX) version must be at least $(GCC_MIN_VERSION) (found $(GCC_VERSION))."; \
+		exit 1; \
+	fi
+
+check-clang:
+	@command -v clang++ >/dev/null || { echo "clang++ is not installed or not in PATH."; exit 1; }
 
 check_mq_deps:
 	@printf '%s\n' \
@@ -363,22 +374,55 @@ check_mq_deps:
 			}
 	@$(RM) $(MQ_DEP_CHECK) /tmp/quantas_mq_dep_check.out /tmp/quantas_mq_dep_check.err
 
-$(EXE): $(ALG_OBJS) $(ABSTRACT_OBJS)
-	@$(CXX) $(CXXFLAGS) $^ -o $(EXE) $(LDFLAGS)
+build/release/$(EXE): $(RELEASE_ABSTRACT_OBJS)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) -s
 
-$(MQ_DEP_OBJS): | check_mq_deps
+build/debug/$(EXE): $(DEBUG_ABSTRACT_OBJS)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-$(MQ_EXE): $(ALG_OBJS) $(MQ_OBJS) | check_mq_deps
-	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_EXE) $(LDFLAGS) $(MQ_LDLIBS)
+build/clang/$(EXE): $(CLANG_ABSTRACT_OBJS)
+	@clang++ $(CXXFLAGS) $^ -o $@ $(LDFLAGS) -s
 
-$(MQ_LEADER_EXE): $(MQ_LEADER_OBJS) | check_mq_deps
-	@$(CXX) $(CXXFLAGS) $^ -o $(MQ_LEADER_EXE) $(LDFLAGS) $(MQ_LDLIBS)
+build/release/$(MQ_EXE): $(RELEASE_MQ_OBJS) | check_mq_deps
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) -s $(MQ_LDLIBS)
+
+build/debug/$(MQ_EXE): $(DEBUG_MQ_OBJS) | check_mq_deps
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(MQ_LDLIBS)
+
+build/release/$(MQ_LEADER_EXE): $(RELEASE_MQ_LEADER_OBJS) | check_mq_deps
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) -s $(MQ_LDLIBS)
+
+build/debug/$(MQ_LEADER_EXE): $(DEBUG_MQ_LEADER_OBJS) | check_mq_deps
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(MQ_LDLIBS)
+
+build/tests/rand_test.exe: quantas/Tests/randtest.cpp
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@
+
+build/tests/mq_timeout_test.exe: quantas/Tests/processCoordinatorMQTimeoutTest.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
+build/tests/mq_queue_config_test.exe: quantas/Tests/boostMqQueueConfigTest.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
+build/tests/mq_transport_metrics_test.exe: quantas/Tests/boostMqTransportMetricsTest.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.cpp \
+		quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
+-include $(ALL_DEPFILES)
 
 ############################### Cleanup ###############################
 
 # enables recursive glob patterns for bash to clean out unecessary files
 clean: SHELL := /bin/bash -O globstar
 clean: clean_outputs
+	@$(RM) -r build
 	@$(RM) **/*.out
 	@$(RM) **/*.o
 	@$(RM) **/*.d
@@ -386,6 +430,16 @@ clean: clean_outputs
 	@$(RM) **/*.gch
 	@$(RM) **/*.tmp
 	@$(RM) **/*.exe
+	@$(RM) ./vgcore.*
+
+clean_mq_queues:
+	@test -n "$(MQ_TOTAL_PEERS)" && test "$(MQ_TOTAL_PEERS)" -gt 0 2>/dev/null || { \
+		echo "MQ_TOTAL_PEERS must be a positive integer."; exit 1; \
+	}
+	@$(RM) /dev/shm/mq_barrier /dev/shm/mq_done
+	@for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do \
+		$(RM) /dev/shm/peer_$${i}_control /dev/shm/peer_$${i}_data; \
+	done
 
 clean_outputs:
 	@$(RM) ./*.txt ./*.json
@@ -393,9 +447,7 @@ clean_outputs:
 clean_txt:
 	@$(RM) ./*.txt
 
-# -include $(OBJS:.o=.d)
-
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug $(EXE) $(MQ_EXE) $(MQ_LEADER_EXE) %.o clang run_memory run_simple_memory run_debug check-version check_mq_deps rand_test mq_timeout_test test clean_outputs clean_txt
+.PHONY: help clean clean_mq_queues run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test test clean_outputs clean_txt

@@ -1,4 +1,5 @@
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Topology/PeerAssignment.hpp"
 #include "quantas/Common/Logger.hpp"
 #include <atomic>
@@ -48,10 +49,9 @@ std::string peerDataQueueName(interfaceId id) {
     return "peer_" + std::to_string(id) + "_data";
 }
 
-bool timedSendControlMessage(message_queue& mq,
-                             const void* message,
-                             size_t messageSize,
-                             int waitMs) {
+bool timedSendControlMessage(
+    message_queue& mq, const void* message, size_t messageSize, int waitMs
+) {
     const auto deadline = boost::posix_time::microsec_clock::universal_time() +
                           boost::posix_time::milliseconds(waitMs);
     return mq.timed_send(message, messageSize, 0, deadline);
@@ -83,14 +83,17 @@ ProcessCoordinatorMQ& ProcessCoordinatorMQ::instance() {
     return coordinator;
 }
 
-void ProcessCoordinatorMQ::configureExperiment(size_t experimentIndex,
-                                               const std::string& peerType,
-                                               bool isLeader,
-                                               size_t totalPeers,
-                                               interfaceId myId,
-                                               const std::string& logFileBase,
-                                               StopMode stopMode) {
-    // J2 skeleton: persist experiment-scoped coordinator context.
+void ProcessCoordinatorMQ::configureExperiment(
+    size_t experimentIndex,
+    const std::string& peerType,
+    bool isLeader,
+    size_t totalPeers,
+    interfaceId myId,
+    const std::string& logFileBase,
+    StopMode stopMode,
+    const BoostMqQueueConfig& queueConfig
+) {
+    _queueConfig = queueConfig;
     _experimentIndex = experimentIndex;
     _peerType = peerType;
     _isLeader = isLeader;
@@ -104,29 +107,42 @@ void ProcessCoordinatorMQ::configureExperiment(size_t experimentIndex,
         std::scoped_lock lock(gCompletedMutex);
         gCompletedPeers.clear();
     }
-    // Reset transient MQ handles for a new experiment lifecycle.
     _myBarrier.reset();
     _myControlInbox.reset();
 }
 
 void ProcessCoordinatorMQ::configureProcess(bool isLeader, size_t totalPeers, interfaceId myId) {
-    configureExperiment(0, "", isLeader, totalPeers, myId, "", StopMode::FixedRounds);
+    BoostMqQueueConfig queueConfig;
+    queueConfig.controlQueueCapacity = totalPeers;
+    configureExperiment(0, "", isLeader, totalPeers, myId, "", StopMode::FixedRounds, queueConfig);
 }
 
 // 1. Leader creates quantas_barrier queue first
-void ProcessCoordinatorMQ::createBarrier(unsigned int controlCapacity) {
-    if (!_isLeader)
-        return;
+void ProcessCoordinatorMQ::createBarrier() {
+    if (!_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "creating barrier queue mq_barrier";
     message_queue::remove("mq_barrier");
     message_queue::remove("mq_done");
 
-    // Keep shared control queues small and rely on timed sender retries while
-    // the leader drains.
+    /* Keep shared control queues small and rely on timed sender retries while
+        the leader drains. */
     try {
-        _myBarrier.emplace(create_only, "mq_barrier", controlCapacity, sizeof(unsigned int));
-        message_queue doneQueue(create_only, "mq_done", controlCapacity, sizeof(interfaceId));
+        // mq_barrier ← peers send "I am ready"
+        _myBarrier.emplace(
+            create_only,
+            "mq_barrier",
+            _queueConfig.controlQueueCapacity,
+            sizeof(unsigned int)
+        );
+
+        // mq_done ← peers send "I am done"
+        message_queue doneQueue(
+            create_only,
+            "mq_done",
+            _queueConfig.controlQueueCapacity,
+            sizeof(interfaceId)
+        );
     } catch (const interprocess_exception& ex) {
         throw std::runtime_error(std::string("Failed to ::createBarrier queue: ") + ex.what());
     }
@@ -134,8 +150,7 @@ void ProcessCoordinatorMQ::createBarrier(unsigned int controlCapacity) {
 
 // 2. Every follower creates their own inbox
 void ProcessCoordinatorMQ::createInbox() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     std::string controlQueueName = peerControlQueueName(_myId);
     std::string dataQueueName = peerDataQueueName(_myId);
@@ -148,20 +163,27 @@ void ProcessCoordinatorMQ::createInbox() {
 
     try {
         _myControlInbox.emplace(
-            create_only, controlQueueName.c_str(), _totalPeers + 100, MAX_MSG_SIZE);
-
+            create_only,
+            controlQueueName.c_str(),
+            _queueConfig.controlQueueCapacity,
+            _queueConfig.maxMessageSizeBytes
+        );
         message_queue dataInbox(
-            create_only, dataQueueName.c_str(), _totalPeers + 100, MAX_MSG_SIZE);
+            create_only,
+            dataQueueName.c_str(),
+            _queueConfig.dataQueueCapacity,
+            _queueConfig.maxMessageSizeBytes
+        );
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::createInbox queues for peer " +
-                                 std::to_string(_myId) + ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::createInbox queues for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
 // 3. Every follower sends "ready" into quantas_barrier
 void ProcessCoordinatorMQ::sendReady() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     for (int attempt = 1; attempt <= kControlSendAttempts; ++attempt) {
         try {
@@ -173,21 +195,23 @@ void ProcessCoordinatorMQ::sendReady() {
             }
         } catch (const interprocess_exception& ex) {
             if (attempt == kControlSendAttempts) {
-                throw std::runtime_error("Failed to ::sendReady queue for peer " +
-                                         std::to_string(_myId) + ": " + ex.what());
+                throw std::runtime_error(
+                    "Failed to ::sendReady queue for peer " + std::to_string(_myId) + ": " +
+                    ex.what()
+                );
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(kControlSendWaitMs));
     }
 
-    throw std::runtime_error("Timed out sending ready for peer " + std::to_string(_myId) +
-                             " to mq_barrier");
+    throw std::runtime_error(
+        "Timed out sending ready for peer " + std::to_string(_myId) + " to mq_barrier"
+    );
 }
 
 // 4. Leader reads N "ready" messages from quantas_barrier
 void ProcessCoordinatorMQ::waitForAllReady() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "leader waiting for " << _totalPeers << " ready messages";
     try {
@@ -201,19 +225,20 @@ void ProcessCoordinatorMQ::waitForAllReady() {
                 throw std::runtime_error(
                     "Unexpected ready message (trigger=" + std::to_string(trigger) +
                     ", size=" + std::to_string(recvd_size) + ") at ::waitForAllReady for peer " +
-                    std::to_string(_myId));
+                    std::to_string(_myId)
+                );
         }
         QUANTAS_LOG_INFO("coord") << "leader received all ready messages";
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::waitForAllReady for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::waitForAllReady for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
 // 5. Leader sends "start" into each peer's inbox
 void ProcessCoordinatorMQ::broadcastStart() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "leader broadcasting start to " << _totalPeers << " peers";
     try {
@@ -225,14 +250,14 @@ void ProcessCoordinatorMQ::broadcastStart() {
             mq.send(&trigger, sizeof(trigger), 0);
         }
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::broadCastStart for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::broadCastStart for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
 void ProcessCoordinatorMQ::broadcastStop() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "leader broadcasting stop to " << _totalPeers << " peers";
 
@@ -245,14 +270,14 @@ void ProcessCoordinatorMQ::broadcastStop() {
             mq.send(&trigger, sizeof(trigger), 0);
         }
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::broadCastStart for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::broadCastStart for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
 void ProcessCoordinatorMQ::broadcastStopBestEffort() {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     QUANTAS_LOG_WARN("coord") << "leader best-effort broadcasting stop to " << _totalPeers
                               << " peers";
@@ -275,33 +300,38 @@ void ProcessCoordinatorMQ::broadcastStopBestEffort() {
 
 // 6. Every follower reads "start" from their inbox → begin
 void ProcessCoordinatorMQ::waitForStart() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "peer " << _myId << " waiting for start signal";
     try {
+        std::vector<char> buffer(_myControlInbox->get_max_msg_size());
         unsigned int priority;
-        char buffer[MAX_MSG_SIZE];
         message_queue::size_type recvd_size;
 
-        _myControlInbox->receive(buffer, MAX_MSG_SIZE, recvd_size, priority);
+        _myControlInbox->receive(buffer.data(), buffer.size(), recvd_size, priority);
+
+        if (recvd_size != sizeof(unsigned int))
+            throw std::runtime_error(
+                "Unexpected start message at ::waitForStart for peer " + std::to_string(_myId)
+            );
 
         unsigned int trigger;
-        std::memcpy(&trigger, buffer, sizeof(trigger));
+        std::memcpy(&trigger, buffer.data(), sizeof(trigger));
+        if (trigger != kStartTrigger)
+            throw std::runtime_error(
+                "Unexpected start message at ::waitForStart for peer " + std::to_string(_myId)
+            );
 
-        if (recvd_size != sizeof(trigger) || trigger != kStartTrigger)
-            throw std::runtime_error("Unexpected start message at ::waitForStart for peer " +
-                                     std::to_string(_myId));
         QUANTAS_LOG_INFO("coord") << "peer " << _myId << " received start signal";
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::waitForStart for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::waitForStart for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
 void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment>& assignments) {
-    if (!_isLeader)
-        return;
+    if (!_isLeader) return;
 
     try {
         for (const PeerAssignment& assignment : assignments) {
@@ -315,14 +345,16 @@ void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment>& as
             message_queue peerInbox(open_only, queueName.c_str());
 
             if (bytes.size() > peerInbox.get_max_msg_size()) {
-                throw std::runtime_error("Assignment for peer " + std::to_string(assignment.id) +
-                                         " exceeds queue max message size");
+                throw std::runtime_error(
+                    "Assignment for peer " + std::to_string(assignment.id) +
+                    " exceeds queue max message size"
+                );
             }
 
             peerInbox.send(bytes.data(), bytes.size(), 0);
         }
-        const std::string topologyType =
-            assignments.empty() ? "unknown" : assignments.front().topologyType;
+        const std::string topologyType = assignments.empty() ? "unknown"
+                                                             : assignments.front().topologyType;
         QUANTAS_LOG_INFO("coord") << "leader sent assignments topology=" << topologyType
                                   << " peers=" << assignments.size();
     } catch (const interprocess_exception& ex) {
@@ -331,8 +363,7 @@ void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment>& as
 }
 
 std::vector<PeerAssignment> ProcessCoordinatorMQ::waitForAssignments() {
-    if (_isLeader)
-        return {};
+    if (_isLeader) return {};
 
     try {
         std::vector<char> buffer(_myControlInbox->get_max_msg_size());
@@ -349,29 +380,29 @@ std::vector<PeerAssignment> ProcessCoordinatorMQ::waitForAssignments() {
 
         return {assignment};
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::waitForAssignments for peer " +
-                                 std::to_string(_myId) + ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::waitForAssignments for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
 void ProcessCoordinatorMQ::waitForStop() {
-    if (_isLeader)
-        return;
+    if (_isLeader) return;
 
     QUANTAS_LOG_INFO("coord") << "peer " << _myId << " waiting for stop signal";
     try {
+        std::vector<char> buffer(_myControlInbox->get_max_msg_size());
         unsigned int priority;
-        char buffer[MAX_MSG_SIZE];
         message_queue::size_type recvd_size;
 
         while (true) {
-            _myControlInbox->receive(buffer, MAX_MSG_SIZE, recvd_size, priority);
+            _myControlInbox->receive(buffer.data(), buffer.size(), recvd_size, priority);
             if (recvd_size != sizeof(unsigned int)) {
                 continue;
             }
 
             unsigned int trigger = 0;
-            std::memcpy(&trigger, buffer, sizeof(trigger));
+            std::memcpy(&trigger, buffer.data(), sizeof(trigger));
             if (trigger != kStopTrigger) {
                 continue;
             }
@@ -383,8 +414,9 @@ void ProcessCoordinatorMQ::waitForStop() {
             break;
         }
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::waitForStop for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::waitForStop for peer " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 }
 
@@ -419,18 +451,15 @@ StopMode ProcessCoordinatorMQ::stopMode() const {
 
 void ProcessCoordinatorMQ::requestStop(const std::string& reason) {
     const bool alreadyStopping = _stopSignal.exchange(true);
-    if (alreadyStopping)
-        return;
+    if (alreadyStopping) return;
 
     if (!reason.empty())
         QUANTAS_LOG_INFO("coord") << "peer " << _myId << " stop requested: " << reason;
-    else
-        QUANTAS_LOG_INFO("coord") << "peer " << _myId << " stop requested";
+    else QUANTAS_LOG_INFO("coord") << "peer " << _myId << " stop requested";
 }
 
 void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
-    if (id == NO_PEER_ID)
-        return;
+    if (id == NO_PEER_ID) return;
 
     // Follower path: send a single done notification to the leader-owned queue.
     if (!_isLeader) {
@@ -444,15 +473,18 @@ void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
                 }
             } catch (const interprocess_exception& ex) {
                 if (attempt == kControlSendAttempts) {
-                    throw std::runtime_error("Failed to ::notifyPeerStopped for peer " +
-                                             std::to_string(_myId) + ": " + ex.what());
+                    throw std::runtime_error(
+                        "Failed to ::notifyPeerStopped for peer " + std::to_string(_myId) + ": " +
+                        ex.what()
+                    );
                 }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(kControlSendWaitMs));
         }
 
-        throw std::runtime_error("Timed out sending done for peer " + std::to_string(_myId) +
-                                 " to mq_done");
+        throw std::runtime_error(
+            "Timed out sending done for peer " + std::to_string(_myId) + " to mq_done"
+        );
     }
 
     // Leader path: count unique completed peers and broadcast stop once all are
@@ -472,8 +504,7 @@ void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
 
 PeerCompletionResult ProcessCoordinatorMQ::waitForAllDone(std::chrono::milliseconds timeout) {
     PeerCompletionResult result;
-    if (!_isLeader)
-        return result;
+    if (!_isLeader) return result;
 
     std::unordered_set<interfaceId> seenPeers;
 
@@ -499,9 +530,11 @@ PeerCompletionResult ProcessCoordinatorMQ::waitForAllDone(std::chrono::milliseco
             }
 
             if (recvd_size != sizeof(doneId)) {
-                throw std::runtime_error("Unexpected done message size at ::waitForAllDone for "
-                                         "leader " +
-                                         std::to_string(_myId));
+                throw std::runtime_error(
+                    "Unexpected done message size at ::waitForAllDone for "
+                    "leader " +
+                    std::to_string(_myId)
+                );
             }
 
             if (doneId < 0 || static_cast<size_t>(doneId) >= _totalPeers) {
@@ -519,8 +552,9 @@ PeerCompletionResult ProcessCoordinatorMQ::waitForAllDone(std::chrono::milliseco
             }
         }
     } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::waitForAllDone for leader " + std::to_string(_myId) +
-                                 ": " + ex.what());
+        throw std::runtime_error(
+            "Failed to ::waitForAllDone for leader " + std::to_string(_myId) + ": " + ex.what()
+        );
     }
 
     return result;

@@ -30,5 +30,6 @@ quantas/TrailPeer/*Logs*/**/*
 CLAUDE.md
 AGENTS.md
 .claude/
+.codex/
 Documentation/papers/
 Documentation/books/

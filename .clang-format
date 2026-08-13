@@ -12,14 +12,16 @@ ColumnLimit: 100
 IndentCaseLabels: true
 AllowShortBlocksOnASingleLine: Never
 AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: false
 
 # Prefer stable, explicit wrapping over dense packed call sites.
 BinPackArguments: false
 BinPackParameters: false
-AllowAllArgumentsOnNextLine: true
+AllowAllArgumentsOnNextLine: false
+AlignAfterOpenBracket: BlockIndent
+PenaltyBreakAssignment: 1000
 
 # Conventional C++ cleanup.
 PointerAlignment: Left

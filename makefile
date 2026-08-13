@@ -60,6 +60,7 @@ ABSTRACT_SRCS := $(COMMON_SRCS) \
 MQ_SRCS := $(COMMON_SRCS) \
 	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqPeer.cpp \
 	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp \
 	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp \
 	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.cpp \
 	quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.cpp \
@@ -70,6 +71,7 @@ MQ_SRCS := $(COMMON_SRCS) \
 MQ_LEADER_SRCS := $(COMMON_SRCS) \
 	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.cpp \
 	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp \
 	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.cpp \
 	quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp
 
@@ -175,6 +177,7 @@ mq_leader_run: mq_leader_release
 
 mq_run_all: mq_peer_release mq_leader_release
 	@echo running MQ leader + peers with input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
+	@./$(MQ_LEADER_EXE) --preflight $(INPUTFILE)
 	@$(MAKE) --no-print-directory clean_mq_queues MQ_TOTAL_PEERS=$(MQ_TOTAL_PEERS)
 	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \
 	echo "[mq_run_all] started leader pid=$$leader_pid"; \
@@ -209,6 +212,7 @@ mq_run_all: mq_peer_release mq_leader_release
 
 mq_run_all_debug_peer: mq_peer_debug mq_leader_debug
 	@echo running MQ leader + peers with gdb on peer $(MQ_DEBUG_PEER_ID), input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
+	@./$(MQ_LEADER_EXE) --preflight $(INPUTFILE)
 	@$(MAKE) --no-print-directory clean_mq_queues MQ_TOTAL_PEERS=$(MQ_TOTAL_PEERS)
 	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \
 	echo "[mq_run_all_debug_peer] started leader pid=$$leader_pid"; \
@@ -294,12 +298,22 @@ mq_timeout_test: build/tests/mq_timeout_test.exe
 	@echo "Testing MQ completion timeout..."
 	@./build/tests/mq_timeout_test.exe
 	@echo ""
+
+mq_queue_config_test: build/tests/mq_queue_config_test.exe
+	@echo "Testing BoostMQ queue configuration..."
+	@./build/tests/mq_queue_config_test.exe
+	@echo ""
+
+mq_transport_metrics_test: build/tests/mq_transport_metrics_test.exe
+	@echo "Testing BoostMQ transport metrics..."
+	@./build/tests/mq_transport_metrics_test.exe
+	@echo ""
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test
+test: check-version rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
@@ -390,6 +404,17 @@ build/tests/mq_timeout_test.exe: quantas/Tests/processCoordinatorMQTimeoutTest.c
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
 
+build/tests/mq_queue_config_test.exe: quantas/Tests/boostMqQueueConfigTest.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
+build/tests/mq_transport_metrics_test.exe: quantas/Tests/boostMqTransportMetricsTest.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.cpp \
+		quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
 -include $(ALL_DEPFILES)
 
 ############################### Cleanup ###############################
@@ -425,4 +450,4 @@ clean_txt:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean clean_mq_queues run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test test clean_outputs clean_txt
+.PHONY: help clean clean_mq_queues run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test test clean_outputs clean_txt

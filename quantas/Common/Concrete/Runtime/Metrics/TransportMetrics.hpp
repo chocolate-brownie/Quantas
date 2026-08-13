@@ -1,6 +1,8 @@
 #ifndef QUANTAS_COMMON_RUNTIME_METRICS_TRANSPORTMETRICS_HPP
 #define QUANTAS_COMMON_RUNTIME_METRICS_TRANSPORTMETRICS_HPP
 
+#include "quantas/Common/Json.hpp"
+#include <cstddef>
 #include <cstdint>
 
 namespace quantas {
@@ -20,6 +22,9 @@ struct TransportMetrics {
     not accepting fast enough, so those messages were dropped.*/
     uint64_t droppedBackpressure = 0;
 
+    // Largest number of messages waiting in the queue at one observed moment
+    uint64_t peakQueueUsage{0};
+
     /*
     # Best Health Check
 
@@ -35,6 +40,29 @@ struct TransportMetrics {
     messages in queues, so use it carefully. But dropped_backpressure == 0 is non-negotiable for
     “reliable delivery accepted by transport.” */
 };
+
+inline nlohmann::json
+makeTransportMetricsJson(const TransportMetrics& metrics, std::size_t dataQueueCapacity) {
+    return {
+        // Messages successfully added to other peers' queues.
+        {"sent", metrics.sent},
+
+        // Messages removed from this peer's queue.
+        {"received_raw", metrics.receivedRaw},
+
+        // Received messages successfully passed to the peer.
+        {"delivered_to_instream", metrics.deliveredToInstream},
+
+        // Messages dropped because a destination queue stayed full.
+        {"dropped_backpressure", metrics.droppedBackpressure},
+
+        // Maximum number of messages this peer's queue can hold.
+        {"data_queue_capacity", dataQueueCapacity},
+
+        // Largest number of waiting messages observed in this peer's queue.
+        {"peak_observed_queue_usage", metrics.peakQueueUsage},
+    };
+}
 
 } // namespace quantas
 

@@ -353,3 +353,12 @@ In this file I document what I do everyday during my internship.
 - Updated GitLab parent issue #25 so BoostMQ queue configuration issue #29 is the next sequential implementation gate; algorithm compatibility issue #40 now uses AltBit, PBFT, and Kademlia/LinearChord evidence gates.
 - Renamed the working branch to `fix/boostmq-queue-configuration-29` and kept the provisional #40 compatibility document in a separate named stash.
 - Reframed GitLab issue #40 for colleague review around unchanged researcher source, framework-only adaptation, configuration-scoped rejection, and the unresolved `Peer*` process-boundary question.
+
+### 13/08/2026
+
+- Corrected the earlier assumption recorded on 30/06 and 01/07: Boost.Interprocess queues on the supported Linux environment are stored under `/dev/shm` and are not controlled by the POSIX `fs.mqueue.msg_max` setting. Removed the interactive `sudo sysctl` preflight because it changed an unrelated kernel setting.
+- Completed GitLab issue #29 by adding one experiment-level BoostMQ configuration with explicit `dataQueueCapacity` and `maxMessageSizeBytes` settings and defaults. The control queue capacity is derived from `topology.initialPeers` because each peer may contribute one ready or done signal.
+- Added non-privileged preflight checks that create temporary control and data queues with the effective settings and validate serialized topology assignment sizes before workers start. Both the Makefile orchestration and normal leader startup now perform the required validation.
+- Updated real queue creation so control and data queues use the same parsed configuration checked by preflight. The leader report now records the effective control capacity, data capacity, and maximum message size.
+- Added transport evidence to peer reports: configured data queue capacity, largest observed number of waiting messages, and existing backpressure-drop counts. Added focused tests for defaults, invalid values, oversized assignments, real queue peak usage, and metrics JSON output.
+- Final validation passed for focused BoostMQ tests, debug leader/peer builds, and complete, ring, grid, and user-list topology runs. The full AltBit run completed all four experiments and 40 tests with both peers and the leader exiting `0`; observed peak queue usage was between 4 and 8 messages and `dropped_backpressure` remained `0`.

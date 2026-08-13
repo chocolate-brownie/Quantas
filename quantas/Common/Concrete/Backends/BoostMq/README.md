@@ -67,7 +67,20 @@ This builds and runs the two BoostMQ binaries: `quantas_mq_leader.exe` and `quan
 
 Use `MQ_TOTAL_PEERS=N` only when you need to override the peer count used by the makefile launcher. The leader still reads the experiment configuration from the JSON, so this value should match `topology.initialPeers` unless you are deliberately debugging launcher behavior. Use `MQ_ROUNDS=N` when you want to override the number of rounds from the input JSON for a quick run.
 
-The leader sizes the shared `mq_barrier` and `mq_done` queues from the experiment peer count so each peer has room for one ready or done signal. These Boost.Interprocess queues are backed by shared-memory resources on the supported Linux environment and are not governed by the POSIX message-queue setting `fs.mqueue.msg_max`.
+The leader sizes the shared `mq_barrier` and `mq_done` queues from the experiment peer count so each peer has room for one ready or done signal. On the supported Linux environment, Boost.Interprocess stores these resources under `/dev/shm`, for example `/dev/shm/mq_barrier` and `/dev/shm/peer_0_data`. They are not governed by the POSIX message-queue setting `fs.mqueue.msg_max`.
+
+### Queue configuration
+
+Each experiment may configure its data queues:
+
+```json
+"boostMq": {
+  "dataQueueCapacity": 1000,
+  "maxMessageSizeBytes": 4096
+}
+```
+
+Both settings are optional. Their defaults are `1000` messages and `4096` bytes. The control queue capacity is derived from `topology.initialPeers`; it is not a separate JSON setting. Before launching workers, `mq_run_all` checks that the queues can be created and that every topology assignment fits within `maxMessageSizeBytes`.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer.
 
@@ -79,6 +92,8 @@ BoostMQ report metrics describe real IPC behavior, not Abstract simulator channe
 - `received_raw`: raw messages pulled from a peer queue.
 - `delivered_to_instream`: received packets decoded and pushed into the peer input stream.
 - `dropped_backpressure`: send attempts dropped because the destination queue did not accept the message before the send timeout.
+- `data_queue_capacity`: configured maximum number of messages in the peer data queue.
+- `peak_observed_queue_usage`: largest number of waiting messages observed when the peer checked its data queue.
 
 The leader also summarizes these counters in `transportReliability`. Treat `dropped_backpressure_total == 0` and `received_raw_total == delivered_to_instream_total` as the primary transport-health check for the current implementation.
 
@@ -88,4 +103,4 @@ The stricter `sent_total == received_raw_total` check can fail when fixed-round 
 
 - queue creation failed → stale queues or insufficient shared-memory resources
 - peer timeout → peer crashed or did not send `done`
-- message too large → increase `MAX_MSG_SIZE` or reduce payload size
+- message too large → increase `boostMq.maxMessageSizeBytes` or reduce the payload size

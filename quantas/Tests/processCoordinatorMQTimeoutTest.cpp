@@ -36,6 +36,8 @@ int main() {
     using namespace std::chrono_literals;
 
     auto &coordinator = quantas::ProcessCoordinatorMQ::instance();
+    quantas::BoostMqQueueConfig queueConfig;
+    queueConfig.controlQueueCapacity = 3;
     coordinator.configureExperiment(
         0,
         "test",
@@ -43,9 +45,10 @@ int main() {
         3,
         quantas::NO_PEER_ID,
         "cout",
-        quantas::StopMode::FixedRounds
+        quantas::StopMode::FixedRounds,
+        queueConfig
     );
-    coordinator.createBarrier(3);
+    coordinator.createBarrier();
 
     std::thread sender([] {
         std::this_thread::sleep_for(10ms);

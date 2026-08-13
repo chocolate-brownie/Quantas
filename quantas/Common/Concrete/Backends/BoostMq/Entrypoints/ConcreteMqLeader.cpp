@@ -1,4 +1,5 @@
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.hpp"
 #include "quantas/Common/Logger.hpp"
@@ -8,11 +9,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+namespace {
 struct TestReportInfo {
     size_t testIndex{0};
     std::chrono::duration<double> duration{};
@@ -32,15 +33,19 @@ std::optional<nlohmann::json> parseAndLoadConfig(const std::string& inputPath) {
 }
 
 void printUsage(const char* programName) {
-    std::cerr << "Usage: " << programName << " <input_json>\n";
+    std::cerr << "Usage: " << programName << " <input_json>\n"
+              << "       " << programName << " --preflight <input_json>\n";
 }
 
 /*
  * Purpose: Create the experiment-level report metadata and an empty test list.
  * Used by: `main()` as the report object that receives every test result.
  */
-nlohmann::json makeBaseExperimentReport(size_t expIndex,
-                                        const quantas::RuntimeExperimentConfig& exp) {
+nlohmann::json makeBaseExperimentReport(
+    size_t expIndex,
+    const quantas::RuntimeExperimentConfig& exp,
+    const quantas::BoostMqQueueConfig& queueConfig
+) {
     nlohmann::json report;
     report["backend"] = "mq";
     report["experimentIndex"] = expIndex;
@@ -49,6 +54,11 @@ nlohmann::json makeBaseExperimentReport(size_t expIndex,
     report["topologyType"] = exp.topology.value("type", "unknown");
     report["rounds"] = exp.rounds;
     report["doneTimeoutMs"] = exp.doneTimeoutMs;
+    report["boostMq"] = {
+        {"controlQueueCapacity", queueConfig.controlQueueCapacity},
+        {"dataQueueCapacity", queueConfig.dataQueueCapacity},
+        {"maxMessageSizeBytes", queueConfig.maxMessageSizeBytes}
+    };
     report["tests"] = nlohmann::json::array();
 
     return report;
@@ -120,8 +130,12 @@ std::string makeLeaderReportPath(const std::string& logFileBase, size_t expIndex
 
     std::filesystem::path reportBase(logFileBase);
     reportBase.replace_extension(".json");
-    const std::string experimentFile =
-        quantas::makeExperimentFileName(reportBase.string(), expIndex, std::nullopt, ".json");
+    const std::string experimentFile = quantas::makeExperimentFileName(
+        reportBase.string(),
+        expIndex,
+        std::nullopt,
+        ".json"
+    );
     return quantas::addFileNameSuffix(experimentFile, "_leader_report");
 }
 
@@ -130,16 +144,21 @@ std::string makeLeaderReportPath(const std::string& logFileBase, size_t expIndex
  * test. Used by: `main()` to include peer output references in each test
  * report.
  */
-nlohmann::json makePeerOutputFiles(const std::string& logFileBase,
-                                   size_t expIndex,
-                                   int testNumber,
-                                   int totalPeers) {
+nlohmann::json makePeerOutputFiles(
+    const std::string& logFileBase, size_t expIndex, int testNumber, int totalPeers
+) {
     nlohmann::json outputFiles = nlohmann::json::object();
     for (int peerId = 0; peerId < totalPeers; ++peerId) {
-        const std::string experimentFile =
-            quantas::makeExperimentFileName(logFileBase, expIndex, peerId, ".json");
-        outputFiles[std::to_string(peerId)] =
-            quantas::addFileNameSuffix(experimentFile, "_TEST" + std::to_string(testNumber));
+        const std::string experimentFile = quantas::makeExperimentFileName(
+            logFileBase,
+            expIndex,
+            peerId,
+            ".json"
+        );
+        outputFiles[std::to_string(peerId)] = quantas::addFileNameSuffix(
+            experimentFile,
+            "_TEST" + std::to_string(testNumber)
+        );
     }
     return outputFiles;
 }
@@ -185,8 +204,9 @@ nlohmann::json readPeerMetricFile(const std::string& path) {
  * Purpose: Copy completed peer metric files into the leader report without
  * inventing merge rules. Used by: `main()` before appending each test report.
  */
-nlohmann::json readCompletedPeerMetrics(const nlohmann::json& peerOutputFiles,
-                                        const std::vector<quantas::interfaceId>& completedPeers) {
+nlohmann::json readCompletedPeerMetrics(
+    const nlohmann::json& peerOutputFiles, const std::vector<quantas::interfaceId>& completedPeers
+) {
     nlohmann::json peerMetrics = nlohmann::json::object();
 
     for (quantas::interfaceId peerId : completedPeers) {
@@ -223,25 +243,30 @@ nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics) 
                           receivedRawTotal == deliveredToInstreamTotal &&
                           droppedBackpressureTotal == 0;
 
-    return nlohmann::json{{"sent_total", sentTotal},
-                          {"received_raw_total", receivedRawTotal},
-                          {"delivered_to_instream_total", deliveredToInstreamTotal},
-                          {"dropped_backpressure_total", droppedBackpressureTotal},
-                          {"reliable", reliable}};
+    return nlohmann::json{
+        {"sent_total", sentTotal},
+        {"received_raw_total", receivedRawTotal},
+        {"delivered_to_instream_total", deliveredToInstreamTotal},
+        {"dropped_backpressure_total", droppedBackpressureTotal},
+        {"reliable", reliable}
+    };
 }
+
+} // namespace
 
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
+    const bool preflightOnly = argc >= 2 && std::string(argv[1]) == "--preflight";
+    if ((!preflightOnly && argc != 2) || (preflightOnly && argc != 3)) {
         printUsage(argv[0]);
         return 1;
     }
 
-    const std::string inputPath = argv[1];
+    const std::string inputPath = preflightOnly ? argv[2] : argv[1];
     /* Parse cli args and load the json config file for the leader process */
     auto config = parseAndLoadConfig(inputPath);
-    if (!config)
-        return 1;
+
+    if (!config) return 1;
 
     /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol
      * API
@@ -255,29 +280,53 @@ int main(int argc, char* argv[]) {
     for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
         try {
             const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
-            quantas::RuntimeExperimentConfig exp =
-                quantas::parseRuntimeExperiment(*config, expIndex);
 
+            /* Parse the attributes regarding to the runtime experiment (settings used by every
+             * backend) */
+            quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
+                *config,
+                expIndex
+            );
+
+            /* Parse the attributes regarding to the boostmq queue size (issue #29) aka settings
+             * used by the boostmq only */
+            auto queueConfig = quantas::parseBoostMqQueueConfig(experiment, exp.initialPeers);
+            quantas::preflightBoostMqQueues(queueConfig, expIndex);
+
+            const quantas::TopologyResult validationTopology = quantas::buildTopology(exp.topology);
+            quantas::validateBoostMqAssignmentPayloads(
+                validationTopology.assignments,
+                queueConfig,
+                expIndex
+            );
+
+            if (preflightOnly) continue;
+
+            // Setup timers and start the clock
             std::chrono::time_point<std::chrono::high_resolution_clock> expStartTime, expEndTime;
             std::chrono::duration<double> expDuration;
             expStartTime = std::chrono::high_resolution_clock::now();
 
+            // Configure the logger base and paths
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::string reportPath = makeLeaderReportPath(logFileBase, expIndex);
 
-            coordinator.configureExperiment(expIndex,
-                                            exp.initialPeerType,
-                                            true,
-                                            exp.initialPeers,
-                                            quantas::NO_PEER_ID,
-                                            logFileBase,
-                                            quantas::StopMode::FixedRounds);
+            coordinator.configureExperiment(
+                expIndex,
+                exp.initialPeerType,
+                true,
+                exp.initialPeers,
+                quantas::NO_PEER_ID,
+                logFileBase,
+                quantas::StopMode::FixedRounds,
+                queueConfig
+            );
 
             QUANTAS_LOG_INFO("coord")
                 << "leader starting rendezvous for experiment " << expIndex
                 << " with totalPeers=" << exp.initialPeers << " tests=" << exp.tests;
 
-            nlohmann::json expReport = makeBaseExperimentReport(expIndex, exp);
+            nlohmann::json expReport = makeBaseExperimentReport(expIndex, exp, queueConfig);
             expReport["inputFile"] = inputPath;
             expReport["expectedPeers"] = expectedPeers(exp.initialPeers);
             bool allTestsSucceeded = true;
@@ -291,18 +340,20 @@ int main(int argc, char* argv[]) {
                 QUANTAS_LOG_INFO("coord")
                     << "leader starting experiment " << expIndex << " test " << testNumber;
 
-                std::chrono::time_point<std::chrono::high_resolution_clock> testStartTime,
-                    testEndTime;
+                std::chrono::time_point<std::chrono::high_resolution_clock> testStartTime;
+                std::chrono::time_point<std::chrono::high_resolution_clock> testEndTime;
+
                 testStartTime = std::chrono::high_resolution_clock::now();
 
-                coordinator.createBarrier(exp.initialPeers);
+                coordinator.createBarrier();
                 coordinator.waitForAllReady();
                 quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
                 coordinator.sendAssignments(topology.assignments);
                 coordinator.broadcastStart();
 
-                const quantas::PeerCompletionResult completion =
-                    coordinator.waitForAllDone(std::chrono::milliseconds(exp.doneTimeoutMs));
+                const quantas::PeerCompletionResult completion = coordinator.waitForAllDone(
+                    std::chrono::milliseconds(exp.doneTimeoutMs)
+                );
 
                 testInfo.completedPeers = completion.completedPeers;
                 testInfo.timedOut = completion.timedOut;
@@ -310,18 +361,30 @@ int main(int argc, char* argv[]) {
                 testEndTime = std::chrono::high_resolution_clock::now();
                 testInfo.duration = testEndTime - testStartTime;
 
-                testInfo.missingPeerIds =
-                    findMissingPeers(exp.initialPeers, testInfo.completedPeers);
-                testInfo.peerOutputFiles =
-                    makePeerOutputFiles(logFileBase, expIndex, testNumber, exp.initialPeers);
-                allTestsSucceeded =
-                    allTestsSucceeded && !testInfo.timedOut && testInfo.missingPeerIds.empty();
+                testInfo.missingPeerIds = findMissingPeers(
+                    exp.initialPeers,
+                    testInfo.completedPeers
+                );
+
+                testInfo.peerOutputFiles = makePeerOutputFiles(
+                    logFileBase,
+                    expIndex,
+                    testNumber,
+                    exp.initialPeers
+                );
+
+                allTestsSucceeded = allTestsSucceeded && !testInfo.timedOut &&
+                                    testInfo.missingPeerIds.empty();
 
                 nlohmann::json testReport = makeTestReport(testInfo);
-                testReport["peerMetrics"] =
-                    readCompletedPeerMetrics(testInfo.peerOutputFiles, testInfo.completedPeers);
-                testReport["transportReliability"] =
-                    summarizeTransportReliability(testReport["peerMetrics"]);
+
+                testReport["peerMetrics"] = readCompletedPeerMetrics(
+                    testInfo.peerOutputFiles,
+                    testInfo.completedPeers
+                );
+                testReport["transportReliability"] = summarizeTransportReliability(
+                    testReport["peerMetrics"]
+                );
 
                 expReport["tests"].push_back(testReport);
 
@@ -348,8 +411,7 @@ int main(int argc, char* argv[]) {
             writeLeaderReport(reportPath, expReport);
             QUANTAS_LOG_INFO("coord") << "leader report written to " << reportPath;
 
-            if (experimentTimedOut)
-                return 1;
+            if (experimentTimedOut) return 1;
 
         } catch (const std::exception& ex) {
             coordinator.cleanUp();
@@ -358,6 +420,10 @@ int main(int argc, char* argv[]) {
 
             return 1;
         }
+    }
+
+    if (preflightOnly) {
+        QUANTAS_LOG_INFO("preflight") << "all BoostMQ queue preflight checks passed";
     }
 
     return 0;

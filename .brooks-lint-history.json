@@ -9,5 +9,16 @@
       "suggestion": 1
     },
     "scope": "Incremental audit: BoostMQ capacity-preflight feature and immediate Concrete runtime boundaries"
+  },
+  {
+    "date": "2026-08-13",
+    "mode": "Architecture Audit",
+    "score": 39,
+    "findings": {
+      "critical": 3,
+      "warning": 3,
+      "suggestion": 1
+    },
+    "scope": "Full project architecture audit: 118 tracked files; all first-party C++ modules, build graph, and tests; vendored single-header libraries structurally classified but not line-reviewed"
   }
 ]

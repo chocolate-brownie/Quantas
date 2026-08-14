@@ -256,40 +256,38 @@ nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics) 
 
 /* --------------------------- Leader runtime --------------------------- */
 int main(int argc, char* argv[]) {
+    /* Validate the command line and select normal execution or validation-only
+     * preflight mode. Both modes operate on one JSON input file. */
     const bool preflightOnly = argc >= 2 && std::string(argv[1]) == "--preflight";
     if ((!preflightOnly && argc != 2) || (preflightOnly && argc != 3)) {
         printUsage(argv[0]);
         return 1;
     }
 
+    /* Load and validate the top-level configuration before acquiring any MQ
+     * resources or starting an experiment. */
     const std::string inputPath = preflightOnly ? argv[2] : argv[1];
-    /* Parse cli args and load the json config file for the leader process */
     auto config = parseAndLoadConfig(inputPath);
 
     if (!config) return 1;
 
-    /* ProcessCoordinatorMQ` is the component that owns the rendezvous protocol
-     * API
-     * (`createBarrier`, `waitForAllReady`, `broadcastStart`,
-     * `configureExperiment`). */
+    /* Use the shared coordinator to own the leader's rendezvous protocol and
+     * the lifecycle of its BoostMQ resources. */
     auto& coordinator = quantas::ProcessCoordinatorMQ::instance();
 
-    /* TODO:  Leader records the start/end time of the whole simulation. How
-     * long it took to do the whole thing? */
-
+    /* Process each configured experiment independently so failures can be
+     * reported with the corresponding experiment index. */
     for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
         try {
             const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
 
-            /* Parse the attributes regarding to the runtime experiment (settings used by every
-             * backend) */
+            /* Parse backend-independent runtime settings, then validate the
+             * BoostMQ queue sizes and topology payloads before creating queues. */
             quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
                 *config,
                 expIndex
             );
 
-            /* Parse the attributes regarding to the boostmq queue size (issue #29) aka settings
-             * used by the boostmq only */
             auto queueConfig = quantas::parseBoostMqQueueConfig(experiment, exp.initialPeers);
             quantas::preflightBoostMqQueues(queueConfig, expIndex);
 
@@ -302,12 +300,12 @@ int main(int argc, char* argv[]) {
 
             if (preflightOnly) continue;
 
-            // Setup timers and start the clock
+            /* Initialize timing, output paths, and coordinator state for this
+             * experiment before any peers enter the rendezvous. */
             std::chrono::time_point<std::chrono::high_resolution_clock> expStartTime, expEndTime;
             std::chrono::duration<double> expDuration;
             expStartTime = std::chrono::high_resolution_clock::now();
 
-            // Configure the logger base and paths
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
             const std::string reportPath = makeLeaderReportPath(logFileBase, expIndex);
 
@@ -332,6 +330,8 @@ int main(int argc, char* argv[]) {
             bool allTestsSucceeded = true;
             bool experimentTimedOut = false;
 
+            /* Run every test in the experiment through a fresh rendezvous and
+             * collect an independent result for the final experiment report. */
             for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
                 const int testNumber = testIndex + 1;
                 TestReportInfo testInfo;
@@ -345,6 +345,8 @@ int main(int argc, char* argv[]) {
 
                 testStartTime = std::chrono::high_resolution_clock::now();
 
+                /* Wait for all peers, distribute their topology assignments,
+                 * start the run together, and wait for completion or timeout. */
                 coordinator.createBarrier();
                 coordinator.waitForAllReady();
                 quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
@@ -361,6 +363,8 @@ int main(int argc, char* argv[]) {
                 testEndTime = std::chrono::high_resolution_clock::now();
                 testInfo.duration = testEndTime - testStartTime;
 
+                /* Record completion state and peer output locations, then
+                 * aggregate peer transport metrics into the test report. */
                 testInfo.missingPeerIds = findMissingPeers(
                     exp.initialPeers,
                     testInfo.completedPeers
@@ -382,12 +386,15 @@ int main(int argc, char* argv[]) {
                     testInfo.peerOutputFiles,
                     testInfo.completedPeers
                 );
+
                 testReport["transportReliability"] = summarizeTransportReliability(
                     testReport["peerMetrics"]
                 );
 
                 expReport["tests"].push_back(testReport);
 
+                /* Stop peers best-effort after a timeout and always release
+                 * this test's coordinator resources before continuing. */
                 if (testInfo.timedOut) {
                     experimentTimedOut = true;
                     coordinator.broadcastStopBestEffort();
@@ -404,6 +411,8 @@ int main(int argc, char* argv[]) {
                     << "leader completed experiment " << expIndex << " test " << testNumber;
             }
 
+            /* Finalize and persist the experiment-level duration and success
+             * result after all tests finish or the first timeout occurs. */
             expEndTime = std::chrono::high_resolution_clock::now();
             expDuration = expEndTime - expStartTime;
             expReport["durationSeconds"] = expDuration.count();
@@ -414,6 +423,8 @@ int main(int argc, char* argv[]) {
             if (experimentTimedOut) return 1;
 
         } catch (const std::exception& ex) {
+            /* Release any partially initialized MQ state and fail with the
+             * experiment index when configuration or runtime work throws. */
             coordinator.cleanUp();
             std::cerr << "error: leader failed at experiment " << expIndex << ": " << ex.what()
                       << '\n';
@@ -422,6 +433,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    /* Confirm that validation-only mode checked every configured experiment
+     * without starting a rendezvous. */
     if (preflightOnly) {
         QUANTAS_LOG_INFO("preflight") << "all BoostMQ queue preflight checks passed";
     }

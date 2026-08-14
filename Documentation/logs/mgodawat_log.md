@@ -362,3 +362,8 @@ In this file I document what I do everyday during my internship.
 - Updated real queue creation so control and data queues use the same parsed configuration checked by preflight. The leader report now records the effective control capacity, data capacity, and maximum message size.
 - Added transport evidence to peer reports: configured data queue capacity, largest observed number of waiting messages, and existing backpressure-drop counts. Added focused tests for defaults, invalid values, oversized assignments, real queue peak usage, and metrics JSON output.
 - Final validation passed for focused BoostMQ tests, debug leader/peer builds, and complete, ring, grid, and user-list topology runs. The full AltBit run completed all four experiments and 40 tests with both peers and the leader exiting `0`; observed peak queue usage was between 4 and 8 messages and `dropped_backpressure` remained `0`.
+
+### 14/08/2026
+
+- Completed GitLab issue #30 with guarded `mq_status` and `mq_cleanup` targets, isolated cleanup tests, and researcher crash-recovery documentation.
+- Added lifecycle block comments to the BoostMQ leader main function. Validation passed with `make mq_cleanup_test`, `make mq_status`, `make mq_leader_debug`, and `git diff --check`.

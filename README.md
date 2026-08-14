@@ -46,7 +46,7 @@ Clone the repository, pick the algorithm/input configuration you want to exercis
 
 ConcreteMQ is an experimental multi-process backend that uses Boost message queues for local IPC. The implementation currently lives in `quantas/Common/Concrete/Backends/BoostMq/`. It is useful for research runs that need one OS process per peer, but it is not full Abstract simulator parity yet.
 
-See [ConcreteMQ v1](Documentation/concretemq-v1.md) for build commands, output files, validated peer limits, and current limitations before using it for experiments.
+See the [BoostMQ backend guide](quantas/Common/Concrete/Backends/BoostMq/README.md) for build commands, usage, output metrics, and crash recovery before using it for experiments.
 
 ## Simulation Input Reference
 

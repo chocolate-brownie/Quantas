@@ -18,7 +18,7 @@
 
 # Hard coded usage [make run]
 # Configure this for the specific input file.
-# Make sure to include the path to the input file 
+# Make sure to include the path to the input file
 
 INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 
@@ -47,6 +47,9 @@ MQ_PEER_ID ?= 0
 MQ_ROUNDS ?=
 MQ_TOTAL_PEERS ?= $(shell python3 -c 'import json, sys; values = {e["topology"]["initialPeers"] for e in json.load(open(sys.argv[1]))["experiments"]}; print(next(iter(values))) if len(values) == 1 else sys.exit("MQ input experiments must use one peer count; set MQ_TOTAL_PEERS explicitly")' "$(INPUTFILE)")
 MQ_DEBUG_PEER_ID ?= 0
+MQ_RESOURCE_DIR := /dev/shm
+MQ_PROCESS_PATTERN := (^|/)[q]uantas_mq_(leader|peer)\.exe([[:space:]]|$$)
+MQ_RESOURCE_REGEX := .*/(mq_barrier|mq_done|peer_[0-9]+_(control|data))
 
 # Sources shared by each executable.
 COMMON_SRCS := $(wildcard quantas/Common/*.cpp)
@@ -122,31 +125,33 @@ mq_debug: mq_peer_debug
 ############################### Running Commands ###############################
 
 help:
-	@echo "QUANTAS make targets"
+	@printf "🧭 QUANTAS make targets\n"
 	@echo ""
-	@echo "Abstract runtime:"
-	@echo "  make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json"
-	@echo "  make debug INPUTFILE=..."
+	@printf "🧪Abstract runtime\n"
+	@printf "  %s\n" "make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json"
+	@printf "  %s\n" "make debug INPUTFILE=..."
 	@echo ""
-	@echo "MQ peer runtime:"
-	@echo "  make mq_peer_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json"
-	@echo "  make mq_peer_run INPUTFILE=... MQ_PEER_ID=0 [MQ_ROUNDS=10]"
+	@printf "👤MQ peer runtime\n"
+	@printf "  %s\n" "make mq_peer_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json"
+	@printf "  %s\n" "make mq_peer_run INPUTFILE=... MQ_PEER_ID=0 [MQ_ROUNDS=10]"
 	@echo ""
-	@echo "MQ leader runtime:"
-	@echo "  make mq_leader_debug INPUTFILE=..."
-	@echo "  make mq_leader_run INPUTFILE=..."
+	@printf "🎛️MQ leader runtime\n"
+	@printf "  %s\n" "make mq_leader_debug INPUTFILE=..."
+	@printf "  %s\n" "make mq_leader_run INPUTFILE=..."
 	@echo ""
-	@echo "MQ leader + peers orchestration:"
-	@echo "  make mq_run_all INPUTFILE=... [MQ_TOTAL_PEERS=override] [MQ_ROUNDS=10]"
-	@echo "  make mq_run_all_debug_peer INPUTFILE=... [MQ_TOTAL_PEERS=override] MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
+	@printf "🚀MQ leader + peers orchestration\n"
+	@printf "  %s\n" "make mq_run_all INPUTFILE=... [MQ_TOTAL_PEERS=override] [MQ_ROUNDS=10]"
+	@printf "  %s\n" "make mq_run_all_debug_peer INPUTFILE=... [MQ_TOTAL_PEERS=override] MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
 	@echo ""
-	@echo "Tests / diagnostics:"
-	@echo "  make check_mq_deps # verify BoostMQ compile/link dependencies"
-	@echo "  make test"
-	@echo "  make run_simple_memory INPUTFILE=..."
-	@echo "  make clean_outputs    # remove root generated .txt/.json outputs"
-	@echo "  make clean_txt        # remove root generated .txt outputs only"
-	@echo "  make clean            # remove build artifacts, binaries, and generated outputs"
+	@printf "🔍Tests / diagnostics\n"
+	@printf "  %-42s # %s\n" "make check_mq_deps" "verify BoostMQ compile/link dependencies"
+	@printf "  %-42s # %s\n" "make mq_status" "list active BoostMQ processes and queue resources"
+	@printf "  %-42s # %s\n" "make mq_cleanup" "remove abandoned BoostMQ queues; refuses while active"
+	@printf "  %-42s # %s\n" "make test" "run focused tests and memory checks for all sample inputs"
+	@printf "  %-42s # %s\n" "make run_simple_memory INPUTFILE=..." "run a concise Valgrind memory check"
+	@printf "  %-42s # %s\n" "make clean_outputs" "remove root generated .txt/.json outputs"
+	@printf "  %-42s # %s\n" "make clean_txt" "remove root generated .txt outputs only"
+	@printf "  %-42s # %s\n" "make clean" "remove build artifacts, binaries, and generated outputs"
 
 # Build and run abstract mode with the platform's normal Clang toolchain.
 clang: check-clang build/clang/$(EXE)
@@ -308,12 +313,17 @@ mq_transport_metrics_test: build/tests/mq_transport_metrics_test.exe
 	@echo "Testing BoostMQ transport metrics..."
 	@./build/tests/mq_transport_metrics_test.exe
 	@echo ""
-	
+
+mq_cleanup_test:
+	@echo "Testing safe BoostMQ cleanup..."
+	@bash quantas/Tests/mqCleanupTest.sh
+	@echo ""
+
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test
+test: check-version rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test mq_cleanup_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
@@ -441,6 +451,50 @@ clean_mq_queues:
 		$(RM) /dev/shm/peer_$${i}_control /dev/shm/peer_$${i}_data; \
 	done
 
+mq_status:
+	@command -v pgrep >/dev/null 2>&1 || { echo "error: pgrep is required."; exit 1; }
+	@test -d "$(MQ_RESOURCE_DIR)" || { \
+		echo "error: BoostMQ resource directory $(MQ_RESOURCE_DIR) is unavailable."; exit 1; \
+	}
+	@echo "Active QUANTAS BoostMQ processes:"
+	@processes=$$(pgrep -af '$(MQ_PROCESS_PATTERN)' || true); \
+	if test -n "$$processes"; then printf '%s\n' "$$processes"; else echo "  none"; fi
+	@echo "QUANTAS BoostMQ resources in $(MQ_RESOURCE_DIR):"
+	@resources=$$(find "$(MQ_RESOURCE_DIR)" -maxdepth 1 -type f \
+		-regextype posix-extended -regex '$(MQ_RESOURCE_REGEX)' -print | LC_ALL=C sort); \
+	if test -n "$$resources"; then printf '%s\n' "$$resources"; else echo "  none"; fi
+
+mq_cleanup:
+	@command -v pgrep >/dev/null 2>&1 || { echo "error: pgrep is required; refusing cleanup."; exit 1; }
+	@test -d "$(MQ_RESOURCE_DIR)" || { \
+		echo "error: BoostMQ resource directory $(MQ_RESOURCE_DIR) is unavailable."; exit 1; \
+	}
+	@resources=$$(find "$(MQ_RESOURCE_DIR)" -maxdepth 1 -type f \
+		-regextype posix-extended -regex '$(MQ_RESOURCE_REGEX)' -print | LC_ALL=C sort); \
+	processes=$$(pgrep -af '$(MQ_PROCESS_PATTERN)' || true); \
+	if test -n "$$processes"; then \
+		echo "error: active QUANTAS BoostMQ processes detected; refusing cleanup:"; \
+		printf '%s\n' "$$processes"; \
+		if test -n "$$resources"; then \
+			for resource in $$resources; do echo "Skipped $$resource: active process detected"; done; \
+		else \
+			echo "No QUANTAS BoostMQ resources found to remove."; \
+		fi; \
+		exit 1; \
+	fi; \
+	if test -z "$$resources"; then \
+		echo "No abandoned QUANTAS BoostMQ resources found."; \
+		exit 0; \
+	fi; \
+	for resource in $$resources; do \
+		if $(RM) -- "$$resource"; then \
+			echo "Removed $$resource"; \
+		else \
+			echo "error: failed to remove $$resource"; \
+			exit 1; \
+		fi; \
+	done
+
 clean_outputs:
 	@$(RM) ./*.txt ./*.json
 
@@ -450,4 +504,4 @@ clean_txt:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean clean_mq_queues run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test test clean_outputs clean_txt
+.PHONY: help clean clean_mq_queues mq_status mq_cleanup run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test mq_cleanup_test test clean_outputs clean_txt

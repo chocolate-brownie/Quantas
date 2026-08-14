@@ -84,6 +84,53 @@ Both settings are optional. Their defaults are `1000` messages and `4096` bytes.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer.
 
+## Crash diagnosis and recovery
+
+An interrupted or crashed run can leave BoostMQ processes or queue resources
+behind. Before starting another experiment, inspect the current state:
+
+```sh
+make mq_status
+```
+
+This command is read-only. It reports active `quantas_mq_leader.exe` and
+`quantas_mq_peer.exe` processes and the following QUANTAS resources under
+`/dev/shm`:
+
+- `mq_barrier`
+- `mq_done`
+- `peer_<id>_control`
+- `peer_<id>_data`
+
+To recover after an interrupted run:
+
+1. Run `make mq_status`.
+2. If leader or peer processes are listed, stop them normally in their terminals.
+   For a detached process, use the reported PID with `kill <pid>`.
+3. Run `make mq_status` again and confirm that no QUANTAS MQ processes remain.
+4. Remove abandoned resources with `make mq_cleanup`.
+5. Run `make mq_status` once more before restarting the experiment.
+
+`make mq_cleanup` does not terminate processes. It refuses to remove resources
+while a matching leader or peer process is active because deleting an in-use
+queue could corrupt a running experiment.
+
+Cleanup output has the following meaning:
+
+- `Removed <path>`: the abandoned QUANTAS resource was removed.
+- `No abandoned QUANTAS BoostMQ resources found.`: nothing needed removal; this
+  is a successful result.
+- `active QUANTAS BoostMQ processes detected; refusing cleanup`: at least one
+  MQ process is still running. Each matching resource is reported as `Skipped`.
+  Stop the listed processes and retry.
+- `pgrep is required`: install the system process utilities before retrying.
+- `BoostMQ resource directory /dev/shm is unavailable`: the expected Linux
+  shared-memory filesystem is unavailable and the environment must be fixed.
+
+Running `make mq_cleanup` more than once is safe. It targets only the exact
+QUANTAS resource names listed above. Do not use broad commands such as
+`rm /dev/shm/*`, because they can remove resources owned by other applications.
+
 ## How to interpret report metrics
 
 BoostMQ report metrics describe real IPC behavior, not Abstract simulator channel behavior:

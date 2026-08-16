@@ -151,3 +151,41 @@ The stricter `sent_total == received_raw_total` check can fail when fixed-round 
 - queue creation failed → stale queues or insufficient shared-memory resources
 - peer timeout → peer crashed or did not send `done`
 - message too large → increase `boostMq.maxMessageSizeBytes` or reduce the payload size
+
+## Currently, BoostMQ can truthfully promise only a limited unchanged-code contract.
+
+| Behaviour | Current status |
+|---|---|
+| Compile the same  algorithm source | Supported |
+| Create one local algorithm peer per OS process | Supported |
+| Preserve peer IDs and configured peer count | Supported |
+| Send each peer its ID and neighbour topology | Supported |
+| Run local computation and message send/receive | Supported |
+| Pass JSON parameters to each local peer | Supported, but the hook sees only that peer |
+| Execute configured rounds and tests | Supported mechanically, not globally lockstep |
+| Produce per-peer metric files | Supported |
+| Produce leader completion and transport reports | Supported |
+
+What is only partially supported:
+
+| Behaviour | Current limitation |
+|---|---|
+| Complete membership | Leader knows everyone; each algorithm process receives only its own `Peer*` |
+| Topology-dependent initialization | Neighbours are correct, but algorithms cannot inspect every live peer |
+| Repeated tests | Implemented, but failure isolation is not yet proven |
+| Experiment success | Process completion is reported, but semantic correctness is not guaranteed |
+| Metrics | Transport counters are aggregated; algorithm-specific global results are not |
+| Randomness | Each process has independent state; cross-process equivalence is undefined |
+
+What BoostMQ currently cannot promise:
+
+- Correct global role assignment for Byzantine, crashed, or miner roles.
+- Exactly one experiment-wide action.
+- A complete `vector<Peer*>` containing remote peers.
+- Direct access to another peer’s fields or methods.
+- Dynamic replacement of a remote peer object.
+- Correct experiment-wide algorithm metrics.
+- Abstract delay, drop, duplicate, reorder, or lockstep behaviour.
+- That every existing algorithm behaves equivalently merely because it compiles and exits successfully.
+
+Concrete example: PBFT currently receives a one-peer vector in every process. Each process can build a one-member committee and mark its own first peer Byzantine. That is not equivalent to Abstract mode selecting one Byzantine peer from the complete committee.

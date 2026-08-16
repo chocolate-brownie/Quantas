@@ -33,6 +33,16 @@ int main() {
     networkInterface.configure(peerId, {});
     networkInterface.receive();
 
+    const nlohmann::json expectedMessage{{"message", "test"}};
+    for (int i = 0; i < 2; ++i) {
+        assert(!networkInterface.inStreamEmpty());
+        const quantas::Packet received = networkInterface.popInStream();
+        assert(received.sourceId() == 1);
+        assert(received.targetId() == 0);
+        assert(received.getMessage() == expectedMessage);
+    }
+    assert(networkInterface.inStreamEmpty());
+
     const quantas::TransportMetrics metrics = networkInterface.transportMetrics();
     assert(metrics.peakQueueUsage == 2);
     assert(metrics.receivedRaw == 2);

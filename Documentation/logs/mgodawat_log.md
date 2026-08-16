@@ -367,3 +367,10 @@ In this file I document what I do everyday during my internship.
 
 - Completed GitLab issue #30 with guarded `mq_status` and `mq_cleanup` targets, isolated cleanup tests, and researcher crash-recovery documentation.
 - Added lifecycle block comments to the BoostMQ leader main function. Validation passed with `make mq_cleanup_test`, `make mq_status`, `make mq_leader_debug`, and `git diff --check`.
+
+### 16/08/2026
+
+- Finished issue #40 by defining what must stay the same, what may differ, and what BoostMQ cannot support.
+- Added a packet test that checks the source, destination, and JSON message after BoostMQ transport.
+- Organized the remaining compatibility work under GitLab tasks #50, #51, #52, and #53.
+- Validation passed with `make test` and `git diff --check`.

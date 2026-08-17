@@ -39,8 +39,8 @@
 
 struct CliArgs {
     std::string jsonPath;
+    size_t experimentIndex;
     int peerId;
-    std::optional<int> roundsOverride;
 };
 
 using PeerAssignment = quantas::PeerAssignment;
@@ -80,19 +80,31 @@ void applyAssignment(
     peer->setNetworkInterface(mq);
 }
 
-// Parse worker CLI arguments: input JSON, peer id, optional rounds override.
+// Parse the launcher-owned experiment index and peer identity.
 std::optional<CliArgs> parseArgs(int argc, char** argv) {
-    if (argc < 3 || argv == nullptr) {
-        std::cerr << "Usage: " << argv[0] << " <input_json> <peer_id> [rounds]\n";
+    if (argc != 5 || argv == nullptr || std::string(argv[1]) != "--experiment") {
+        std::cerr << "Usage: " << argv[0]
+                  << " --experiment <experiment_index> <input_json> <peer_id>\n";
         return std::nullopt;
     }
 
     try {
         CliArgs args;
-        args.jsonPath = argv[1];
-        args.peerId = std::stoi(argv[2]);
+        size_t parsedCharacters = 0;
+        const long long experimentIndex = std::stoll(argv[2], &parsedCharacters);
+        if (parsedCharacters != std::string(argv[2]).size() || experimentIndex < 0) {
+            throw std::runtime_error("experiment index must be a non-negative integer");
+        }
 
-        if (argc >= 4) args.roundsOverride = std::stoi(argv[3]);
+        parsedCharacters = 0;
+        const long long peerId = std::stoll(argv[4], &parsedCharacters);
+        if (parsedCharacters != std::string(argv[4]).size() || peerId < 0) {
+            throw std::runtime_error("peer id must be a non-negative integer");
+        }
+
+        args.experimentIndex = static_cast<size_t>(experimentIndex);
+        args.jsonPath = argv[3];
+        args.peerId = static_cast<int>(peerId);
 
         return args;
     } catch (const std::exception& ex) {
@@ -301,90 +313,87 @@ int main(int argc, char** argv) {
 
     auto config = quantas::loadRuntimeConfig(cli->jsonPath);
     if (!config) return 1;
+    if (cli->experimentIndex >= (*config)["experiments"].size()) {
+        std::cerr << "error: experiment index " << cli->experimentIndex << " is out of range\n";
+        return 1;
+    }
 
     auto& coordinator = quantas::ProcessCoordinatorMQ::instance();
+    const size_t expIndex = cli->experimentIndex;
 
-    for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
-        std::vector<quantas::Peer*> localPeers;
-        try {
-            /*
-               ==================== Phase 1: Setup / Assembly ====================
-               Build all runtime state needed to execute this experiment in the
-               current worker process.
-               */
-            const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
-            quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(
-                *config,
+    std::vector<quantas::Peer*> localPeers;
+    try {
+        /*
+           ==================== Phase 1: Setup / Assembly ====================
+           Build all runtime state needed to execute this experiment in the
+           current worker process.
+           */
+        const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
+        quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(*config, expIndex);
+        const auto queueConfig = quantas::parseBoostMqQueueConfig(experiment, exp.initialPeers);
+
+        const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
+        const std::optional<int> processDisambiguator = cli->peerId;
+
+        for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
+            const int testNumber = testIndex + 1;
+            const std::string metricsFile = configureExperimentOutput(
+                logFileBase,
                 expIndex,
-                cli->roundsOverride
+                testNumber,
+                processDisambiguator
             );
-            const auto queueConfig = quantas::parseBoostMqQueueConfig(experiment, exp.initialPeers);
+            coordinator.configureExperiment(
+                expIndex,
+                exp.initialPeerType,
+                false,
+                exp.initialPeers,
+                cli->peerId,
+                logFileBase,
+                quantas::StopMode::FixedRounds,
+                queueConfig
+            );
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " output file: " << metricsFile;
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " starting experiment "
+                                       << expIndex << " test " << testNumber;
 
-            const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
-            const std::optional<int> processDisambiguator = cli->peerId;
+            initRendezvous(coordinator, cli->peerId);
 
-            for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
-                const int testNumber = testIndex + 1;
-                const std::string metricsFile = configureExperimentOutput(
-                    logFileBase,
-                    expIndex,
-                    testNumber,
-                    processDisambiguator
-                );
-                coordinator.configureExperiment(
-                    expIndex,
-                    exp.initialPeerType,
-                    false,
-                    exp.initialPeers,
-                    cli->peerId,
-                    logFileBase,
-                    quantas::StopMode::FixedRounds,
-                    queueConfig
-                );
-                QUANTAS_LOG_INFO("runner")
-                    << "peer " << cli->peerId << " output file: " << metricsFile;
-                QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " starting experiment "
-                                           << expIndex << " test " << testNumber;
-
-                initRendezvous(coordinator, cli->peerId);
-
-                std::vector<PeerAssignment> assignments = coordinator.waitForAssignments();
-                if (!prepareLocalPeers(exp, assignments, localPeers)) {
-                    cleanUp(localPeers);
-                    coordinator.cleanUp();
-                    QUANTAS_LOG_WARN("runner")
-                        << "experiment " << expIndex << ": no runnable local peers, skipping";
-                    continue;
-                }
-                resetTransportMetrics(localPeers);
-
-                QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
-                coordinator.waitForStart();
-                QUANTAS_LOG_INFO("runner")
-                    << "peer " << cli->peerId << " start signal acknowledged";
-
-                initializeHooks(experiment, localPeers);
-                const auto startTime = std::chrono::high_resolution_clock::now();
-
-                /*
-                   =================== Phase 2: Execute / Cleanup ====================
-                   Execute rounds for all local peers, then release experiment state.
-                   */
-
-                runRounds(localPeers, exp.rounds, coordinator);
-                emitFinalExperimentMetrics(startTime, localPeers, queueConfig.dataQueueCapacity);
-                coordinator.notifyPeerStopped(localPeers.front()->publicId());
-                coordinator.waitForStop();
-
+            std::vector<PeerAssignment> assignments = coordinator.waitForAssignments();
+            if (!prepareLocalPeers(exp, assignments, localPeers)) {
                 cleanUp(localPeers);
+                coordinator.cleanUp();
+                QUANTAS_LOG_WARN("runner")
+                    << "experiment " << expIndex << ": no runnable local peers, skipping";
+                continue;
             }
-            coordinator.cleanUp();
-        } catch (const std::exception& ex) {
+            resetTransportMetrics(localPeers);
+
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
+            coordinator.waitForStart();
+            QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " start signal acknowledged";
+
+            initializeHooks(experiment, localPeers);
+            const auto startTime = std::chrono::high_resolution_clock::now();
+
+            /*
+               =================== Phase 2: Execute / Cleanup ====================
+               Execute rounds for all local peers, then release experiment state.
+               */
+
+            runRounds(localPeers, exp.rounds, coordinator);
+            emitFinalExperimentMetrics(startTime, localPeers, queueConfig.dataQueueCapacity);
+            coordinator.notifyPeerStopped(localPeers.front()->publicId());
+            coordinator.waitForStop();
+
             cleanUp(localPeers);
-            coordinator.cleanUp();
-            QUANTAS_LOG_ERROR("runner") << "experiment " << expIndex << " failed: " << ex.what();
-            return 1;
         }
+        coordinator.cleanUp();
+    } catch (const std::exception& ex) {
+        cleanUp(localPeers);
+        coordinator.cleanUp();
+        QUANTAS_LOG_ERROR("runner") << "experiment " << expIndex << " failed: " << ex.what();
+        return 1;
     }
 
     return 0;

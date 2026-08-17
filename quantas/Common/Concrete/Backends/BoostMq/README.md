@@ -60,12 +60,33 @@ make check_mq_deps
 Run the full BoostMQ workflow from the repository root with:
 
 ```sh
-make mq_run_all INPUTFILE=quantas/ExamplePeer/ExampleInput.json
+make mq INPUTFILE=quantas/ExamplePeer/ExampleInput.json
 ```
 
 This builds and runs the two BoostMQ binaries: `quantas_mq_leader.exe` and `quantas_mq_peer.exe`. The leader coordinates the experiment lifecycle and writes the leader report. The peer binary is launched once per peer and executes that peer's assigned rounds.
 
-Use `MQ_TOTAL_PEERS=N` only when you need to override the peer count used by the makefile launcher. The leader still reads the experiment configuration from the JSON, so this value should match `topology.initialPeers` unless you are deliberately debugging launcher behavior. Use `MQ_ROUNDS=N` when you want to override the number of rounds from the input JSON for a quick run.
+Use the JSON file as the only source for peer, test, and round counts. To change
+an experiment, edit its `topology.initialPeers`, `tests`, or `rounds` value and
+run `make mq` again. Runtime count overrides are not supported.
+
+If one JSON file contains experiments with different peer counts, BoostMQ runs
+them separately and starts the correct peers for each experiment.
+
+Before starting any peer processes, `make mq` uses the leader's preflight mode
+to validate every experiment in the JSON. Preflight checks the configuration
+and queue requirements without running the experiments. If any experiment is
+invalid, the command stops and no experiment is launched.
+
+After preflight succeeds, `make mq` runs every experiment in the JSON in order.
+Each experiment gets a fresh leader process and the number of fresh peer
+processes set by that experiment's `topology.initialPeers` value. The next
+experiment starts only after the current one finishes.
+
+Run the same complete workflow with debug binaries and detailed symbols using:
+
+```sh
+make mq_debug INPUTFILE=quantas/ExamplePeer/ExampleInput.json
+```
 
 The leader sizes the shared `mq_barrier` and `mq_done` queues from the experiment peer count so each peer has room for one ready or done signal. On the supported Linux environment, Boost.Interprocess stores these resources under `/dev/shm`, for example `/dev/shm/mq_barrier` and `/dev/shm/peer_0_data`. They are not governed by the POSIX message-queue setting `fs.mqueue.msg_max`.
 
@@ -80,9 +101,9 @@ Each experiment may configure its data queues:
 }
 ```
 
-Both settings are optional. Their defaults are `1000` messages and `4096` bytes. The control queue capacity is derived from `topology.initialPeers`; it is not a separate JSON setting. Before launching workers, `mq_run_all` checks that the queues can be created and that every topology assignment fits within `maxMessageSizeBytes`.
+Both settings are optional. Their defaults are `1000` messages and `4096` bytes. The control queue capacity is derived from `topology.initialPeers`; it is not a separate JSON setting. Before launching workers, `make mq` checks that the queues can be created and that every topology assignment fits within `maxMessageSizeBytes`.
 
-A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer.
+A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer. The leader report records `peerCount`, `testCount`, `rounds`, and each test's `completedPeerCount`.
 
 ## Crash diagnosis and recovery
 

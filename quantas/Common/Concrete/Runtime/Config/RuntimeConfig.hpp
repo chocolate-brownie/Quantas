@@ -19,11 +19,7 @@ struct RuntimeExperimentConfig {
 
 std::optional<nlohmann::json> loadRuntimeConfig(const std::string& jsonPath);
 
-RuntimeExperimentConfig parseRuntimeExperiment(
-    const nlohmann::json& config,
-    size_t expIndex,
-    const std::optional<int>& roundsOverride = std::nullopt
-);
+RuntimeExperimentConfig parseRuntimeExperiment(const nlohmann::json& config, size_t expIndex);
 
 } // namespace quantas
 

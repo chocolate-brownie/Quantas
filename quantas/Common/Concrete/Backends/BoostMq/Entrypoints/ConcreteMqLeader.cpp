@@ -14,6 +14,12 @@
 #include <vector>
 
 namespace {
+struct LeaderCliArgs {
+    std::string inputPath;
+    std::optional<size_t> experimentIndex;
+    bool preflightOnly{false};
+};
+
 struct TestReportInfo {
     size_t testIndex{0};
     std::chrono::duration<double> duration{};
@@ -33,8 +39,51 @@ std::optional<nlohmann::json> parseAndLoadConfig(const std::string& inputPath) {
 }
 
 void printUsage(const char* programName) {
-    std::cerr << "Usage: " << programName << " <input_json>\n"
+    std::cerr << "Usage: " << programName << " --experiment <experiment_index> <input_json>\n"
               << "       " << programName << " --preflight <input_json>\n";
+}
+
+std::optional<LeaderCliArgs> parseLeaderArgs(int argc, char* argv[]) {
+    if (argc == 3 && std::string(argv[1]) == "--preflight") {
+        return LeaderCliArgs{argv[2], std::nullopt, true};
+    }
+    if (argc != 4 || std::string(argv[1]) != "--experiment") {
+        printUsage(argv[0]);
+        return std::nullopt;
+    }
+
+    try {
+        size_t parsedCharacters = 0;
+        const long long experimentIndex = std::stoll(argv[2], &parsedCharacters);
+        if (parsedCharacters != std::string(argv[2]).size() || experimentIndex < 0) {
+            throw std::runtime_error("experiment index must be a non-negative integer");
+        }
+        return LeaderCliArgs{argv[3], static_cast<size_t>(experimentIndex), false};
+    } catch (const std::exception& ex) {
+        std::cerr << "error: invalid experiment index: " << ex.what() << '\n';
+        return std::nullopt;
+    }
+}
+
+/* Select every experiment for preflight, or one requested experiment for a
+ * normal run. Return no value when the requested experiment does not exist. */
+std::optional<std::vector<size_t>>
+selectExperimentIndexes(const LeaderCliArgs& cli, size_t experimentCount) {
+    std::vector<size_t> indexes;
+
+    if (cli.preflightOnly) {
+        indexes.reserve(experimentCount);
+        for (size_t i = 0; i < experimentCount; ++i) indexes.push_back(i);
+        return indexes;
+    }
+
+    if (*cli.experimentIndex >= experimentCount) {
+        std::cerr << "error: experiment index " << *cli.experimentIndex << " is out of range\n";
+        return std::nullopt;
+    }
+
+    indexes.push_back(*cli.experimentIndex);
+    return indexes;
 }
 
 /*
@@ -53,6 +102,7 @@ nlohmann::json makeBaseExperimentReport(
     report["peerType"] = exp.initialPeerType;
     report["topologyType"] = exp.topology.value("type", "unknown");
     report["rounds"] = exp.rounds;
+    report["testCount"] = exp.tests;
     report["doneTimeoutMs"] = exp.doneTimeoutMs;
     report["boostMq"] = {
         {"controlQueueCapacity", queueConfig.controlQueueCapacity},
@@ -74,6 +124,7 @@ nlohmann::json makeTestReport(const TestReportInfo& info) {
     testReport["testIndex"] = info.testIndex;
     testReport["durationSeconds"] = info.duration.count();
     testReport["completedPeers"] = info.completedPeers;
+    testReport["completedPeerCount"] = info.completedPeers.size();
     testReport["missingPeers"] = info.missingPeerIds;
     testReport["timedOut"] = info.timedOut;
     testReport["success"] = !info.timedOut && info.missingPeerIds.empty();
@@ -258,18 +309,18 @@ nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics) 
 int main(int argc, char* argv[]) {
     /* Validate the command line and select normal execution or validation-only
      * preflight mode. Both modes operate on one JSON input file. */
-    const bool preflightOnly = argc >= 2 && std::string(argv[1]) == "--preflight";
-    if ((!preflightOnly && argc != 2) || (preflightOnly && argc != 3)) {
-        printUsage(argv[0]);
-        return 1;
-    }
+    const auto cli = parseLeaderArgs(argc, argv);
+    if (!cli) return 1;
 
     /* Load and validate the top-level configuration before acquiring any MQ
      * resources or starting an experiment. */
-    const std::string inputPath = preflightOnly ? argv[2] : argv[1];
-    auto config = parseAndLoadConfig(inputPath);
-
+    auto config = parseAndLoadConfig(cli->inputPath);
     if (!config) return 1;
+
+    /* Select every experiment for preflight, or one requested experiment for a
+     * normal run. Return no value when the requested experiment does not exist. */
+    const auto experimentIndexes = selectExperimentIndexes(*cli, (*config)["experiments"].size());
+    if (!experimentIndexes) return 1;
 
     /* Use the shared coordinator to own the leader's rendezvous protocol and
      * the lifecycle of its BoostMQ resources. */
@@ -277,7 +328,7 @@ int main(int argc, char* argv[]) {
 
     /* Process each configured experiment independently so failures can be
      * reported with the corresponding experiment index. */
-    for (size_t expIndex = 0; expIndex < (*config)["experiments"].size(); ++expIndex) {
+    for (const size_t expIndex : *experimentIndexes) {
         try {
             const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
 
@@ -298,7 +349,7 @@ int main(int argc, char* argv[]) {
                 expIndex
             );
 
-            if (preflightOnly) continue;
+            if (cli->preflightOnly) continue;
 
             /* Initialize timing, output paths, and coordinator state for this
              * experiment before any peers enter the rendezvous. */
@@ -325,7 +376,7 @@ int main(int argc, char* argv[]) {
                 << " with totalPeers=" << exp.initialPeers << " tests=" << exp.tests;
 
             nlohmann::json expReport = makeBaseExperimentReport(expIndex, exp, queueConfig);
-            expReport["inputFile"] = inputPath;
+            expReport["inputFile"] = cli->inputPath;
             expReport["expectedPeers"] = expectedPeers(exp.initialPeers);
             bool allTestsSucceeded = true;
             bool experimentTimedOut = false;
@@ -435,7 +486,7 @@ int main(int argc, char* argv[]) {
 
     /* Confirm that validation-only mode checked every configured experiment
      * without starting a rendezvous. */
-    if (preflightOnly) {
+    if (cli->preflightOnly) {
         QUANTAS_LOG_INFO("preflight") << "all BoostMQ queue preflight checks passed";
     }
 

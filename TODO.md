@@ -41,9 +41,7 @@ feature.
 
 ## P — Behavior that must be the same
 
-### Check on the current branch
-
-Test these on the current #40 branch.
+### Compatibility checks
 
 - [x] **Yes** — P1: both backends compile the same researcher algorithm source.
 - [x] **Yes** — P2: both backends create the same peer type through `PeerRegistry`.
@@ -56,7 +54,7 @@ Test these on the current #40 branch.
 
 ### New tasks
 
-- [ ] **Partial** — P4 and P10: same peer, test, and round counts. See #50.
+- [x] **Yes** — P4 and P10: same peer, test, and round counts. See #50.
 - [ ] **No** — P14: same random-seed rule. See #53.
 - [ ] **Partial** — P6: same starting topology. See #52 after #53.
 

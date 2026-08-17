@@ -374,3 +374,9 @@ In this file I document what I do everyday during my internship.
 - Added a packet test that checks the source, destination, and JSON message after BoostMQ transport.
 - Organized the remaining compatibility work under GitLab tasks #50, #51, #52, and #53.
 - Validation passed with `make test` and `git diff --check`.
+
+### 17/08/2026
+
+- Finished issue #50. BoostMQ now reads peer, test, and round counts only from JSON.
+- Added `make mq` and `make mq_debug`; each JSON experiment runs with fresh processes and its own peer count.
+- Added count validation, report count fields, and mixed-experiment tests. `make test` and `git diff --check` passed.

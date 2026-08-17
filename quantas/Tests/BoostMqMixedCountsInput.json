@@ -1,0 +1,34 @@
+{
+  "algorithms": [
+    "ExamplePeer/ExamplePeer.cpp",
+    "ExamplePeer/ExamplePeer2.cpp"
+  ],
+  "experiments": [
+    {
+      "logFile": "build/tests/mqCountsFirst.txt",
+      "parameters": {
+        "changePeerType": false
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 1
+    },
+    {
+      "logFile": "build/tests/mqCountsSecond.txt",
+      "parameters": {
+        "changePeerType": false
+      },
+      "topology": {
+        "type": "ring",
+        "initialPeers": 3,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 2,
+      "rounds": 2
+    }
+  ]
+}

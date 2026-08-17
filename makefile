@@ -43,10 +43,6 @@ INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 EXE := quantas.exe
 MQ_EXE := quantas_mq_peer.exe
 MQ_LEADER_EXE := quantas_mq_leader.exe
-MQ_PEER_ID ?= 0
-MQ_ROUNDS ?=
-MQ_TOTAL_PEERS ?= $(shell python3 -c 'import json, sys; values = {e["topology"]["initialPeers"] for e in json.load(open(sys.argv[1]))["experiments"]}; print(next(iter(values))) if len(values) == 1 else sys.exit("MQ input experiments must use one peer count; set MQ_TOTAL_PEERS explicitly")' "$(INPUTFILE)")
-MQ_DEBUG_PEER_ID ?= 0
 MQ_RESOURCE_DIR := /dev/shm
 MQ_PROCESS_PATTERN := (^|/)[q]uantas_mq_(leader|peer)\.exe([[:space:]]|$$)
 MQ_RESOURCE_REGEX := .*/(mq_barrier|mq_done|peer_[0-9]+_(control|data))
@@ -118,9 +114,8 @@ mq_leader_release: check-version build/release/$(MQ_LEADER_EXE)
 mq_leader_debug: check-version build/debug/$(MQ_LEADER_EXE)
 	@ln -sfn build/debug/$(MQ_LEADER_EXE) $(MQ_LEADER_EXE)
 
-# Backward-compatible aliases (prefer mq_peer_release / mq_peer_debug).
-mq_release: mq_peer_release
-mq_debug: mq_peer_debug
+# Build-only aliases for developers working on the two BoostMQ binaries.
+mq_release: mq_peer_release mq_leader_release
 
 ############################### Running Commands ###############################
 
@@ -131,17 +126,9 @@ help:
 	@printf "  %s\n" "make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json"
 	@printf "  %s\n" "make debug INPUTFILE=..."
 	@echo ""
-	@printf "👤MQ peer runtime\n"
-	@printf "  %s\n" "make mq_peer_debug INPUTFILE=quantas/AltBitPeer/AltBitUtility.json"
-	@printf "  %s\n" "make mq_peer_run INPUTFILE=... MQ_PEER_ID=0 [MQ_ROUNDS=10]"
-	@echo ""
-	@printf "🎛️MQ leader runtime\n"
-	@printf "  %s\n" "make mq_leader_debug INPUTFILE=..."
-	@printf "  %s\n" "make mq_leader_run INPUTFILE=..."
-	@echo ""
-	@printf "🚀MQ leader + peers orchestration\n"
-	@printf "  %s\n" "make mq_run_all INPUTFILE=... [MQ_TOTAL_PEERS=override] [MQ_ROUNDS=10]"
-	@printf "  %s\n" "make mq_run_all_debug_peer INPUTFILE=... [MQ_TOTAL_PEERS=override] MQ_DEBUG_PEER_ID=0 [MQ_ROUNDS=10]"
+	@printf "🚀BoostMQ runtime\n"
+	@printf "  %-42s # %s\n" "make mq INPUTFILE=..." "run the JSON experiments with release binaries"
+	@printf "  %-42s # %s\n" "make mq_debug INPUTFILE=..." "run the same JSON experiments with debug binaries"
 	@echo ""
 	@printf "🔍Tests / diagnostics\n"
 	@printf "  %-42s # %s\n" "make check_mq_deps" "verify BoostMQ compile/link dependencies"
@@ -165,96 +152,17 @@ run: release
 	@./$(EXE) $(INPUTFILE); exit_code=$$?; \
 	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
 
-mq_peer_run: mq_peer_release
-	@echo running MQ peer with input: $(INPUTFILE), peer_id: $(MQ_PEER_ID), rounds: $(MQ_ROUNDS)
-	@if [ -n "$(MQ_ROUNDS)" ]; then \
-		./$(MQ_EXE) $(INPUTFILE) $(MQ_PEER_ID) $(MQ_ROUNDS); \
-	else \
-		./$(MQ_EXE) $(INPUTFILE) $(MQ_PEER_ID); \
-	fi; \
-	exit_code=$$?; \
-	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
+mq: mq_peer_release mq_leader_release
+	$(call reject_removed_mq_variables)
+	@$(MAKE) --no-print-directory -s mq_cleanup >/dev/null
+	$(call run_mq_experiments)
+	@$(MAKE) --no-print-directory -s mq_cleanup >/dev/null
 
-mq_leader_run: mq_leader_release
-	@echo running MQ leader with input: $(INPUTFILE)
-	@./$(MQ_LEADER_EXE) $(INPUTFILE); exit_code=$$?; \
-	if [ $$exit_code -ne 0 ]; then $(call check_failure); exit $$exit_code; fi
-
-mq_run_all: mq_peer_release mq_leader_release
-	@echo running MQ leader + peers with input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
-	@./$(MQ_LEADER_EXE) --preflight $(INPUTFILE)
-	@$(MAKE) --no-print-directory clean_mq_queues MQ_TOTAL_PEERS=$(MQ_TOTAL_PEERS)
-	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \
-	echo "[mq_run_all] started leader pid=$$leader_pid"; \
-	sleep 0.2; \
-	peer_pids=""; \
-	for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do \
-		if [ -n "$(MQ_ROUNDS)" ]; then \
-			./$(MQ_EXE) $(INPUTFILE) $$i $(MQ_ROUNDS) & \
-		else \
-			./$(MQ_EXE) $(INPUTFILE) $$i & \
-		fi; \
-		pid=$$!; \
-		echo "[mq_run_all] started peer $$i pid=$$pid"; \
-		peer_pids="$$peer_pids $$i:$$pid"; \
-	done; \
-	wait $$leader_pid; leader_ec=$$?; \
-	echo "[mq_run_all] leader (pid $$leader_pid) exit code=$$leader_ec"; \
-	overall=$$leader_ec; \
-	if [ $$leader_ec -ne 0 ]; then \
-		for entry in $$peer_pids; do \
-			pid=$${entry##*:}; \
-			kill $$pid 2>/dev/null || true; \
-		done; \
-	fi; \
-	for entry in $$peer_pids; do \
-		peer_id=$${entry%%:*}; pid=$${entry##*:}; \
-		wait $$pid; peer_ec=$$?; \
-		echo "[mq_run_all] peer $$peer_id (pid $$pid) exit code=$$peer_ec"; \
-		if [ $$peer_ec -ne 0 ] && [ $$overall -eq 0 ]; then overall=$$peer_ec; fi; \
-	done; \
-	if [ $$overall -ne 0 ]; then $(call check_failure); exit $$overall; fi
-
-mq_run_all_debug_peer: mq_peer_debug mq_leader_debug
-	@echo running MQ leader + peers with gdb on peer $(MQ_DEBUG_PEER_ID), input: $(INPUTFILE), peers: $(MQ_TOTAL_PEERS), rounds: $(MQ_ROUNDS)
-	@./$(MQ_LEADER_EXE) --preflight $(INPUTFILE)
-	@$(MAKE) --no-print-directory clean_mq_queues MQ_TOTAL_PEERS=$(MQ_TOTAL_PEERS)
-	@./$(MQ_LEADER_EXE) $(INPUTFILE) & leader_pid=$$!; \
-	echo "[mq_run_all_debug_peer] started leader pid=$$leader_pid"; \
-	sleep 0.2; \
-	peer_pids=""; \
-	for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do \
-		if [ $$i -eq $(MQ_DEBUG_PEER_ID) ]; then \
-			continue; \
-		fi; \
-		if [ -n "$(MQ_ROUNDS)" ]; then \
-			./$(MQ_EXE) $(INPUTFILE) $$i $(MQ_ROUNDS) & \
-		else \
-			./$(MQ_EXE) $(INPUTFILE) $$i & \
-		fi; \
-		pid=$$!; \
-		echo "[mq_run_all_debug_peer] started peer $$i pid=$$pid"; \
-		peer_pids="$$peer_pids $$i:$$pid"; \
-	done; \
-	echo "[mq_run_all_debug_peer] launching gdb for peer $(MQ_DEBUG_PEER_ID)"; \
-	if [ -n "$(MQ_ROUNDS)" ]; then \
-		gdb --args ./$(MQ_EXE) $(INPUTFILE) $(MQ_DEBUG_PEER_ID) $(MQ_ROUNDS); \
-	else \
-		gdb --args ./$(MQ_EXE) $(INPUTFILE) $(MQ_DEBUG_PEER_ID); \
-	fi; \
-	gdb_ec=$$?; \
-	echo "[mq_run_all_debug_peer] gdb peer $(MQ_DEBUG_PEER_ID) exit code=$$gdb_ec"; \
-	overall=$$gdb_ec; \
-	for entry in $$peer_pids; do \
-		peer_id=$${entry%%:*}; pid=$${entry##*:}; \
-		wait $$pid; peer_ec=$$?; \
-		echo "[mq_run_all_debug_peer] peer $$peer_id (pid $$pid) exit code=$$peer_ec"; \
-		if [ $$peer_ec -ne 0 ] && [ $$overall -eq 0 ]; then overall=$$peer_ec; fi; \
-	done; \
-	wait $$leader_pid; leader_ec=$$?; \
-	echo "[mq_run_all_debug_peer] leader (pid $$leader_pid) exit code=$$leader_ec"; \
-	if [ $$leader_ec -ne 0 ] && [ $$overall -eq 0 ]; then overall=$$leader_ec; fi; \
-	if [ $$overall -ne 0 ]; then $(call check_failure); exit $$overall; fi
+mq_debug: mq_peer_debug mq_leader_debug
+	$(call reject_removed_mq_variables)
+	@$(MAKE) --no-print-directory -s mq_cleanup >/dev/null
+	$(call run_mq_experiments)
+	@$(MAKE) --no-print-directory -s mq_cleanup >/dev/null
 
 ############################### Debugging ###############################
 
@@ -314,6 +222,16 @@ mq_transport_metrics_test: build/tests/mq_transport_metrics_test.exe
 	@./build/tests/mq_transport_metrics_test.exe
 	@echo ""
 
+mq_runtime_config_test: build/tests/mq_runtime_config_test.exe
+	@echo "Testing required runtime counts..."
+	@./build/tests/mq_runtime_config_test.exe
+	@echo ""
+
+mq_run_counts_test: mq_peer_debug mq_leader_debug mq_runtime_config_test
+	@echo "Testing JSON-only BoostMQ run counts..."
+	@bash quantas/Tests/mqRunCountsTest.sh
+	@echo ""
+
 mq_cleanup_test:
 	@echo "Testing safe BoostMQ cleanup..."
 	@bash quantas/Tests/mqCleanupTest.sh
@@ -323,7 +241,7 @@ mq_cleanup_test:
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test mq_cleanup_test
+test: check-version rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test mq_cleanup_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
@@ -342,6 +260,63 @@ define check_failure
         dmesg 2>/dev/null | tail -200; \
       fi; \
     } | grep -iE 'oom|killed|segfault|error' || echo "No relevant logs found."
+endef
+
+define reject_removed_mq_variables
+$(if $(filter undefined,$(origin MQ_TOTAL_PEERS)),,$(error MQ_TOTAL_PEERS was removed; edit the JSON input file))
+$(if $(filter undefined,$(origin MQ_ROUNDS)),,$(error MQ_ROUNDS was removed; edit the JSON input file))
+$(if $(filter undefined,$(origin MQ_PEER_ID)),,$(error MQ_PEER_ID was removed; peer IDs come from the JSON experiment))
+$(if $(filter undefined,$(origin MQ_DEBUG_PEER_ID)),,$(error MQ_DEBUG_PEER_ID was removed; mq_debug runs the complete JSON experiment))
+endef
+
+define run_mq_experiments
+	@./$(MQ_LEADER_EXE) --preflight "$(INPUTFILE)"
+	@plan=$$(python3 -c 'import json, sys; config=json.load(open(sys.argv[1])); [print(index, experiment["topology"]["initialPeers"]) for index, experiment in enumerate(config["experiments"])]' "$(INPUTFILE)"); \
+	test -n "$$plan" || { echo "error: no experiments found in $(INPUTFILE)"; exit 1; }; \
+	printf '%s\n' "$$plan" | while read -r experiment_index total_peers; do \
+		echo "[mq] experiment $$experiment_index: peers=$$total_peers input=$(INPUTFILE)"; \
+		leader_pid=""; peer_pids=""; \
+		remove_resources() { \
+			resources=$$(find "$(MQ_RESOURCE_DIR)" -maxdepth 1 -type f \
+				-regextype posix-extended -regex '$(MQ_RESOURCE_REGEX)' -print); \
+			for resource in $$resources; do $(RM) -- "$$resource"; done; \
+		}; \
+		terminate_children() { \
+			if test -n "$$leader_pid"; then kill $$leader_pid 2>/dev/null || true; fi; \
+			for entry in $$peer_pids; do kill $${entry##*:} 2>/dev/null || true; done; \
+			if test -n "$$leader_pid"; then wait $$leader_pid 2>/dev/null || true; fi; \
+			for entry in $$peer_pids; do wait $${entry##*:} 2>/dev/null || true; done; \
+			remove_resources; \
+		}; \
+		trap 'terminate_children; exit 130' INT TERM HUP; \
+		./$(MQ_LEADER_EXE) --experiment $$experiment_index "$(INPUTFILE)" & leader_pid=$$!; \
+		echo "[mq] started leader pid=$$leader_pid"; \
+		sleep 0.2; \
+		for i in $$(seq 0 $$((total_peers-1))); do \
+			./$(MQ_EXE) --experiment $$experiment_index "$(INPUTFILE)" $$i & \
+			pid=$$!; \
+			echo "[mq] started peer $$i pid=$$pid"; \
+			peer_pids="$$peer_pids $$i:$$pid"; \
+		done; \
+		wait $$leader_pid; leader_ec=$$?; \
+		echo "[mq] leader (pid $$leader_pid) exit code=$$leader_ec"; \
+		overall=$$leader_ec; \
+		if test $$leader_ec -ne 0; then \
+			terminate_children; \
+			trap - INT TERM HUP; \
+			$(call check_failure); \
+			exit $$overall; \
+		fi; \
+		for entry in $$peer_pids; do \
+			peer_id=$${entry%%:*}; pid=$${entry##*:}; \
+			wait $$pid; peer_ec=$$?; \
+			echo "[mq] peer $$peer_id (pid $$pid) exit code=$$peer_ec"; \
+			if test $$peer_ec -ne 0 && test $$overall -eq 0; then overall=$$peer_ec; fi; \
+		done; \
+		trap - INT TERM HUP; \
+		leader_pid=""; peer_pids=""; \
+		if test $$overall -ne 0; then remove_resources; $(call check_failure); exit $$overall; fi; \
+	done
 endef
 
 build/release/%.o: %.cpp
@@ -425,6 +400,11 @@ build/tests/mq_transport_metrics_test.exe: quantas/Tests/boostMqTransportMetrics
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
 
+build/tests/mq_runtime_config_test.exe: quantas/Tests/runtimeConfigCountTest.cpp \
+		quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@
+
 -include $(ALL_DEPFILES)
 
 ############################### Cleanup ###############################
@@ -441,15 +421,6 @@ clean: clean_outputs
 	@$(RM) **/*.tmp
 	@$(RM) **/*.exe
 	@$(RM) ./vgcore.*
-
-clean_mq_queues:
-	@test -n "$(MQ_TOTAL_PEERS)" && test "$(MQ_TOTAL_PEERS)" -gt 0 2>/dev/null || { \
-		echo "MQ_TOTAL_PEERS must be a positive integer."; exit 1; \
-	}
-	@$(RM) /dev/shm/mq_barrier /dev/shm/mq_done
-	@for i in $$(seq 0 $$(($(MQ_TOTAL_PEERS)-1))); do \
-		$(RM) /dev/shm/peer_$${i}_control /dev/shm/peer_$${i}_data; \
-	done
 
 mq_status:
 	@command -v pgrep >/dev/null 2>&1 || { echo "error: pgrep is required."; exit 1; }
@@ -504,4 +475,4 @@ clean_txt:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean clean_mq_queues mq_status mq_cleanup run mq_peer_run mq_leader_run mq_run_all mq_run_all_debug_peer release debug mq_peer_release mq_peer_debug mq_release mq_debug mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test mq_cleanup_test test clean_outputs clean_txt
+.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test mq_cleanup_test test clean_outputs clean_txt

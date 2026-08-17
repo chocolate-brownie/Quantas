@@ -45,7 +45,7 @@ class Simulation {
     inline void run(json config);
 };
 
-size_t Simulation::_peakMemoryKB = 0;
+size_t Simulation::_peakMemoryKB = 0; // IWYU pragma: keep
 
 inline void Simulation::run(json config) {
     std::string logFile = config.value("logFile", "cout");
@@ -94,7 +94,7 @@ inline void Simulation::run(json config) {
         if (config.contains("parameters")) {
             system.initParameters(config["parameters"]);
         } else {
-            json empty;
+            json empty = json::object();
             system.initParameters(empty);
         }
 

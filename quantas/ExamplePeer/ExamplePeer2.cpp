@@ -41,7 +41,7 @@ ExamplePeer2::ExamplePeer2(ExamplePeer* rhs)
 
 ExamplePeer2::~ExamplePeer2() = default;
 
-void ExamplePeer2::initParameters(std::vector<Peer*>& peers, json parameters) {
+void ExamplePeer2::initParameters(const std::vector<Peer*>& peers, json parameters) {
     if (parameters.contains("parameter1")) {
         LogWriter::pushValue("parameter1", parameters["parameter1"]);
     }

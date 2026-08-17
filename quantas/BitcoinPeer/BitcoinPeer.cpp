@@ -15,7 +15,7 @@ QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <deque>
 #include <functional>
-#include <limits>
+#include <limits> // IWYU pragma: keep
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>

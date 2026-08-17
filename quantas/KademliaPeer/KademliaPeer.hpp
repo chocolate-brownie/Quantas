@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License along with QUA
 #include <string>
 #include <vector>
 
-#include "quantas/Common/Json.hpp"
+#include "quantas/Common/Json.hpp" // IWYU pragma: keep
 #include "quantas/Common/Peer.hpp"
 
 namespace quantas {

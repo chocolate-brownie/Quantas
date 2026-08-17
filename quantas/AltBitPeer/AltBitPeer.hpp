@@ -28,7 +28,7 @@ namespace quantas {
 		// perform any calculations needed at the end of a round such as determine throughput (only ran once, not for every peer)
 		void                 endOfRound(vector<Peer*>& _peers) override;
 
-		void 				 initParameters(const std::vector<Peer*>& _peers, json parameters);
+		void 				 initParameters(const std::vector<Peer*>& _peers, json parameters) override;
 
 		// the id of the next transaction to submit
 		int currentTransaction = 1;

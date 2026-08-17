@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
-#include <thread>
+#include <thread> // IWYU pragma: keep
 
 #include "quantas/Common/Concrete/Backends/TCP/NetworkInterfaceConcrete.hpp"
 #include "quantas/Common/Concrete/Backends/TCP/ProcessCoordinator.hpp"

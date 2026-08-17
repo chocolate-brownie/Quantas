@@ -250,9 +250,8 @@ bool prepareLocalPeers(
 }
 
 void initializeHooks(const nlohmann::json& experiment, std::vector<quantas::Peer*>& localPeers) {
-    if (experiment.contains("parameters")) {
-        localPeers.front()->initParameters(localPeers, experiment["parameters"]);
-    }
+    const nlohmann::json parameters = experiment.value("parameters", nlohmann::json::object());
+    localPeers.front()->initParameters(localPeers, parameters);
 }
 
 quantas::TransportMetrics collectTransportMetrics(const std::vector<quantas::Peer*>& localPeers) {

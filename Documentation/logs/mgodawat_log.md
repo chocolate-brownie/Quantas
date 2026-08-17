@@ -380,3 +380,6 @@ In this file I document what I do everyday during my internship.
 - Finished issue #50. BoostMQ now reads peer, test, and round counts only from JSON.
 - Added `make mq` and `make mq_debug`; each JSON experiment runs with fresh processes and its own peer count.
 - Added count validation, report count fields, and mixed-experiment tests. `make test` and `git diff --check` passed.
+- Finished issue #51 by fixing and enforcing the shared `initParameters` signature.
+- Abstract and BoostMQ now pass the same JSON parameters, including an empty object when the field is missing.
+- Added a cross-backend parameter test. The full test and Valgrind suite passed.

@@ -7,19 +7,19 @@ QUANTAS is distributed in the hope that it will be useful, but WITHOUT ANY WARRA
 You should have received a copy of the GNU General Public License along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <iostream>
+#include <iostream> // IWYU pragma: keep
 #include "AltBitPeer.hpp"
 
 namespace quantas {
 
 	static bool registerAltBit = [](){
-		PeerRegistry::registerPeerType("AltBitPeer", 
+		PeerRegistry::registerPeerType("AltBitPeer",
 			[](interfaceId pubId){ return new AltBitPeer(new NetworkInterfaceAbstract(pubId)); });
 		return true;
 	}();
 
 	static bool registerAltBitConcrete = [](){
-		PeerRegistry::registerPeerType("AltBitPeerConcrete", 
+		PeerRegistry::registerPeerType("AltBitPeerConcrete",
 			[](interfaceId pubId){ return new AltBitPeer(new NetworkInterfaceConcrete()); });
 		return true;
 	}();
@@ -91,7 +91,7 @@ namespace quantas {
 		}
 	}
 
-	
+
 
 	void AltBitPeer::endOfRound(vector<Peer*>& _peers) {
 		if (RoundManager::lastRound() <= RoundManager::currentRound()) {

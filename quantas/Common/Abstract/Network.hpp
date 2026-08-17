@@ -21,7 +21,7 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 
 #include "../Json.hpp"
 #include "../Peer.hpp"
-#include <climits>
+#include <climits> // IWYU pragma: keep
 #include <vector>
 
 namespace quantas {

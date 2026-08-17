@@ -15,7 +15,7 @@ QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <deque>
 #include <functional>
-#include <limits>
+#include <limits> // IWYU pragma: keep
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -173,7 +173,7 @@ void EthereumPeer::initParameters(const std::vector<Peer*>& _peers, json paramet
 
 void EthereumPeer::endOfRound(std::vector<Peer*>& _peers) {
     const std::vector<EthereumPeer*>& peers = reinterpret_cast<const std::vector<EthereumPeer*>&>(_peers);
-    
+
     if (peers.empty()) return;
 
     // Log only on the final round to reduce overhead

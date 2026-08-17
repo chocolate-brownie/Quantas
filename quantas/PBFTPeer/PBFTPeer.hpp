@@ -10,7 +10,7 @@ You should have received a copy of the GNU General Public License along with QUA
 #ifndef PBFTPEER_HPP
 #define PBFTPEER_HPP
 
-#include <deque>
+#include <deque>  // IWYU pragma: keep
 #include <vector>
 #include <map>
 #include "../Common/ConsensusPeer.hpp"
@@ -31,10 +31,10 @@ namespace quantas{
         void performComputation() override;
         // initialize the configuration of the system
         void initParameters(const std::vector<Peer*>& peers, json parameters) override;
-        
+
         // perform any calculations needed at the end of a round such as determine throughput (only ran once, not for every peer)
         void endOfRound(vector<Peer*>& _peers) override;
-        
+
     };
 }
 #endif /* PBFTPEER_HPP */

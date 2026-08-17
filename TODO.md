@@ -46,7 +46,7 @@ feature.
 - [x] **Yes** — P1: both backends compile the same researcher algorithm source.
 - [x] **Yes** — P2: both backends create the same peer type through `PeerRegistry`.
 - [x] **Yes** — P3: both backends use the same set of peer IDs.
-- [ ] **Partial** — P5: both backends give peers the same shared experiment settings. See #51.
+- [x] **Yes** — P5: both backends give peers the same shared experiment settings. See #51.
 - [x] **Yes** — P8: both backends call the same `performComputation()` code.
 - [x] **Yes** — P9: BoostMQ keeps the packet source, destination, and JSON message unchanged.
 - [x] Run at least one algorithm successfully with both backends.

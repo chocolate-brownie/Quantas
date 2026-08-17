@@ -21,9 +21,9 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 
 #include <vector>
 #include <string>
-#include <iostream>
-#include <algorithm>
-#include <memory>
+#include <iostream> // IWYU pragma: keep
+#include <algorithm> // IWYU pragma: keep
+#include <memory> // IWYU pragma: keep
 #include "Peer.hpp"
 #include "Faults.hpp"
 
@@ -46,42 +46,42 @@ inline ByzantinePeer() {}
         }
     };
 
-    virtual void initParameters(const std::vector<Peer*>& peers, json parameters) {}
+    void initParameters(const std::vector<Peer*>& peers, json parameters) override {}
 
-    virtual void performComputation() = 0;
+    void performComputation() override = 0;
 
     // Send messages to to others using these
-    virtual void unicastTo (json msg, const interfaceId& dest) override { 
+    virtual void unicastTo (json msg, const interfaceId& dest) override {
         bool skipRegular = faultManager.applyUnicastTo(this, msg, dest);
-        if (!skipRegular) 
+        if (!skipRegular)
             _networkInterface->unicastTo(msg, dest);
     };
 
-    virtual void unicast (json msg) override { 
+    virtual void unicast (json msg) override {
         bool skipRegular = faultManager.applySend(this, msg, "unicast");
-        if (!skipRegular) 
+        if (!skipRegular)
             _networkInterface->unicast(msg);
     };
 
-    virtual void multicast (json msg, const std::set<interfaceId>& targets) override { 
+    virtual void multicast (json msg, const std::set<interfaceId>& targets) override {
         bool skipRegular = faultManager.applySend(this, msg, "multicast", targets);
-        if (!skipRegular) 
+        if (!skipRegular)
             _networkInterface->multicast(msg, targets);
     };
 
-    virtual void broadcast (json msg) override { 
+    virtual void broadcast (json msg) override {
         bool skipRegular = faultManager.applySend(this, msg, "broadcast");
-        if (!skipRegular) 
+        if (!skipRegular)
             _networkInterface->broadcast(msg);
     };
 
-    virtual void broadcastBut (json msg, const interfaceId& id) override { 
-        _networkInterface->broadcastBut(msg, id); 
+    virtual void broadcastBut (json msg, const interfaceId& id) override {
+        _networkInterface->broadcastBut(msg, id);
     };
 
-    virtual void randomMulticast (json msg) override { 
+    virtual void randomMulticast (json msg) override {
         bool skipRegular = faultManager.applySend(this, msg, "randomMulticast");
-        if (!skipRegular) 
+        if (!skipRegular)
             _networkInterface->randomMulticast(msg);
     };
 

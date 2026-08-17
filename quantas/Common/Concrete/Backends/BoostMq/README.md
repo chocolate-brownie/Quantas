@@ -69,6 +69,11 @@ Use the JSON file as the only source for peer, test, and round counts. To change
 an experiment, edit its `topology.initialPeers`, `tests`, or `rounds` value and
 run `make mq` again. Runtime count overrides are not supported.
 
+The JSON `parameters` object reaches researcher algorithms through the same
+`Peer::initParameters(const std::vector<Peer*>&, json)` hook in Abstract and
+BoostMQ. Algorithm declarations must use that exact signature with `override`.
+When `parameters` is missing, both backends pass an empty JSON object.
+
 If one JSON file contains experiments with different peer counts, BoostMQ runs
 them separately and starts the correct peers for each experiment.
 

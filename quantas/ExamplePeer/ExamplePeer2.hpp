@@ -29,7 +29,7 @@ public:
     explicit ExamplePeer2(ExamplePeer* rhs);
     ~ExamplePeer2() override;
 
-    void initParameters(std::vector<Peer*>& peers, json parameters);
+    void initParameters(const std::vector<Peer*>& peers, json parameters) override;
     void performComputation() override;
     void endOfRound(std::vector<Peer*>& peers) override;
 

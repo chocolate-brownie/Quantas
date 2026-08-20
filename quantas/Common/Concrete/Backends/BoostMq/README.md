@@ -10,7 +10,9 @@ BoostMQ is an experimental multi-process communication backend for QUANTAS. The 
 
 BoostMQ is a concrete local IPC backend. It is used to check whether QUANTAS algorithms can run as separate OS processes while keeping the normal `Peer` / `NetworkInterface` API.
 
-Use it when you want evidence that an algorithm can run outside the single-process Abstract simulator. Do not treat it as full Abstract simulator parity yet.
+Use it when you want evidence that a supported algorithm can run outside the
+single-process Abstract simulator. BoostMQ is added alongside Abstract; it does
+not redesign or replace the existing simulator.
 
 The input JSON still controls:
 
@@ -178,40 +180,79 @@ The stricter `sent_total == received_raw_total` check can fail when fixed-round 
 - peer timeout → peer crashed or did not send `done`
 - message too large → increase `boostMq.maxMessageSizeBytes` or reduce the payload size
 
-## Currently, BoostMQ can truthfully promise only a limited unchanged-code contract.
+## Researcher algorithm contract
 
-| Behaviour | Current status |
-|---|---|
-| Compile the same  algorithm source | Supported |
-| Create one local algorithm peer per OS process | Supported |
-| Preserve peer IDs and configured peer count | Supported |
-| Send each peer its ID and neighbour topology | Supported |
-| Run local computation and message send/receive | Supported |
-| Pass JSON parameters to each local peer | Supported, but the hook sees only that peer |
-| Execute configured rounds and tests | Supported mechanically, not globally lockstep |
-| Produce per-peer metric files | Supported |
-| Produce leader completion and transport reports | Supported |
+The handover target is a new researcher algorithm that uses the supported
+QUANTAS peer interface. Existing algorithms are validation cases, not the limit
+of what researchers may run.
 
-What is only partially supported:
+Inside one BoostMQ peer process, an algorithm may use:
 
-| Behaviour | Current limitation |
-|---|---|
-| Complete membership | Leader knows everyone; each algorithm process receives only its own `Peer*` |
-| Topology-dependent initialization | Neighbours are correct, but algorithms cannot inspect every live peer |
-| Repeated tests | Implemented, but failure isolation is not yet proven |
-| Experiment success | Process completion is reported, but semantic correctness is not guaranteed |
-| Metrics | Transport counters are aggregated; algorithm-specific global results are not |
-| Randomness | Each process has independent state; cross-process equivalence is undefined |
+- its local peer ID and local state;
+- its assigned static neighbours;
+- the shared experiment parameters from JSON;
+- received messages and the normal QUANTAS send operations; and
+- local algorithm output and metrics.
 
-What BoostMQ currently cannot promise:
+Supported algorithms should use the same source with Abstract or BoostMQ. They
+must not require BoostMQ-only branches. However, the peer collection passed to
+lifecycle hooks contains process-local peer objects only. It is not a collection
+of live objects from every remote process.
 
-- Correct global role assignment for Byzantine, crashed, or miner roles.
-- Exactly one experiment-wide action.
-- A complete `vector<Peer*>` containing remote peers.
-- Direct access to another peer’s fields or methods.
-- Dynamic replacement of a remote peer object.
-- Correct experiment-wide algorithm metrics.
-- Abstract delay, drop, duplicate, reorder, or lockstep behaviour.
-- That every existing algorithm behaves equivalently merely because it compiles and exits successfully.
+BoostMQ currently supports:
 
-Concrete example: PBFT currently receives a one-peer vector in every process. Each process can build a one-member committee and mark its own first peer Byzantine. That is not equivalent to Abstract mode selecting one Byzantine peer from the complete committee.
+- one local algorithm peer per OS process;
+- configured peer IDs, counts, tests, rounds, parameters, and static neighbours;
+- local computation and message send/receive;
+- per-peer metric files; and
+- leader completion and transport reports.
+
+Repeated-test isolation, complete failure reporting, algorithm-result
+collection, and the final handover workflow are still being validated. A clean
+exit alone does not prove that an algorithm produced a correct result.
+
+### Natural differences from Abstract
+
+BoostMQ uses real processes and shared-memory queues. Therefore, it does not
+promise the same:
+
+- wall-clock time;
+- process scheduling or message arrival order;
+- real message delay;
+- queue pressure and backpressure;
+- round completion time; or
+- random-number sequence.
+
+These differences must be measured and explained. They must not be presented as
+Abstract simulator behaviour.
+
+### Unsupported process behaviour
+
+BoostMQ cannot provide:
+
+- a `vector<Peer*>` containing live remote peer objects;
+- direct reads or method calls on another process's peer object;
+- shared ordinary C++ pointers, references, or arbitrary global memory;
+- replacement of a remote peer through pointer assignment;
+- live topology changes; or
+- Abstract delay, drop, duplicate, reorder, `maxMsgsRec`, or global-memory
+  lockstep behaviour.
+
+For example, PBFT currently receives a one-peer vector in each BoostMQ process.
+Code that builds one global committee by directly inspecting every `Peer*` does
+not have the same meaning across process boundaries. Such behaviour must be
+implemented through supported configuration, IDs, messages, or collected
+output, or documented as unsupported.
+
+## Validation and handover goal
+
+Before researcher handover, the project will validate clean builds, static
+topologies, repeated tests, failures, cleanup, reports, and representative
+consensus, blockchain, routing, and data-link algorithms. The guide must then be
+repeatable by another user or on a clean supported Linux system.
+
+After the BoostMQ backend passes that validation, the same experiment settings
+will be run with Abstract and BoostMQ. Abstract delay values from `1` to `5`
+will be compared with real BoostMQ measurements. The result will report which
+Abstract setting is closest and the percentage difference; it will not assume
+in advance that the difference is within 5%.

@@ -5,7 +5,6 @@
 #include "quantas/Common/Logger.hpp"
 #include "quantas/Common/LoggingSupport.hpp"
 #include <chrono>
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -137,7 +136,7 @@ nlohmann::json makeTestReport(const TestReportInfo& info) {
  * Purpose: Build the complete peer-id list expected for an experiment.
  * Used by: `main()` to record the expected participants in the leader report.
  */
-std::vector<quantas::interfaceId> expectedPeers(int totalPeers) {
+std::vector<quantas::interfaceId> expectedPeers(const int totalPeers) {
     std::vector<quantas::interfaceId> peers;
     peers.reserve(static_cast<size_t>(totalPeers));
     for (int id = 0; id < totalPeers; ++id) {
@@ -302,7 +301,6 @@ nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics) 
         {"reliable", reliable}
     };
 }
-
 } // namespace
 
 /* --------------------------- Leader runtime --------------------------- */
@@ -342,19 +340,15 @@ int main(int argc, char* argv[]) {
             auto queueConfig = quantas::parseBoostMqQueueConfig(experiment, exp.initialPeers);
             quantas::preflightBoostMqQueues(queueConfig, expIndex);
 
-            const quantas::TopologyResult validationTopology = quantas::buildTopology(exp.topology);
-            quantas::validateBoostMqAssignmentPayloads(
-                validationTopology.assignments,
-                queueConfig,
-                expIndex
-            );
+            const auto [assignments] = quantas::buildTopology(exp.topology);
+            quantas::validateBoostMqAssignmentPayloads(assignments, queueConfig, expIndex);
 
             if (cli->preflightOnly) continue;
 
             /* Initialize timing, output paths, and coordinator state for this
              * experiment before any peers enter the rendezvous. */
             std::chrono::time_point<std::chrono::high_resolution_clock> expStartTime, expEndTime;
-            std::chrono::duration<double> expDuration;
+            std::chrono::duration<double> expDuration{};
             expStartTime = std::chrono::high_resolution_clock::now();
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
@@ -400,16 +394,16 @@ int main(int argc, char* argv[]) {
                  * start the run together, and wait for completion or timeout. */
                 coordinator.createBarrier();
                 coordinator.waitForAllReady();
-                quantas::TopologyResult topology = quantas::buildTopology(exp.topology);
-                coordinator.sendAssignments(topology.assignments);
+                auto [assignments] = quantas::buildTopology(exp.topology);
+                coordinator.sendAssignments(assignments);
                 coordinator.broadcastStart();
 
-                const quantas::PeerCompletionResult completion = coordinator.waitForAllDone(
+                const auto [completedPeers, timedOut] = coordinator.waitForAllDone(
                     std::chrono::milliseconds(exp.doneTimeoutMs)
                 );
 
-                testInfo.completedPeers = completion.completedPeers;
-                testInfo.timedOut = completion.timedOut;
+                testInfo.completedPeers = completedPeers;
+                testInfo.timedOut = timedOut;
 
                 testEndTime = std::chrono::high_resolution_clock::now();
                 testInfo.duration = testEndTime - testStartTime;
@@ -472,7 +466,6 @@ int main(int argc, char* argv[]) {
             QUANTAS_LOG_INFO("coord") << "leader report written to " << reportPath;
 
             if (experimentTimedOut) return 1;
-
         } catch (const std::exception& ex) {
             /* Release any partially initialized MQ state and fail with the
              * experiment index when configuration or runtime work throws. */

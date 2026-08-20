@@ -383,3 +383,11 @@ In this file I document what I do everyday during my internship.
 - Finished issue #51 by fixing and enforcing the shared `initParameters` signature.
 - Abstract and BoostMQ now pass the same JSON parameters, including an empty object when the field is missing.
 - Added a cross-backend parameter test. The full test and Valgrind suite passed.
+
+### 20/08/2026
+
+- Simplified the Makefile so plain `make` shows help and only build or run commands read the experiment JSON.
+- Made cleanup safer: `make clean` removes only build files and QUANTAS binary links, while `make clean_outputs` removes only root files using the generated `_EXP` naming pattern.
+- Moved BoostMQ process launching and interrupt cleanup into `runBoostMq.sh`, keeping `make mq` and `make mq_debug` short.
+- Fixed switching between JSON inputs so the correct algorithm is always linked without requiring `make clean`.
+- Final validation passed with PBFT/Raft input switching, normal and interrupted BoostMQ runs, focused cleanup tests, ShellCheck, the full test and Valgrind suite, and `git diff --check`.

@@ -391,3 +391,5 @@ In this file I document what I do everyday during my internship.
 - Moved BoostMQ process launching and interrupt cleanup into `runBoostMq.sh`, keeping `make mq` and `make mq_debug` short.
 - Fixed switching between JSON inputs so the correct algorithm is always linked without requiring `make clean`.
 - Final validation passed with PBFT/Raft input switching, normal and interrupted BoostMQ runs, focused cleanup tests, ShellCheck, the full test and Valgrind suite, and `git diff --check`.
+- Finished issue #32. Ready messages now contain the sending peer ID, and the leader starts only after every expected peer ID is ready.
+- Added tests for unique, duplicate, missing, and invalid ready peer IDs. The full test suite, debug BoostMQ run, cleanup check, and formatting checks passed.

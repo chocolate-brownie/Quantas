@@ -32,7 +32,6 @@ using namespace boost::interprocess;
 
 namespace quantas {
 namespace {
-constexpr unsigned int kReadyTrigger = 1;
 constexpr unsigned int kStartTrigger = 2;
 constexpr unsigned int kStopTrigger = 3;
 constexpr unsigned int kDoneTrigger = 4;
@@ -133,7 +132,7 @@ void ProcessCoordinatorMQ::createBarrier() {
             create_only,
             "mq_barrier",
             _queueConfig.controlQueueCapacity,
-            sizeof(unsigned int)
+            sizeof(interfaceId)
         );
 
         // mq_done ← peers send "I am done"
@@ -188,8 +187,13 @@ void ProcessCoordinatorMQ::sendReady() {
     for (int attempt = 1; attempt <= kControlSendAttempts; ++attempt) {
         try {
             message_queue mq(open_only, "mq_barrier");
-            unsigned int trigger = kReadyTrigger;
-            if (timedSendControlMessage(mq, &trigger, sizeof(trigger), kControlSendWaitMs)) {
+            const interfaceId readyPeerId = _myId;
+            if (timedSendControlMessage(
+                    mq,
+                    &readyPeerId,
+                    sizeof(readyPeerId),
+                    kControlSendWaitMs
+                )) {
                 QUANTAS_LOG_INFO("coord") << "peer " << _myId << " sent ready to barrier";
                 return;
             }
@@ -209,26 +213,47 @@ void ProcessCoordinatorMQ::sendReady() {
     );
 }
 
-// 4. Leader reads N "ready" messages from quantas_barrier
+// 4. Leader waits until every expected peer ID has reported ready
 void ProcessCoordinatorMQ::waitForAllReady() {
     if (!_isLeader) return;
 
-    QUANTAS_LOG_INFO("coord") << "leader waiting for " << _totalPeers << " ready messages";
+    QUANTAS_LOG_INFO("coord") << "leader waiting for " << _totalPeers << " unique ready peers";
     try {
-        for (size_t i = 0; i < _totalPeers; ++i) {
+        std::unordered_set<interfaceId> readyPeers;
+
+        while (readyPeers.size() < _totalPeers) {
             unsigned int priority;
-            unsigned int trigger;
+            interfaceId readyPeerId = NO_PEER_ID;
             message_queue::size_type recvd_size;
 
-            _myBarrier->receive(&trigger, sizeof(trigger), recvd_size, priority);
-            if (recvd_size != sizeof(trigger) || trigger != kReadyTrigger)
+            _myBarrier->receive(&readyPeerId, sizeof(readyPeerId), recvd_size, priority);
+
+            if (recvd_size != sizeof(readyPeerId)) {
                 throw std::runtime_error(
-                    "Unexpected ready message (trigger=" + std::to_string(trigger) +
-                    ", size=" + std::to_string(recvd_size) + ") at ::waitForAllReady for peer " +
-                    std::to_string(_myId)
+                    "Invalid ready message size: expected " + std::to_string(sizeof(readyPeerId)) +
+                    " bytes, received " + std::to_string(recvd_size)
                 );
+            }
+
+            if (readyPeerId < 0 || static_cast<size_t>(readyPeerId) >= _totalPeers) {
+                throw std::runtime_error(
+                    "Invalid ready peer ID " + std::to_string(readyPeerId) + "; expected 0 to " +
+                    std::to_string(_totalPeers - 1)
+                );
+            }
+
+            const bool inserted = readyPeers.insert(readyPeerId).second;
+
+            if (!inserted) {
+                QUANTAS_LOG_WARN("coord")
+                    << "leader ignored duplicate ready from peer " << readyPeerId;
+                continue;
+            }
+
+            QUANTAS_LOG_INFO("coord") << "leader accepted ready from peer " << readyPeerId;
         }
-        QUANTAS_LOG_INFO("coord") << "leader received all ready messages";
+
+        QUANTAS_LOG_INFO("coord") << "leader received ready from all expected peers";
     } catch (const interprocess_exception& ex) {
         throw std::runtime_error(
             "Failed to ::waitForAllReady for peer " + std::to_string(_myId) + ": " + ex.what()

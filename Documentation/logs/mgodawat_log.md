@@ -393,3 +393,5 @@ In this file I document what I do everyday during my internship.
 - Final validation passed with PBFT/Raft input switching, normal and interrupted BoostMQ runs, focused cleanup tests, ShellCheck, the full test and Valgrind suite, and `git diff --check`.
 - Finished issue #32. Ready messages now contain the sending peer ID, and the leader starts only after every expected peer ID is ready.
 - Added tests for unique, duplicate, missing, and invalid ready peer IDs. The full test suite, debug BoostMQ run, cleanup check, and formatting checks passed.
+- Simplified and closed issue #45. BoostMQ `success` now has one clear meaning: every expected peer became ready, completed every test, and wrote its required output file.
+- Kept detailed errors in `QUANTAS_LOG` and limited startup-timeout report facts to `timedOut`, `readyPeers`, and `missingPeers`.

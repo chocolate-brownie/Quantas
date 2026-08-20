@@ -112,6 +112,18 @@ Both settings are optional. Their defaults are `1000` messages and `4096` bytes.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer. The leader report records `peerCount`, `testCount`, `rounds`, and each test's `completedPeerCount`.
 
+### How success is decided
+
+`success: true` means every expected peer became ready, completed every test,
+and wrote its required output file. It describes framework completion; it does
+not claim that the researcher algorithm is correct or that transport metrics
+are perfect.
+
+On a startup timeout, the leader report sets `success` to `false` and records
+only the useful facts: `timedOut`, `readyPeers`, and `missingPeers`. Detailed
+error explanations remain in `QUANTAS_LOG`. Transport metrics and researcher
+algorithm output remain separate evidence.
+
 ## Crash diagnosis and recovery
 
 An interrupted or crashed run can leave BoostMQ processes or queue resources

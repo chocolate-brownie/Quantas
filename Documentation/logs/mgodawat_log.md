@@ -395,3 +395,11 @@ In this file I document what I do everyday during my internship.
 - Added tests for unique, duplicate, missing, and invalid ready peer IDs. The full test suite, debug BoostMQ run, cleanup check, and formatting checks passed.
 - Simplified and closed issue #45. BoostMQ `success` now has one clear meaning: every expected peer became ready, completed every test, and wrote its required output file.
 - Kept detailed errors in `QUANTAS_LOG` and limited startup-timeout report facts to `timedOut`, `readyPeers`, and `missingPeers`.
+
+### 22/08/2026
+
+- Implemented issue #31 so the BoostMQ leader no longer waits forever for peers to become ready.
+- Added optional `boostMq.readyTimeoutMs` with a 30-second default. The leader records the ready and missing peer IDs when startup times out.
+- On a readiness timeout, the leader writes `success: false` and `timedOut: true`, stops waiting peers, cleans the queues, and makes the launcher exit with an error.
+- Moved BoostMQ leader report code into `BoostMqReportWriter` and added focused configuration, ready-barrier, report, process-exit, and cleanup tests.
+- Focused tests, the launcher timeout test, a normal multi-experiment BoostMQ run, ShellCheck, formatting checks, and `git diff --check` passed.

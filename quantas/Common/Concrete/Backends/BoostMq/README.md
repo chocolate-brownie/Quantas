@@ -104,11 +104,17 @@ Each experiment may configure its data queues:
 ```json
 "boostMq": {
   "dataQueueCapacity": 1000,
-  "maxMessageSizeBytes": 4096
+  "maxMessageSizeBytes": 4096,
+  "readyTimeoutMs": 30000
 }
 ```
 
-Both settings are optional. Their defaults are `1000` messages and `4096` bytes. The control queue capacity is derived from `topology.initialPeers`; it is not a separate JSON setting. Before launching workers, `make mq` checks that the queues can be created and that every topology assignment fits within `maxMessageSizeBytes`.
+All three settings are optional. Their defaults are `1000` messages, `4096` bytes,
+and `30000` milliseconds. `readyTimeoutMs` limits how long the leader waits for
+every expected peer to report ready. The control queue capacity is derived from
+`topology.initialPeers`; it is not a separate JSON setting. Before launching
+workers, `make mq` checks that the queues can be created and that every topology
+assignment fits within `maxMessageSizeBytes`.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer. The leader report records `peerCount`, `testCount`, `rounds`, and each test's `completedPeerCount`.
 
@@ -123,6 +129,10 @@ On a startup timeout, the leader report sets `success` to `false` and records
 only the useful facts: `timedOut`, `readyPeers`, and `missingPeers`. Detailed
 error explanations remain in `QUANTAS_LOG`. Transport metrics and researcher
 algorithm output remain separate evidence.
+
+After a startup timeout, the leader asks peers that already started to stop,
+removes the QUANTAS BoostMQ queues, writes the leader report, and exits with a
+nonzero status. The launcher then terminates any remaining child processes.
 
 ## Crash diagnosis and recovery
 

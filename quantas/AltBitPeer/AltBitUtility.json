@@ -19,7 +19,8 @@
             },
             "boostMq": {
                 "dataQueueCapacity": 1000,
-                "maxMessageSizeBytes": 4096
+                "maxMessageSizeBytes": 4096,
+                "readyTimeoutMs": 1000
             },
             "tests": 10,
             "rounds": 100
@@ -42,7 +43,8 @@
             },
             "boostMq": {
                 "dataQueueCapacity": 1000,
-                "maxMessageSizeBytes": 4096
+                "maxMessageSizeBytes": 4096,
+                "readyTimeoutMs": 30000
             },
             "tests": 10,
             "rounds": 100
@@ -65,7 +67,8 @@
             },
             "boostMq": {
                 "dataQueueCapacity": 1000,
-                "maxMessageSizeBytes": 4096
+                "maxMessageSizeBytes": 4096,
+                "readyTimeoutMs": 30000
             },
             "tests": 10,
             "rounds": 100
@@ -88,7 +91,8 @@
             },
             "boostMq": {
                 "dataQueueCapacity": 1000,
-                "maxMessageSizeBytes": 4096
+                "maxMessageSizeBytes": 4096,
+                "readyTimeoutMs": 30000
             },
             "tests": 10,
             "rounds": 100

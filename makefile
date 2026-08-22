@@ -72,6 +72,7 @@ MQ_SRCS := $(COMMON_SRCS) \
 	quantas/Common/Concrete/Backends/TCP/ipUtil.cpp
 MQ_LEADER_SRCS := $(COMMON_SRCS) \
 	quantas/Common/Concrete/Backends/BoostMq/Entrypoints/ConcreteMqLeader.cpp \
+	quantas/Common/Concrete/Backends/BoostMq/Logging/BoostMqReportWriter.cpp \
 	quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp \
 	quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.cpp \
 	quantas/Common/Concrete/Runtime/Topology/TopologyPlanner.cpp \
@@ -259,6 +260,11 @@ mq_run_counts_test: mq_peer_debug mq_leader_debug mq_runtime_config_test
 	@bash quantas/Tests/mqRunCountsTest.sh
 	@echo ""
 
+mq_ready_timeout_test: mq_peer_debug mq_leader_debug mq_ready_identity_test
+	@echo "Testing BoostMQ readiness timeout reporting and cleanup..."
+	@bash quantas/Tests/mqReadyTimeoutTest.sh
+	@echo ""
+
 init_parameters_test:
 	@echo "Testing Abstract and BoostMQ parameter parity..."
 	@bash quantas/Tests/initParametersParityTest.sh
@@ -273,7 +279,7 @@ mq_cleanup_test:
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test mq_ready_identity_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test init_parameters_test mq_cleanup_test
+test: check-version rand_test mq_timeout_test mq_ready_identity_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
@@ -454,4 +460,4 @@ clean_outputs:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_debug_build mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_ready_identity_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test init_parameters_test mq_cleanup_test test clean_outputs
+.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_debug_build mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_ready_identity_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test test clean_outputs

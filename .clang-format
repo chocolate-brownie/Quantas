@@ -2,35 +2,14 @@
 Language: Cpp
 BasedOnStyle: LLVM
 
-# Common C/C++ defaults for readable, low-surprise formatting.
+# Small, conservative overrides suitable for modern C and C++ projects.
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 ColumnLimit: 100
 
-# Keep control-flow and switch blocks easy to scan.
-IndentCaseLabels: true
-AllowShortBlocksOnASingleLine: Never
-AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: AllIfsAndElse
-AllowShortLoopsOnASingleLine: true
-AllowShortCaseLabelsOnASingleLine: false
-
-# Prefer stable, explicit wrapping over dense packed call sites.
-BinPackArguments: false
-BinPackParameters: false
-AllowAllArgumentsOnNextLine: false
-AlignAfterOpenBracket: BlockIndent
-PenaltyBreakAssignment: 1000
-
-# Conventional C++ cleanup.
 PointerAlignment: Left
 DerivePointerAlignment: false
+
 SortIncludes: CaseSensitive
 FixNamespaceComments: true
-NamespaceIndentation: None
-
-# Keep whitespace tidy without being surprising.
-MaxEmptyLinesToKeep: 1
-KeepEmptyLinesAtTheStartOfBlocks: false
-SpacesBeforeTrailingComments: 1

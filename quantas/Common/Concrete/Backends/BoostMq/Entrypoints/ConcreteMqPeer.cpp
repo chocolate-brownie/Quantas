@@ -52,28 +52,24 @@ using PeerAssignment = quantas::PeerAssignment;
 
 // Validate assignment bounds and basic topology invariants.
 void validateAssignment(const PeerAssignment& assignment, int totalPeers) {
-    if (totalPeers <= 0) throw std::runtime_error("error: totalPeers must be > 0");
+    if (totalPeers <= 0)
+        throw std::runtime_error("error: totalPeers must be > 0");
     if (assignment.id < 0 || assignment.id >= totalPeers)
-        throw std::runtime_error(
-            "error: assigned peer id " + std::to_string(assignment.id) + " is outside [0, " +
-            std::to_string(totalPeers - 1) + "]"
-        );
+        throw std::runtime_error("error: assigned peer id " + std::to_string(assignment.id) +
+                                 " is outside [0, " + std::to_string(totalPeers - 1) + "]");
     if (assignment.neighbors.find(assignment.id) != assignment.neighbors.end())
         throw std::runtime_error("error: assignment neighbors include self");
 
     for (const auto neighbor : assignment.neighbors) {
         if (neighbor < 0 || neighbor >= totalPeers)
-            throw std::runtime_error(
-                "error: neighbor id " + std::to_string(neighbor) + " is outside [0, " +
-                std::to_string(totalPeers - 1) + "]"
-            );
+            throw std::runtime_error("error: neighbor id " + std::to_string(neighbor) +
+                                     " is outside [0, " + std::to_string(totalPeers - 1) + "]");
     }
 }
 
 // Bind assignment data to the MQ interface, then attach it to the peer.
-void applyAssignment(
-    const PeerAssignment& assignment, quantas::NetworkInterfaceConcreteMQ* mq, quantas::Peer* peer
-) {
+void applyAssignment(const PeerAssignment& assignment, quantas::NetworkInterfaceConcreteMQ* mq,
+                     quantas::Peer* peer) {
     QUANTAS_LOG_INFO("topology") << "peer " << assignment.id
                                  << " using topology=" << assignment.topologyType;
     mq->configure(assignment.id, assignment.neighbors);
@@ -114,22 +110,12 @@ std::optional<CliArgs> parseArgs(int argc, char** argv) {
 }
 
 // Resolve and configure the output destination for this experiment.
-std::string configureExperimentOutput(
-    const std::string& logFileBase,
-    size_t expIndex,
-    int testNumber,
-    std::optional<int> processDisambiguator
-) {
-    const std::string experimentFile = quantas::makeExperimentFileName(
-        logFileBase,
-        expIndex,
-        processDisambiguator,
-        ".json"
-    );
-    const std::string metricsFile = quantas::addFileNameSuffix(
-        experimentFile,
-        "_TEST" + std::to_string(testNumber)
-    );
+std::string configureExperimentOutput(const std::string& logFileBase, size_t expIndex,
+                                      int testNumber, std::optional<int> processDisambiguator) {
+    const std::string experimentFile =
+        quantas::makeExperimentFileName(logFileBase, expIndex, processDisambiguator, ".json");
+    const std::string metricsFile =
+        quantas::addFileNameSuffix(experimentFile, "_TEST" + std::to_string(testNumber));
     quantas::LogWriter::setLogFile(metricsFile);
     quantas::LogWriter::setTest(0);
     return metricsFile;
@@ -150,8 +136,8 @@ void initRendezvous(quantas::ProcessCoordinatorMQ& coord, int myId) {
 
 /* Construct all peers assigned to this worker and bind each peer to an MQ
    interface configured from its assignment (id + neighbors). */
-std::vector<quantas::Peer*>
-buildLocalPeers(const std::string& peerType, const std::vector<PeerAssignment>& assignments) {
+std::vector<quantas::Peer*> buildLocalPeers(const std::string& peerType,
+                                            const std::vector<PeerAssignment>& assignments) {
     std::vector<quantas::Peer*> localPeers;
     localPeers.reserve(assignments.size());
 
@@ -168,7 +154,8 @@ buildLocalPeers(const std::string& peerType, const std::vector<PeerAssignment>& 
 // Peer clean up
 void cleanUp(std::vector<quantas::Peer*>& localPeers) {
     for (auto* peer : localPeers) {
-        if (!peer) continue;
+        if (!peer)
+            continue;
 
         peer->clearInterface();
         delete peer;
@@ -177,14 +164,13 @@ void cleanUp(std::vector<quantas::Peer*>& localPeers) {
 }
 
 /* ========================= Rounds Execution Start ========================= */
-void runRounds(
-    std::vector<quantas::Peer*>& localPeers, int rounds, quantas::ProcessCoordinatorMQ& coordinator
-) {
+void runRounds(std::vector<quantas::Peer*>& localPeers, int rounds,
+               quantas::ProcessCoordinatorMQ& coordinator) {
     size_t loopCount = 0;
     std::string stopReason = "unknown";
     const auto mode = coordinator.stopMode();
-    const char* modeLabel = (mode == quantas::StopMode::FixedRounds) ? "FixedRounds"
-                                                                     : "DoneSignals";
+    const char* modeLabel =
+        (mode == quantas::StopMode::FixedRounds) ? "FixedRounds" : "DoneSignals";
 
     if (mode == quantas::StopMode::FixedRounds) {
         quantas::RoundManager::synchronous();
@@ -203,7 +189,8 @@ void runRounds(
         // --------------------------- Round starts ---------------------------
         quantas::RoundManager::incrementRound();
         for (auto* peer : localPeers) {
-            if (!peer) continue;
+            if (!peer)
+                continue;
             peer->receive();
             peer->tryPerformComputation();
         }
@@ -224,7 +211,8 @@ void runRounds(
     // Observability/debug evidence for how and why each peer’s loop terminated.
     const auto currentRound = quantas::RoundManager::currentRound();
     for (const auto* peer : localPeers) {
-        if (!peer) continue;
+        if (!peer)
+            continue;
         QUANTAS_LOG_INFO("runner")
             << "peer " << peer->publicId() << " loop exit summary: mode=" << modeLabel
             << " loopCount=" << loopCount << " currentRoundView=" << currentRound
@@ -234,12 +222,11 @@ void runRounds(
 /* ========================= Rounds Execution Ends ========================= */
 
 // Try to build peers from topology rules
-bool prepareLocalPeers(
-    const quantas::RuntimeExperimentConfig& exp,
-    const std::vector<PeerAssignment>& assignments,
-    std::vector<quantas::Peer*>& localPeers
-) {
-    if (assignments.empty()) return false;
+bool prepareLocalPeers(const quantas::RuntimeExperimentConfig& exp,
+                       const std::vector<PeerAssignment>& assignments,
+                       std::vector<quantas::Peer*>& localPeers) {
+    if (assignments.empty())
+        return false;
 
     for (const auto& assignment : assignments) {
         validateAssignment(assignment, exp.initialPeers);
@@ -257,12 +244,13 @@ void initializeHooks(const nlohmann::json& experiment, std::vector<quantas::Peer
 quantas::TransportMetrics collectTransportMetrics(const std::vector<quantas::Peer*>& localPeers) {
     quantas::TransportMetrics totals;
     for (const auto* peer : localPeers) {
-        if (!peer) continue;
-        const auto* mq = dynamic_cast<const quantas::NetworkInterfaceConcreteMQ*>(
-            peer->getNetworkInterface()
-        );
+        if (!peer)
+            continue;
+        const auto* mq =
+            dynamic_cast<const quantas::NetworkInterfaceConcreteMQ*>(peer->getNetworkInterface());
 
-        if (!mq) continue;
+        if (!mq)
+            continue;
 
         const auto metrics = mq->transportMetrics();
         totals.sent += metrics.sent;
@@ -276,7 +264,8 @@ quantas::TransportMetrics collectTransportMetrics(const std::vector<quantas::Pee
 
 void resetTransportMetrics(const std::vector<quantas::Peer*>& localPeers) {
     for (const auto* peer : localPeers) {
-        if (!peer) continue;
+        if (!peer)
+            continue;
         auto* mq = dynamic_cast<quantas::NetworkInterfaceConcreteMQ*>(peer->getNetworkInterface());
         if (mq) {
             mq->resetTransportMetrics();
@@ -284,11 +273,9 @@ void resetTransportMetrics(const std::vector<quantas::Peer*>& localPeers) {
     }
 }
 
-void emitFinalExperimentMetrics(
-    const std::chrono::high_resolution_clock::time_point& startTime,
-    const std::vector<quantas::Peer*>& localPeers,
-    std::size_t dataQueueCapacity
-) {
+void emitFinalExperimentMetrics(const std::chrono::high_resolution_clock::time_point& startTime,
+                                const std::vector<quantas::Peer*>& localPeers,
+                                std::size_t dataQueueCapacity) {
     const auto endTime = std::chrono::high_resolution_clock::now();
     const std::chrono::duration<double> duration = endTime - startTime;
     const auto transportMetrics = collectTransportMetrics(localPeers);
@@ -296,9 +283,7 @@ void emitFinalExperimentMetrics(
     quantas::LogWriter::setValue("RunTime", duration.count());
     quantas::LogWriter::setValue("Peak Memory KB", static_cast<double>(getPeakMemoryKB()));
     quantas::LogWriter::setValue(
-        "transportMetrics",
-        quantas::makeTransportMetricsJson(transportMetrics, dataQueueCapacity)
-    );
+        "transportMetrics", quantas::makeTransportMetricsJson(transportMetrics, dataQueueCapacity));
     QUANTAS_LOG_INFO("runner") << "printing output";
     quantas::LogWriter::print();
     QUANTAS_LOG_INFO("runner") << "output printed";
@@ -308,10 +293,12 @@ void emitFinalExperimentMetrics(
 
 int main(int argc, char** argv) {
     auto cli = parseArgs(argc, argv); // CLI input validation
-    if (!cli) return 1;
+    if (!cli)
+        return 1;
 
     auto config = quantas::loadRuntimeConfig(cli->jsonPath);
-    if (!config) return 1;
+    if (!config)
+        return 1;
     if (cli->experimentIndex >= (*config)["experiments"].size()) {
         std::cerr << "error: experiment index " << cli->experimentIndex << " is out of range\n";
         return 1;
@@ -322,36 +309,23 @@ int main(int argc, char** argv) {
 
     std::vector<quantas::Peer*> localPeers;
     try {
-        /*
-           ==================== Phase 1: Setup / Assembly ====================
-           Build all runtime state needed to execute this experiment in the
-           current worker process.
-           */
+        /* ==================== Phase 1: Setup / Assembly ====================
+        Build all runtime state needed to execute this experiment in the
+        current worker process. */
         const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
         quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(*config, expIndex);
-        const auto queueConfig = quantas::parseBoostMqQueueConfig(experiment, exp.initialPeers);
+        const auto queueConfig = quantas::parseBoostMqConfig(experiment, exp.initialPeers);
 
         const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
         const std::optional<int> processDisambiguator = cli->peerId;
 
         for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
             const int testNumber = testIndex + 1;
-            const std::string metricsFile = configureExperimentOutput(
-                logFileBase,
-                expIndex,
-                testNumber,
-                processDisambiguator
-            );
-            coordinator.configureExperiment(
-                expIndex,
-                exp.initialPeerType,
-                false,
-                exp.initialPeers,
-                cli->peerId,
-                logFileBase,
-                quantas::StopMode::FixedRounds,
-                queueConfig
-            );
+            const std::string metricsFile =
+                configureExperimentOutput(logFileBase, expIndex, testNumber, processDisambiguator);
+            coordinator.configureExperiment(expIndex, exp.initialPeerType, false, exp.initialPeers,
+                                            cli->peerId, logFileBase,
+                                            quantas::StopMode::FixedRounds, queueConfig);
             QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " output file: " << metricsFile;
             QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " starting experiment "
                                        << expIndex << " test " << testNumber;

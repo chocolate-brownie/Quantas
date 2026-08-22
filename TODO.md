@@ -21,7 +21,7 @@ BoostMQ, and produce enough evidence to diagnose failures and analyse results.
 
 ## Work order
 
-1. Finish lifecycle safety: #32, #45, #31, #33, #28, and #39.
+1. Finish lifecycle safety: #33, #28, and #39.
 2. Finish repeated-test isolation: #27.
 3. Define and validate the supported researcher contract: #41.
 4. Validate BoostMQ static topology against Abstract behaviour: #52.

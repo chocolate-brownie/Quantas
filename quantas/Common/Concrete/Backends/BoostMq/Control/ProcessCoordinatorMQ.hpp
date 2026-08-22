@@ -60,16 +60,9 @@ class ProcessCoordinatorMQ {
     /* -------------------- Configuration API --------------------
     Primary entry point used by MQ runtimes to bind this coordinator to one
     experiment's role and stop policy */
-    void configureExperiment(
-        size_t experimentIndex,
-        const std::string& peerType,
-        bool isLeader,
-        size_t totalPeers,
-        interfaceId myId,
-        const std::string& logFileBase,
-        StopMode stopMode,
-        const BoostMqQueueConfig& queueConfig
-    );
+    void configureExperiment(size_t experimentIndex, const std::string& peerType, bool isLeader,
+                             size_t totalPeers, interfaceId myId, const std::string& logFileBase,
+                             StopMode stopMode, const BoostMqQueueConfig& queueConfig);
     // Legacy wrapper kept for compatibility with older call sites.
     void configureProcess(bool isLeader, size_t totalPeers, interfaceId myId);
 
@@ -77,7 +70,7 @@ class ProcessCoordinatorMQ {
     void createBarrier();
     void createInbox();
     void sendReady();
-    void waitForAllReady();
+    void waitForAllReady(std::vector<interfaceId>& readyPeerIds, bool& readyTimedOut);
     void broadcastStart();
     void waitForStart();
 

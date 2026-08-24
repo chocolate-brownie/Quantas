@@ -403,3 +403,9 @@ In this file I document what I do everyday during my internship.
 - On a readiness timeout, the leader writes `success: false` and `timedOut: true`, stops waiting peers, cleans the queues, and makes the launcher exit with an error.
 - Moved BoostMQ leader report code into `BoostMqReportWriter` and added focused configuration, ready-barrier, report, process-exit, and cleanup tests.
 - Focused tests, the launcher timeout test, a normal multi-experiment BoostMQ run, ShellCheck, formatting checks, and `git diff --check` passed.
+
+### 24/08/2026
+
+- Finished issue #33. Assignment, start, and normal stop messages now have a configurable deadline and report the failed operation, peer ID, and timeout.
+- Control-send failures now produce `success: false`, stop peers best-effort, clean the queues, and return an error.
+- Focused tests, a normal BoostMQ run, ShellCheck, and all non-Raft memory checks passed. No BoostMQ processes or queues remained.

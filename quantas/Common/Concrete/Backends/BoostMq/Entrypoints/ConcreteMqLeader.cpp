@@ -6,6 +6,7 @@
 #include "quantas/Common/Logger.hpp"
 #include "quantas/Common/LoggingSupport.hpp"
 #include <chrono>
+#include <exception>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -76,16 +77,16 @@ std::optional<std::vector<size_t>> selectExperimentIndexes(const LeaderCliArgs& 
     return indexes;
 }
 
-/*
- * Readiness-timeout helper: Save the facts known when startup fails, ask any
- * waiting peers to stop, and remove the queues created for this test.
- */
+/* Readiness-timeout helper: Save the facts known when startup fails, ask any waiting peers to stop,
+ * and remove the queues created for this test. */
 void handleReadinessTimeout(
-    quantas::ProcessCoordinatorMQ& coordinator,
+    bool& allTestsSucceeded, bool& experimentTimedOut, quantas::ProcessCoordinatorMQ& coordinator,
     quantas::BoostMqReportWriter::TestReportInfo& testInfo, nlohmann::json& expReport,
     int totalPeers,
     const std::chrono::time_point<std::chrono::high_resolution_clock>& testStartTime) {
 
+    allTestsSucceeded = false;
+    experimentTimedOut = true;
     const auto testEndTime = std::chrono::high_resolution_clock::now();
     testInfo.duration = testEndTime - testStartTime;
     testInfo.missingPeers =
@@ -101,9 +102,24 @@ void handleReadinessTimeout(
     coordinator.cleanUp();
 }
 
+void handleControlSendFailure(
+    bool& allTestsSucceeded, bool& experimentTimedOut, quantas::ProcessCoordinatorMQ& coordinator,
+    quantas::BoostMqReportWriter::TestReportInfo& testInfo, nlohmann::json& expReport,
+    const std::chrono::time_point<std::chrono::high_resolution_clock>& testStartTime) {
+
+    allTestsSucceeded = false;
+    experimentTimedOut = true;
+    testInfo.duration = std::chrono::high_resolution_clock::now() - testStartTime;
+    testInfo.success = false;
+
+    expReport["tests"].push_back(quantas::BoostMqReportWriter::makeTestReport(testInfo));
+    coordinator.broadcastStopBestEffort();
+    coordinator.cleanUp();
+}
+
 } // namespace
 
-/* --------------------------- Leader runtime --------------------------- */
+/* ------------------------------------- Leader Runtime ------------------------------------------*/
 int main(int argc, char* argv[]) {
     /* Validate the command line and select normal execution or validation-only  preflight mode.
      * Both modes operate on one JSON input file. */
@@ -193,27 +209,47 @@ int main(int argc, char* argv[]) {
                  * together, and wait for completion or timeout. */
                 coordinator.createBarrier();
 
+                /* Wait for every expected peer to report that it is ready. If the deadline is
+                 * reached first, mark the experiment as failed, save which peers are ready or
+                 * missing, stop the waiting peers, clean the queues, and end this test. */
                 coordinator.waitForAllReady(testInfo.readyPeers, testInfo.readyTimedOut);
-
-                /* A readiness timeout means the test cannot start. Save the failure evidence,
-                 * stop waiting peers, clean this test's queues, and leave the test loop. */
                 if (testInfo.readyTimedOut) {
-                    allTestsSucceeded = false;
-                    experimentTimedOut = true;
-                    handleReadinessTimeout(coordinator, testInfo, expReport, exp.initialPeers,
-                                           testStartTime);
+                    handleReadinessTimeout(allTestsSucceeded, experimentTimedOut, coordinator,
+                                           testInfo, expReport, exp.initialPeers, testStartTime);
                     break;
                 }
 
                 auto [assignments] = quantas::buildTopology(exp.topology);
-                coordinator.sendAssignments(assignments);
-                coordinator.broadcastStart();
 
-                const auto [completedPeers, completionTimedOut] =
-                    coordinator.waitForAllDone(std::chrono::milliseconds(exp.doneTimeoutMs));
+                /* Assignment and start are required control messages. If either send fails or
+                 * reaches its deadline, save the failed test, stop peers, clean the queues, and
+                 * leave the test loop instead of allowing the leader to wait forever. */
+                try {
+                    coordinator.sendAssignments(assignments);
+                    coordinator.broadcastStart();
+                } catch (const std::exception& ex) {
+                    QUANTAS_LOG_ERROR("coord") << ex.what();
+                    handleControlSendFailure(allTestsSucceeded, experimentTimedOut, coordinator,
+                                             testInfo, expReport, testStartTime);
+                    break;
+                }
 
-                testInfo.completedPeers = completedPeers;
-                testInfo.completionTimedOut = completionTimedOut;
+                /* Wait for every peer to finish. When the final peer reports done, this operation
+                 * also sends the normal stop message. If that required stop send fails, record the
+                 * test as unsuccessful, stop peers best-effort, clean the queues, and end the test. */
+                quantas::PeerCompletionResult completionResult;
+                try {
+                    completionResult =
+                        coordinator.waitForAllDone(std::chrono::milliseconds(exp.doneTimeoutMs));
+                } catch (const std::exception& ex) {
+                    QUANTAS_LOG_ERROR("coord") << ex.what();
+                    handleControlSendFailure(allTestsSucceeded, experimentTimedOut, coordinator,
+                                             testInfo, expReport, testStartTime);
+                    break;
+                }
+
+                testInfo.completedPeers = completionResult.completedPeers;
+                testInfo.completionTimedOut = completionResult.timedOut;
 
                 testEndTime = std::chrono::high_resolution_clock::now();
                 testInfo.duration = testEndTime - testStartTime;

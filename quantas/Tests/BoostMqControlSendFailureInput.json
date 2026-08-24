@@ -1,0 +1,25 @@
+{
+  "algorithms": [
+    "ExamplePeer/ExamplePeer.cpp",
+    "ExamplePeer/ExamplePeer2.cpp"
+  ],
+  "experiments": [
+    {
+      "logFile": "build/tests/mqControlSendFailure.txt",
+      "parameters": {
+        "changePeerType": false
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "ExamplePeer"
+      },
+      "boostMq": {
+        "readyTimeoutMs": 1000,
+        "controlSendTimeoutMs": 50
+      },
+      "tests": 1,
+      "rounds": 1
+    }
+  ]
+}

@@ -16,7 +16,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstring>
-#include <future>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -44,24 +43,17 @@ constexpr int kControlSendWaitMs = 10;
 std::mutex gCompletedMutex;
 std::unordered_set<interfaceId> gCompletedPeers;
 
-/*
- * Utility: Build the exact BoostMQ queue name used for one peer's control
- * messages, such as assignment, start, and stop.
- */
+/* Utility: Build the exact BoostMQ queue name used for one peer's control messages, such as
+ * assignment, start, and stop. */
 std::string peerControlQueueName(interfaceId id) {
     return "peer_" + std::to_string(id) + "_control";
 }
 
-/*
- * Utility: Build the exact BoostMQ queue name used for one peer's algorithm
- * packets.
- */
+/* Utility: Build the exact BoostMQ queue name used for one peer's algorithm packets. */
 std::string peerDataQueueName(interfaceId id) { return "peer_" + std::to_string(id) + "_data"; }
 
-/*
- * Utility: Try to place one control message on a queue before a short
- * deadline. Returns false when the queue stays full until that deadline.
- */
+/* Utility: Try to place one control message on a queue before a short deadline. Returns false when
+ * the queue stays full until that deadline. */
 bool timedSendControlMessage(message_queue& mq, const void* message, size_t messageSize,
                              int waitMs) {
     const auto deadline = boost::posix_time::microsec_clock::universal_time() +
@@ -69,9 +61,7 @@ bool timedSendControlMessage(message_queue& mq, const void* message, size_t mess
     return mq.timed_send(message, messageSize, 0, deadline);
 }
 
-/*
- * Utility: Check whether a named BoostMQ queue can currently be opened.
- */
+/* Utility: Check whether a named BoostMQ queue can currently be opened. */
 bool queueExists(const std::string& queueName) {
     try {
         message_queue mq(open_only, queueName.c_str());
@@ -81,10 +71,8 @@ bool queueExists(const std::string& queueName) {
     }
 }
 
-/*
- * Utility: Wait for the leader to remove a peer queue during shutdown. Give
- * up with an error instead of waiting forever.
- */
+/* Utility: Wait for the leader to remove a peer queue during shutdown. Give up with an error
+ * instead of waiting forever. */
 void waitForQueueRemoval(const std::string& queueName) {
     for (int attempt = 1; attempt <= kControlSendAttempts; ++attempt) {
         if (!queueExists(queueName)) {
@@ -97,21 +85,16 @@ void waitForQueueRemoval(const std::string& queueName) {
 }
 } // namespace
 
-/*
- * Utility: Return the single coordinator object used inside this process.
- * Each leader or peer process gets its own independent singleton.
- */
+/* Utility: Return the single coordinator object used inside this process. Each leader or peer
+ * process gets its own independent singleton. */
 ProcessCoordinatorMQ& ProcessCoordinatorMQ::instance() {
     static ProcessCoordinatorMQ coordinator;
     return coordinator;
 }
 
-/*
- * Major operation: Load all coordinator state for one experiment. This sets
- * the process role, peer identity, peer count, queue settings, and stop mode,
- * then clears state left by the previous test or experiment. It does not
- * create any operating-system queues.
- */
+/* Major operation: Load all coordinator state for one experiment. This sets the process role, peer
+ * identity, peer count, queue settings, and stop mode, then clears state left by the previous test
+ * or experiment. It does not create any operating-system queues. */
 void ProcessCoordinatorMQ::configureExperiment(size_t experimentIndex, const std::string& peerType,
                                                bool isLeader, size_t totalPeers, interfaceId myId,
                                                const std::string& logFileBase, StopMode stopMode,
@@ -134,22 +117,17 @@ void ProcessCoordinatorMQ::configureExperiment(size_t experimentIndex, const std
     _myControlInbox.reset();
 }
 
-/*
- * Utility: Configure only the basic process role, peer count, and peer ID.
- * This wrapper supplies default experiment settings and delegates to the full
- * configuration function.
- */
+/* Utility: Configure only the basic process role, peer count, and peer ID. This wrapper supplies
+ * default experiment settings and delegates to the full configuration function. */
 void ProcessCoordinatorMQ::configureProcess(bool isLeader, size_t totalPeers, interfaceId myId) {
     BoostMqQueueConfig queueConfig;
     queueConfig.controlQueueCapacity = totalPeers;
     configureExperiment(0, "", isLeader, totalPeers, myId, "", StopMode::FixedRounds, queueConfig);
 }
 
-/*
- * Major operation: Create the two leader-owned shared queues for one test.
- * Peers send their IDs to `mq_barrier` when ready and to `mq_done` when their
- * work is complete. Old queues with those exact names are removed first.
- */
+/* Major operation: Create the two leader-owned shared queues for one test. Peers send their IDs to
+ * `mq_barrier` when ready and to `mq_done` when their work is complete. Old queues with those exact
+ * names are removed first. */
 void ProcessCoordinatorMQ::createBarrier() {
     if (!_isLeader)
         return;
@@ -173,11 +151,9 @@ void ProcessCoordinatorMQ::createBarrier() {
     }
 }
 
-/*
- * Major operation: Create this peer's two private inboxes. The control inbox
- * receives framework messages; the data inbox receives algorithm packets.
- * The leader does not create a peer inbox for itself.
- */
+/* Major operation: Create this peer's two private inboxes. The control inbox receives framework
+ * messages; the data inbox receives algorithm packets. The leader does not create a peer inbox for
+ * itself. */
 void ProcessCoordinatorMQ::createInbox() {
     if (_isLeader)
         return;
@@ -203,11 +179,9 @@ void ProcessCoordinatorMQ::createInbox() {
     }
 }
 
-/*
- * Major operation: Tell the leader that this peer has created its queues and
- * is ready for assignment and start. The peer sends its own ID and retries
- * short timed sends so a temporarily full queue does not block forever.
- */
+/* Major operation: Tell the leader that this peer has created its queues and is ready for
+ * assignment and start. The peer sends its own ID and retries short timed sends so a temporarily
+ * full queue does not block forever. */
 void ProcessCoordinatorMQ::sendReady() {
     if (_isLeader)
         return;
@@ -234,11 +208,9 @@ void ProcessCoordinatorMQ::sendReady() {
                              " to mq_barrier");
 }
 
-/*
- * Major operation: Hold the leader at the startup barrier until every
- * expected peer ID has reported ready exactly once. Invalid IDs or message
- * sizes fail startup, while duplicate IDs are logged and ignored.
- */
+/* Major operation: Hold the leader at the startup barrier until every expected peer ID has reported
+ * ready exactly once. Invalid IDs or message sizes fail startup, while duplicate IDs are logged and
+ * ignored. */
 void ProcessCoordinatorMQ::waitForAllReady(std::vector<interfaceId>& readyPeerIds,
                                            bool& readyTimedOut) {
     if (!_isLeader)
@@ -300,58 +272,64 @@ void ProcessCoordinatorMQ::waitForAllReady(std::vector<interfaceId>& readyPeerId
     }
 }
 
-/*
- * Major operation: Send the normal start signal to every peer control inbox.
- * Peers begin their algorithm work only after receiving this signal.
- */
+/* Major operation: Send the normal start signal to every peer control inbox. Peers begin their
+ * algorithm work only after receiving this signal. */
 void ProcessCoordinatorMQ::broadcastStart() {
     if (!_isLeader)
         return;
 
     QUANTAS_LOG_INFO("coord") << "leader broadcasting start to " << _totalPeers << " peers";
-    try {
-        for (size_t i = 0; i < _totalPeers; ++i) {
-            std::string queueName = peerControlQueueName(static_cast<interfaceId>(i));
-            message_queue mq(open_only, queueName.c_str());
 
-            unsigned int trigger = kStartTrigger;
-            mq.send(&trigger, sizeof(trigger), 0);
+    for (size_t i = 0; i < _totalPeers; ++i) {
+        const std::string queueName = peerControlQueueName(static_cast<interfaceId>(i));
+        const auto deadline = boost::posix_time::microsec_clock::universal_time() +
+                              boost::posix_time::milliseconds(_queueConfig.controlSendTimeoutMs);
+        try {
+            message_queue mq(open_only, queueName.c_str());
+            const unsigned int trigger = kStartTrigger;
+            if (!mq.timed_send(&trigger, sizeof(trigger), 0, deadline)) {
+                throw std::runtime_error("Timed out sending start to peer " + std::to_string(i) +
+                                         " after " +
+                                         std::to_string(_queueConfig.controlSendTimeoutMs) + " ms");
+            }
+        } catch (const interprocess_exception& ex) {
+            throw std::runtime_error(
+                "Failed sending start to peer " + std::to_string(i) + " within " +
+                std::to_string(_queueConfig.controlSendTimeoutMs) + " ms: " + ex.what());
         }
-    } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::broadCastStart for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
     }
 }
 
-/*
- * Major operation: Send the normal stop signal to every peer after the leader
- * has received all expected done notifications.
- */
+/* Major operation: Send the normal stop signal to every peer after the leader has received all
+ * expected done notifications.  */
 void ProcessCoordinatorMQ::broadcastStop() {
     if (!_isLeader)
         return;
 
     QUANTAS_LOG_INFO("coord") << "leader broadcasting stop to " << _totalPeers << " peers";
 
-    try {
-        for (size_t i = 0; i < _totalPeers; ++i) {
-            std::string queueName = peerControlQueueName(static_cast<interfaceId>(i));
+    for (size_t i = 0; i < _totalPeers; ++i) {
+        const std::string queueName = peerControlQueueName(static_cast<interfaceId>(i));
+        const auto deadline = boost::posix_time::microsec_clock::universal_time() +
+                              boost::posix_time::milliseconds(_queueConfig.controlSendTimeoutMs);
+        try {
             message_queue mq(open_only, queueName.c_str());
-
-            unsigned int trigger = kStopTrigger;
-            mq.send(&trigger, sizeof(trigger), 0);
+            const unsigned int trigger = kStopTrigger;
+            if (!mq.timed_send(&trigger, sizeof(trigger), 0, deadline)) {
+                throw std::runtime_error("Timed out sending stop to peer " + std::to_string(i) +
+                                         " after " +
+                                         std::to_string(_queueConfig.controlSendTimeoutMs) + " ms");
+            }
+        } catch (const interprocess_exception& ex) {
+            throw std::runtime_error(
+                "Failed sending stop to peer " + std::to_string(i) + " within " +
+                std::to_string(_queueConfig.controlSendTimeoutMs) + " ms: " + ex.what());
         }
-    } catch (const interprocess_exception& ex) {
-        throw std::runtime_error("Failed to ::broadCastStart for peer " + std::to_string(_myId) +
-                                 ": " + ex.what());
     }
 }
 
-/*
- * Major recovery operation: Try to stop every peer after a timeout or other
- * failure. Missing or full queues are logged instead of throwing, so cleanup
- * can continue for the remaining peers.
- */
+/* Major recovery operation: Try to stop every peer after a timeout or other failure. Missing or
+ * full queues are logged instead of throwing, so cleanup can continue for the remaining peers. */
 void ProcessCoordinatorMQ::broadcastStopBestEffort() {
     if (!_isLeader)
         return;
@@ -408,40 +386,44 @@ void ProcessCoordinatorMQ::waitForStart() {
     }
 }
 
-/*
- * Major operation: Serialize and send one topology assignment to each peer's
- * control inbox. Fail before sending an assignment that is larger than the
- * queue's configured message size.
- */
+/* Major operation: Serialize and send one topology assignment to each peer's control inbox. Fail
+ * before sending an assignment that is larger than the queue's configured message size. */
 void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment>& assignments) {
     if (!_isLeader)
         return;
 
-    try {
-        for (const PeerAssignment& assignment : assignments) {
-            std::stringstream ss;
-            boost::archive::binary_oarchive oa(ss);
-            oa << assignment;
+    for (const PeerAssignment& assignment : assignments) {
+        const auto deadline = boost::posix_time::microsec_clock::universal_time() +
+                              boost::posix_time::milliseconds(_queueConfig.controlSendTimeoutMs);
+        std::stringstream ss;
+        boost::archive::binary_oarchive oa(ss);
+        oa << assignment;
+        const std::string bytes = ss.str();
+        const std::string queueName = peerControlQueueName(assignment.id);
 
-            const std::string bytes = ss.str();
-
-            std::string queueName = peerControlQueueName(assignment.id);
+        try {
             message_queue peerInbox(open_only, queueName.c_str());
-
             if (bytes.size() > peerInbox.get_max_msg_size()) {
                 throw std::runtime_error("Assignment for peer " + std::to_string(assignment.id) +
                                          " exceeds queue max message size");
             }
 
-            peerInbox.send(bytes.data(), bytes.size(), 0);
+            if (!peerInbox.timed_send(bytes.data(), bytes.size(), 0, deadline)) {
+                throw std::runtime_error("Timed out sending assignment to peer " +
+                                         std::to_string(assignment.id) + " after " +
+                                         std::to_string(_queueConfig.controlSendTimeoutMs) + " ms");
+            }
+        } catch (const interprocess_exception& ex) {
+            throw std::runtime_error(
+                "Failed sending assignment to peer " + std::to_string(assignment.id) + " within " +
+                std::to_string(_queueConfig.controlSendTimeoutMs) + " ms: " + ex.what());
         }
-        const std::string topologyType =
-            assignments.empty() ? "unknown" : assignments.front().topologyType;
-        QUANTAS_LOG_INFO("coord") << "leader sent assignments topology=" << topologyType
-                                  << " peers=" << assignments.size();
-    } catch (const interprocess_exception& ex) {
-        throw std::runtime_error(std::string("Failed to ::sendAssignments: ") + ex.what());
     }
+
+    const std::string topologyType =
+        assignments.empty() ? "unknown" : assignments.front().topologyType;
+    QUANTAS_LOG_INFO("coord") << "leader sent assignments topology=" << topologyType
+                              << " peers=" << assignments.size();
 }
 
 /*
@@ -603,9 +585,9 @@ void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
     }
 
     QUANTAS_LOG_INFO("coord") << "leader recorded done from peer " << id;
-    if (shouldBroadcast) {
+
+    if (shouldBroadcast)
         broadcastStop();
-    }
 }
 
 /*
@@ -615,6 +597,7 @@ void ProcessCoordinatorMQ::notifyPeerStopped(interfaceId id) {
  */
 PeerCompletionResult ProcessCoordinatorMQ::waitForAllDone(std::chrono::milliseconds timeout) {
     PeerCompletionResult result;
+
     if (!_isLeader)
         return result;
 

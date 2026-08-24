@@ -10,14 +10,11 @@
 
 namespace quantas {
 
-/*
- * Build and write the BoostMQ leader report. All operations are static because
- * the writer does not keep any hidden state between experiments.
- */
+/* Build and write the BoostMQ leader report. All operations are static because the writer does not
+ * keep any hidden state between experiments. */
 class BoostMqReportWriter {
   public:
-    /* Report data: Store all facts collected for one test before they are
-     * written to JSON. */
+    /* Report data: Store all facts collected for one test before they are written to JSON. */
     struct TestReportInfo {
         size_t testIndex{0};
         std::chrono::duration<double> duration{};

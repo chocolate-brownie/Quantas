@@ -60,6 +60,15 @@ BoostMqQueueConfig parseBoostMqConfig(const nlohmann::json& experiment, int init
         config.readyTimeoutMs = value.get<std::size_t>();
     }
 
+    if (boostMq.contains("controlSendTimeoutMs")) {
+        const auto& value = boostMq["controlSendTimeoutMs"];
+
+        if (!value.is_number_unsigned() || value.get<std::size_t>() == 0)
+            throw std::runtime_error("boostMq.controlSendTimeoutMs must be a positive whole number");
+
+        config.controlSendTimeoutMs = value.get<std::size_t>();
+    }
+
     return config;
 }
 

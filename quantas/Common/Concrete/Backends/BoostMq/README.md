@@ -105,16 +105,19 @@ Each experiment may configure its data queues:
 "boostMq": {
   "dataQueueCapacity": 1000,
   "maxMessageSizeBytes": 4096,
-  "readyTimeoutMs": 30000
+  "readyTimeoutMs": 30000,
+  "controlSendTimeoutMs": 5000
 }
 ```
 
-All three settings are optional. Their defaults are `1000` messages, `4096` bytes,
-and `30000` milliseconds. `readyTimeoutMs` limits how long the leader waits for
-every expected peer to report ready. The control queue capacity is derived from
-`topology.initialPeers`; it is not a separate JSON setting. Before launching
-workers, `make mq` checks that the queues can be created and that every topology
-assignment fits within `maxMessageSizeBytes`.
+All four settings are optional. Their defaults are `1000` messages, `4096` bytes,
+`30000` milliseconds for readiness, and `5000` milliseconds for required control
+sends. `readyTimeoutMs` limits how long the leader waits for every expected peer
+to report ready. `controlSendTimeoutMs` limits each assignment, start, and normal
+stop send. The control queue capacity is derived from `topology.initialPeers`; it
+is not a separate JSON setting. Before launching workers, `make mq` checks that
+the queues can be created and that every topology assignment fits within
+`maxMessageSizeBytes`.
 
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer. The leader report records `peerCount`, `testCount`, `rounds`, and each test's `completedPeerCount`.
 

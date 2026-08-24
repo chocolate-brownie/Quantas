@@ -1,0 +1,18 @@
+{
+  "algorithms": ["Tests/boostMqResearcherContractPeer.cpp"],
+  "experiments": [
+    {
+      "logFile": "build/tests/mqResearcherContract.json",
+      "parameters": {
+        "marker": "contract-marker"
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "BoostMqResearcherContractPeer"
+      },
+      "tests": 1,
+      "rounds": 3
+    }
+  ]
+}

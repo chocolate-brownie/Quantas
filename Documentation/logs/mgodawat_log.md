@@ -423,3 +423,7 @@ In this file I document what I do everyday during my internship.
   static topologies directly between Abstract and BoostMQ.
 - Invalid dimensions, topology names, and user-list IDs now fail during leader
   preflight before queues or peer processes start.
+- Finished issue #41. Documented the BoostMQ researcher contract and the current
+  algorithm limits without changing Abstract or the public peer interface.
+- Added a focused workflow proving each process receives the correct local peer,
+  neighbours, JSON parameters, and lifecycle-hook calls.

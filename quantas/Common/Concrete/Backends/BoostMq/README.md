@@ -257,6 +257,25 @@ must not require BoostMQ-only branches. However, the peer collection passed to
 lifecycle hooks contains process-local peer objects only. It is not a collection
 of live objects from every remote process.
 
+For example, this is supported because the peer reads JSON settings, keeps local
+state, and sends messages by neighbour ID:
+
+```cpp
+void MyPeer::initParameters(const std::vector<Peer*>& localPeers, json parameters) {
+    timeout = parameters.value("timeout", 10);
+}
+
+void MyPeer::performComputation() {
+    for (interfaceId neighbour : neighbors()) {
+        unicastTo({{"type", "ping"}}, neighbour);
+    }
+}
+```
+
+The `localPeers` vector normally contains only the peer object owned by the
+current BoostMQ process. An algorithm must not loop over that vector expecting
+to find every peer in the experiment.
+
 BoostMQ currently supports:
 
 - one local algorithm peer per OS process;
@@ -265,9 +284,24 @@ BoostMQ currently supports:
 - per-peer metric files; and
 - leader completion and transport reports.
 
-Complete failure reporting, algorithm-result collection, and the final handover
-workflow are still being validated. A clean exit alone does not prove that an
-algorithm produced a correct result.
+Experiment-wide algorithm-result collection belongs to issue #42. A clean exit
+alone does not prove that an algorithm produced a correct result.
+
+### Existing algorithm audit
+
+- AltBit and StableDataLink can perform their main work from local state and
+  messages. Their experiment-wide metric totals still belong to issue #42.
+- ExamplePeer works when `changePeerType` is false. Replacing another peer
+  through `peers[1]` is not supported across processes.
+- PBFT, Bitcoin, Ethereum, Raft, Kademlia, and LinearChord currently inspect the
+  complete peer collection during setup. BoostMQ cannot give those hooks live
+  remote peer objects, so their global setup is not equivalent to Abstract.
+- Hook code that only updates the local peer is supported. Hook code that reads
+  or changes remote peer objects is not supported.
+
+BoostMQ does not reject algorithms by name. General C++ code can hide pointer
+use in many ways, so the runtime cannot reliably detect this behaviour before
+launch. Researchers must follow the contract above and validate their results.
 
 ### Natural differences from Abstract
 
@@ -298,9 +332,7 @@ BoostMQ cannot provide:
 
 For example, PBFT currently receives a one-peer vector in each BoostMQ process.
 Code that builds one global committee by directly inspecting every `Peer*` does
-not have the same meaning across process boundaries. Such behaviour must be
-implemented through supported configuration, IDs, messages, or collected
-output, or documented as unsupported.
+not have the same meaning across process boundaries.
 
 ## Validation and handover goal
 

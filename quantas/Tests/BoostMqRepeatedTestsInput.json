@@ -1,0 +1,24 @@
+{
+  "algorithms": ["AltBitPeer/AltBitPeer.cpp"],
+  "experiments": [
+    {
+      "logFile": "build/tests/mqRepeatedTests.txt",
+      "threadCount": 1,
+      "parameters": {
+        "timeOutRate": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "boostMq": {
+        "dataQueueCapacity": 1000,
+        "maxMessageSizeBytes": 4096,
+        "readyTimeoutMs": 1000
+      },
+      "tests": 3,
+      "rounds": 10
+    }
+  ]
+}

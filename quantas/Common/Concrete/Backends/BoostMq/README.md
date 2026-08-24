@@ -89,6 +89,12 @@ Each experiment gets a fresh leader process and the number of fresh peer
 processes set by that experiment's `topology.initialPeers` value. The next
 experiment starts only after the current one finishes.
 
+When an experiment has more than one test, each test also starts with fresh
+peer objects, transport counters, completion tracking, and control/data queues.
+Each test writes separate peer output files and one matching leader report
+entry. If a test fails, the experiment stops; a later test cannot be reported
+as successful using state from the failed test.
+
 Run the same complete workflow with debug binaries and detailed symbols using:
 
 ```sh

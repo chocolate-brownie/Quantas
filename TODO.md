@@ -21,13 +21,11 @@ BoostMQ, and produce enough evidence to diagnose failures and analyse results.
 
 ## Work order
 
-1. Finish lifecycle safety: #28 and #39.
-2. Finish repeated-test isolation: #27.
-3. Define and validate the supported researcher contract: #41.
-4. Validate BoostMQ static topology against Abstract behaviour: #52.
-5. Collect the metrics required for comparison and handover: #42.
-6. Validate and document the researcher handover: #43.
-7. Create and run the final Abstract-versus-BoostMQ comparison issue described
+1. Define and validate the supported researcher contract: #41.
+2. Validate BoostMQ static topology against Abstract behaviour: #52.
+3. Collect the metrics required for comparison and handover: #42.
+4. Validate and document the researcher handover: #43.
+5. Create and run the final Abstract-versus-BoostMQ comparison issue described
    in `Documentation/logs/mqtodo.md`.
 
 ## Done when

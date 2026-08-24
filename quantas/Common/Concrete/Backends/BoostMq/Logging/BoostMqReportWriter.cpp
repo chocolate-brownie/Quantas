@@ -227,9 +227,9 @@ BoostMqReportWriter::summarizeTransportReliability(const nlohmann::json& peerMet
     uint64_t droppedBackpressureTotal = 0;
 
     for (const auto& [peerId, metrics] : peerMetrics.items()) {
-        if (!metrics.contains("transportMetrics")) {
+        if (!metrics.contains("transportMetrics"))
             continue;
-        }
+
         const auto& transportMetrics = metrics["transportMetrics"];
         sentTotal += transportMetrics.value("sent", 0);
         receivedRawTotal += transportMetrics.value("received_raw", 0);

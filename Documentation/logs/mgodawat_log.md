@@ -415,3 +415,7 @@ In this file I document what I do everyday during my internship.
 - Continued issue #39: peer output validation now checks every requested file,
   keeps valid metrics, and reports pending shutdown messages separately from drops.
 - Added focused report tests for valid, missing, malformed, pending, and dropped output cases.
+- Finished issue #27. Repeated BoostMQ tests now have regression coverage for
+  three clean consecutive tests and for a failed test stopping the experiment.
+- The repeated-test checks confirmed separate peer outputs, fresh per-test
+  reports, correct completion counts, and no remaining BoostMQ processes or queues.

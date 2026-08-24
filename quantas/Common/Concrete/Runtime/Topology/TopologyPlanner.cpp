@@ -2,15 +2,62 @@
 #include <algorithm>
 #include <numeric>
 #include <random>
+#include <stdexcept>
 #include <string>
 
 namespace quantas {
+namespace {
 
-TopologyResult buildTopology(const nlohmann::json &topology) {
+int requirePositiveInteger(const nlohmann::json& object, const char* field,
+                           const std::string& path) {
+    if (!object.contains(field) || !object[field].is_number_integer()) {
+        throw std::runtime_error("error: " + path + " must be a positive integer");
+    }
+
+    const int value = object[field].get<int>();
+    if (value <= 0)
+        throw std::runtime_error("error: " + path + " must be > 0");
+    return value;
+}
+
+void validateDimensions(const nlohmann::json& topology, const std::string& type, int initialPeers,
+                        int& height, int& width) {
+    height = requirePositiveInteger(topology, "height", "topology.height");
+    width = requirePositiveInteger(topology, "width", "topology.width");
+
+    if (type == "torus" && (height < 2 || width < 2)) {
+        throw std::runtime_error("error: torus height and width must both be at least 2");
+    }
+
+    if (static_cast<long long>(height) * width != initialPeers) {
+        throw std::runtime_error(
+            "error: topology.height * topology.width must equal topology.initialPeers");
+    }
+}
+
+int parsePeerId(const std::string& value, int initialPeers) {
+    size_t parsedCharacters = 0;
+    long long peerId = 0;
+    try {
+        peerId = std::stoll(value, &parsedCharacters);
+    } catch (const std::exception&) {
+        throw std::runtime_error("error: topology.list contains invalid peer ID '" + value + "'");
+    }
+
+    if (parsedCharacters != value.size() || std::to_string(peerId) != value || peerId < 0 ||
+        peerId >= initialPeers) {
+        throw std::runtime_error("error: topology.list contains invalid peer ID '" + value + "'");
+    }
+    return static_cast<int>(peerId);
+}
+
+} // namespace
+
+TopologyResult buildTopology(const nlohmann::json& topology) {
     TopologyResult result;
 
-    const int initialPeers = topology.value("initialPeers", 0);
-    if (initialPeers <= 0) { return result; }
+    const int initialPeers =
+        requirePositiveInteger(topology, "initialPeers", "topology.initialPeers");
 
     result.assignments.resize(static_cast<size_t>(initialPeers));
 
@@ -23,7 +70,8 @@ TopologyResult buildTopology(const nlohmann::json &topology) {
     }
 
     auto addUndirectedEdge = [&](interfaceId a, interfaceId b) {
-        if (a == b || a < 0 || b < 0 || a >= initialPeers || b >= initialPeers) return;
+        if (a == b || a < 0 || b < 0 || a >= initialPeers || b >= initialPeers)
+            return;
         result.assignments[static_cast<size_t>(a)].id = a;
         result.assignments[static_cast<size_t>(b)].id = b;
         result.assignments[static_cast<size_t>(a)].neighbors.insert(b);
@@ -31,7 +79,8 @@ TopologyResult buildTopology(const nlohmann::json &topology) {
     };
 
     auto addDirectedEdge = [&](interfaceId from, interfaceId to) {
-        if (from < 0 || to < 0 || from >= initialPeers || to >= initialPeers) return;
+        if (from < 0 || to < 0 || from >= initialPeers || to >= initialPeers)
+            return;
         result.assignments[static_cast<size_t>(from)].id = from;
         result.assignments[static_cast<size_t>(from)].neighbors.insert(to);
     };
@@ -52,12 +101,9 @@ TopologyResult buildTopology(const nlohmann::json &topology) {
             addUndirectedEdge(center, leaf);
         }
     } else if (type == "grid") {
-        int height = topology.value("height", 1);
-        int width = topology.value("width", 1);
-        if (height * width != initialPeers) {
-            width = initialPeers;
-            height = 1;
-        }
+        int height = 0;
+        int width = 0;
+        validateDimensions(topology, type, initialPeers, height, width);
         for (int i = 0; i < height; ++i) {
             for (int j = 0; j < width; ++j) {
                 int idx = i * width + j;
@@ -73,12 +119,9 @@ TopologyResult buildTopology(const nlohmann::json &topology) {
             }
         }
     } else if (type == "torus") {
-        int height = topology.value("height", 1);
-        int width = topology.value("width", 1);
-        if (height * width != initialPeers) {
-            width = initialPeers;
-            height = 1;
-        }
+        int height = 0;
+        int width = 0;
+        validateDimensions(topology, type, initialPeers, height, width);
         for (int i = 0; i < height; ++i) {
             for (int j = 0; j < width; ++j) {
                 int idx = i * width + j;
@@ -109,26 +152,39 @@ TopologyResult buildTopology(const nlohmann::json &topology) {
         }
     } else if (type == "userList") {
         const auto it = topology.find("list");
-        if (it != topology.end() && it->is_object()) {
-            for (int i = 0; i < initialPeers; ++i) {
-                interfaceId id = ids[static_cast<size_t>(i)];
-                result.assignments[static_cast<size_t>(id)].id = id;
+        if (it == topology.end() || !it->is_object()) {
+            throw std::runtime_error("error: topology.list must be an object for userList");
+        }
+
+        for (const auto& [key, value] : it->items()) {
+            const int sourceIndex = parsePeerId(key, initialPeers);
+            if (!value.is_array()) {
+                throw std::runtime_error("error: topology.list['" + key + "'] must be an array");
             }
-            for (const auto &[key, value] : it->items()) {
-                int idx = std::stoi(key);
-                if (idx < 0 || idx >= initialPeers) continue;
-                interfaceId src = ids[static_cast<size_t>(idx)];
-                if (!value.is_array()) continue;
-                for (const auto &destValue : value) {
-                    int neighborIndex = destValue.get<int>();
-                    if (neighborIndex < 0 || neighborIndex >= initialPeers) continue;
-                    interfaceId dest = ids[static_cast<size_t>(neighborIndex)];
-                    addDirectedEdge(src, dest);
+
+            const interfaceId source = ids[static_cast<size_t>(sourceIndex)];
+            for (const auto& destinationValue : value) {
+                if (!destinationValue.is_number_integer()) {
+                    throw std::runtime_error("error: topology.list['" + key +
+                                             "'] contains a non-integer neighbour ID");
                 }
+
+                const long long destinationIndex = destinationValue.get<long long>();
+                if (destinationIndex < 0 || destinationIndex >= initialPeers) {
+                    throw std::runtime_error("error: topology.list['" + key +
+                                             "'] contains an out-of-range neighbour ID");
+                }
+                if (destinationIndex == sourceIndex) {
+                    throw std::runtime_error("error: topology.list['" + key +
+                                             "'] contains its own peer ID");
+                }
+
+                const interfaceId destination = ids[static_cast<size_t>(destinationIndex)];
+                addDirectedEdge(source, destination);
             }
         }
     } else {
-        for (interfaceId id : ids) { result.assignments[static_cast<size_t>(id)].id = id; }
+        throw std::runtime_error("error: missing or unknown topology.type '" + type + "'");
     }
 
     for (interfaceId id = 0; id < initialPeers; ++id) {

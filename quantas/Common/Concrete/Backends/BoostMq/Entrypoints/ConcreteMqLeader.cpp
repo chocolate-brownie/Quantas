@@ -155,10 +155,9 @@ int main(int argc, char* argv[]) {
             quantas::RuntimeExperimentConfig exp =
                 quantas::parseRuntimeExperiment(*config, expIndex);
 
+            const auto [assignments] = quantas::buildTopology(exp.topology);
             auto boostConfig = quantas::parseBoostMqConfig(experiment, exp.initialPeers);
             quantas::preflightBoostMqQueues(boostConfig, expIndex);
-
-            const auto [assignments] = quantas::buildTopology(exp.topology);
             quantas::validateBoostMqAssignmentPayloads(assignments, boostConfig, expIndex);
 
             if (cli->preflightOnly)
@@ -237,7 +236,8 @@ int main(int argc, char* argv[]) {
 
                 /* Wait for every peer to finish. When the final peer reports done, this operation
                  * also sends the normal stop message. If that required stop send fails, record the
-                 * test as unsuccessful, stop peers best-effort, clean the queues, and end the test. */
+                 * test as unsuccessful, stop peers best-effort, clean the queues, and end the
+                 * test.*/
                 quantas::PeerCompletionResult completionResult;
                 try {
                     completionResult =
@@ -291,8 +291,8 @@ int main(int argc, char* argv[]) {
                 coordinator.cleanUp();
 
                 if (experimentTimedOut) {
-                    QUANTAS_LOG_ERROR("coord") << "leader failed experiment " << expIndex
-                                                << " test " << testNumber;
+                    QUANTAS_LOG_ERROR("coord")
+                        << "leader failed experiment " << expIndex << " test " << testNumber;
                     break;
                 }
 

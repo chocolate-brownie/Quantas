@@ -22,10 +22,9 @@ BoostMQ, and produce enough evidence to diagnose failures and analyse results.
 ## Work order
 
 1. Define and validate the supported researcher contract: #41.
-2. Validate BoostMQ static topology against Abstract behaviour: #52.
-3. Collect the metrics required for comparison and handover: #42.
-4. Validate and document the researcher handover: #43.
-5. Create and run the final Abstract-versus-BoostMQ comparison issue described
+2. Collect the metrics required for comparison and handover: #42.
+3. Validate and document the researcher handover: #43.
+4. Create and run the final Abstract-versus-BoostMQ comparison issue described
    in `Documentation/logs/mqtodo.md`.
 
 ## Done when

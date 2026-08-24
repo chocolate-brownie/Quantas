@@ -125,6 +125,19 @@ is not a separate JSON setting. Before launching workers, `make mq` checks that
 the queues can be created and that every topology assignment fits within
 `maxMessageSizeBytes`.
 
+### Static topologies
+
+BoostMQ supports the same fixed-ID neighbour rules as Abstract for `complete`,
+`star`, `grid`, `torus`, `chain`, `ring`, `unidirectionalRing`, and `userList`.
+Grid and torus dimensions must be positive and their product must equal
+`topology.initialPeers`. A torus needs at least two rows and two columns.
+User-list peer IDs and neighbour IDs must be valid integers in the configured
+peer range, and a peer cannot list itself.
+
+Invalid topology settings fail during leader preflight before queues or peer
+processes start. With `"identifiers": "random"`, identifier order may differ
+between Abstract and BoostMQ runs. Live topology changes remain unsupported.
+
 A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer. The leader report records `peerCount`, `testCount`, `rounds`, and each test's `completedPeerCount`.
 
 ### How success is decided
@@ -252,9 +265,9 @@ BoostMQ currently supports:
 - per-peer metric files; and
 - leader completion and transport reports.
 
-Repeated-test isolation, complete failure reporting, algorithm-result
-collection, and the final handover workflow are still being validated. A clean
-exit alone does not prove that an algorithm produced a correct result.
+Complete failure reporting, algorithm-result collection, and the final handover
+workflow are still being validated. A clean exit alone does not prove that an
+algorithm produced a correct result.
 
 ### Natural differences from Abstract
 

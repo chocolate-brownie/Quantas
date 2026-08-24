@@ -419,3 +419,7 @@ In this file I document what I do everyday during my internship.
   three clean consecutive tests and for a failed test stopping the experiment.
 - The repeated-test checks confirmed separate peer outputs, fresh per-test
   reports, correct completion counts, and no remaining BoostMQ processes or queues.
+- Finished issue #52. Automated tests now compare all eight supported fixed-ID
+  static topologies directly between Abstract and BoostMQ.
+- Invalid dimensions, topology names, and user-list IDs now fail during leader
+  preflight before queues or peer processes start.

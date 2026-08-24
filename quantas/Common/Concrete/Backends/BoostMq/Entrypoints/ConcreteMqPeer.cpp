@@ -308,6 +308,7 @@ int main(int argc, char** argv) {
     const size_t expIndex = cli->experimentIndex;
 
     std::vector<quantas::Peer*> localPeers;
+    int activeTestNumber = 0;
     try {
         /* ==================== Phase 1: Setup / Assembly ====================
         Build all runtime state needed to execute this experiment in the
@@ -321,6 +322,8 @@ int main(int argc, char** argv) {
 
         for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
             const int testNumber = testIndex + 1;
+            activeTestNumber = testNumber;
+
             const std::string metricsFile =
                 configureExperimentOutput(logFileBase, expIndex, testNumber, processDisambiguator);
             coordinator.configureExperiment(expIndex, exp.initialPeerType, false, exp.initialPeers,
@@ -354,7 +357,14 @@ int main(int argc, char** argv) {
                Execute rounds for all local peers, then release experiment state.
                */
 
-            runRounds(localPeers, exp.rounds, coordinator);
+            try {
+                runRounds(localPeers, exp.rounds, coordinator);
+            } catch (...) {
+                /* Preserve transport evidence collected before a data-send failure, then let the
+                 * existing outer handler log the test failure and clean process state. */
+                emitFinalExperimentMetrics(startTime, localPeers, queueConfig.dataQueueCapacity);
+                throw;
+            }
             emitFinalExperimentMetrics(startTime, localPeers, queueConfig.dataQueueCapacity);
             coordinator.notifyPeerStopped(localPeers.front()->publicId());
             coordinator.waitForStop();
@@ -363,9 +373,21 @@ int main(int argc, char** argv) {
         }
         coordinator.cleanUp();
     } catch (const std::exception& ex) {
+        if (activeTestNumber > 0) {
+            try {
+                coordinator.notifyPeerFailed(cli->peerId);
+            } catch (const std::exception& notifyError) {
+                QUANTAS_LOG_ERROR("runner")
+                    << "peer " << cli->peerId
+                    << " could not report failure to leader: " << notifyError.what();
+            }
+        }
         cleanUp(localPeers);
         coordinator.cleanUp();
-        QUANTAS_LOG_ERROR("runner") << "experiment " << expIndex << " failed: " << ex.what();
+        QUANTAS_LOG_ERROR("runner")
+            << "experiment " << expIndex
+            << (activeTestNumber > 0 ? " test " + std::to_string(activeTestNumber) : "")
+            << " failed: " << ex.what();
         return 1;
     }
 

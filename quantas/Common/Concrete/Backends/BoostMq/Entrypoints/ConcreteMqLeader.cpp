@@ -261,11 +261,16 @@ int main(int argc, char* argv[]) {
                 testInfo.peerOutputFiles = quantas::BoostMqReportWriter::makePeerOutputFiles(
                     logFileBase, expIndex, testNumber, exp.initialPeers);
 
-                testInfo.success = !testInfo.completionTimedOut && testInfo.missingPeers.empty();
+                testInfo.success = !testInfo.completionTimedOut &&
+                                   completionResult.failedPeers.empty() &&
+                                   testInfo.missingPeers.empty();
                 allTestsSucceeded = allTestsSucceeded && testInfo.success;
 
-                testInfo.peerMetrics = quantas::BoostMqReportWriter::readCompletedPeerMetrics(
-                    testInfo.peerOutputFiles, testInfo.completedPeers);
+                std::vector<quantas::interfaceId> reportingPeers = testInfo.completedPeers;
+                reportingPeers.insert(reportingPeers.end(), completionResult.failedPeers.begin(),
+                                      completionResult.failedPeers.end());
+                testInfo.peerMetrics = quantas::BoostMqReportWriter::readPeerMetrics(
+                    testInfo.peerOutputFiles, reportingPeers);
                 testInfo.transportReliability =
                     quantas::BoostMqReportWriter::summarizeTransportReliability(
                         testInfo.peerMetrics);
@@ -274,7 +279,7 @@ int main(int argc, char* argv[]) {
 
                 /* Stop peers best-effort after a timeout and always release  this test's
                  * coordinator resources before continuing. */
-                if (testInfo.completionTimedOut) {
+                if (testInfo.completionTimedOut || !completionResult.failedPeers.empty()) {
                     experimentTimedOut = true;
                     coordinator.broadcastStopBestEffort();
                 }
@@ -282,8 +287,8 @@ int main(int argc, char* argv[]) {
                 coordinator.cleanUp();
 
                 if (experimentTimedOut) {
-                    QUANTAS_LOG_ERROR("coord")
-                        << "leader timed out in experiment " << expIndex << " test " << testNumber;
+                    QUANTAS_LOG_ERROR("coord") << "leader failed experiment " << expIndex
+                                                << " test " << testNumber;
                     break;
                 }
 

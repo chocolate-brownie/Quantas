@@ -10,10 +10,8 @@
 #include <boost/interprocess/interprocess_fwd.hpp>
 #include <chrono>
 #include <cstdint>
-#include <iostream>
 #include <mutex>
 #include <sstream>
-#include <unordered_map>
 #include <vector>
 
 using namespace boost::interprocess;
@@ -87,30 +85,19 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
                 std::to_string(mq.get_max_msg_size())
             );
 
-        /* NOTE: Backpressure guard: avoid indefinite blocking on full peer
-           queues by bounding send wait time. Track per-destination drops so
-           bottlenecked peers are visible during debugging.
-
-           What is the meaning of backpressure?
-
-           "The sender tried to deliver a real message, but the destination
-           queue could not accept it in time" */
-        static std::mutex dropsMutex;
-        static std::unordered_map<interfaceId, unsigned long> dropsByDest;
-
+        /* Bound the send so a full destination queue fails the test instead of
+         * blocking the peer forever. */
+        constexpr int dataSendTimeoutMs = 5;
         const auto deadline = boost::posix_time::microsec_clock::universal_time() +
-                              boost::posix_time::milliseconds(5);
+                              boost::posix_time::milliseconds(dataSendTimeoutMs);
+
         const bool sent = mq.timed_send(bytes.data(), bytes.size(), 0, deadline);
+
         if (!sent) {
-            std::lock_guard<std::mutex> lock(dropsMutex);
-            auto& count = dropsByDest[dest];
-            ++count;
-            if ((count % 100) == 0) {
-                std::cerr << "unicastTo: peer_" << dest << " dropped_backpressure=" << count
-                          << "\n";
-            }
-            _transportMetrics.droppedBackpressure++;
-            return;
+            ++_transportMetrics.droppedBackpressure;
+            throw std::runtime_error("peer " + std::to_string(publicId()) +
+                                     " timed out sending data to peer " + std::to_string(dest) +
+                                     " after " + std::to_string(dataSendTimeoutMs) + " ms");
         }
 
         _transportMetrics.sent++;

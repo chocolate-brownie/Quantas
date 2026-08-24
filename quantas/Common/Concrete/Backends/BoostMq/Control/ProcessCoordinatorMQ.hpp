@@ -15,8 +15,14 @@
 namespace quantas {
 enum class StopMode { FixedRounds, DoneSignals };
 
+struct PeerCompletionMessage {
+    interfaceId peerId{NO_PEER_ID};
+    bool succeeded{true};
+};
+
 struct PeerCompletionResult {
     std::vector<interfaceId> completedPeers;
+    std::vector<interfaceId> failedPeers;
     bool timedOut{false};
 };
 
@@ -52,6 +58,7 @@ class ProcessCoordinatorMQ {
     ~ProcessCoordinatorMQ();
     ProcessCoordinatorMQ(const ProcessCoordinatorMQ&) = delete;
     ProcessCoordinatorMQ& operator=(const ProcessCoordinatorMQ&) = delete;
+    void notifyPeerFinished(interfaceId id, bool succeeded);
 
   public:
     // -------------------- Singleton access --------------------
@@ -91,6 +98,7 @@ class ProcessCoordinatorMQ {
     void broadcastStopBestEffort();
     void waitForStop();
     void notifyPeerStopped(interfaceId id);
+    void notifyPeerFailed(interfaceId id);
     PeerCompletionResult waitForAllDone(std::chrono::milliseconds timeout);
 };
 

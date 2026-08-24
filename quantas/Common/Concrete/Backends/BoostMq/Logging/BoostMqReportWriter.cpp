@@ -156,13 +156,14 @@ void BoostMqReportWriter::writeLeaderReport(const std::string& path, const nlohm
 }
 
 /*
- * Main metrics operation: Read metrics only for peers that completed the test.
+ * Main metrics operation: Read metrics for the supplied peer IDs. This can
+ * include a failed peer that wrote its final transport counters before exit.
  */
 nlohmann::json
-BoostMqReportWriter::readCompletedPeerMetrics(const nlohmann::json& peerOutputFiles,
-                                              const std::vector<interfaceId>& completedPeers) {
+BoostMqReportWriter::readPeerMetrics(const nlohmann::json& peerOutputFiles,
+                                     const std::vector<interfaceId>& peerIds) {
     nlohmann::json peerMetrics = nlohmann::json::object();
-    for (interfaceId peerId : completedPeers) {
+    for (interfaceId peerId : peerIds) {
         const std::string key = std::to_string(peerId);
         const std::string path = peerOutputFiles.at(key).get<std::string>();
         if (path == "cout" || path == "cerr") {

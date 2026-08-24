@@ -47,8 +47,8 @@ class BoostMqReportWriter {
     static void writeLeaderReport(const std::string& path, const nlohmann::json& report);
 
     /* Metrics operations: Read peer metrics and build the transport summary. */
-    static nlohmann::json readCompletedPeerMetrics(const nlohmann::json& peerOutputFiles,
-                                                   const std::vector<interfaceId>& completedPeers);
+    static nlohmann::json readPeerMetrics(const nlohmann::json& peerOutputFiles,
+                                          const std::vector<interfaceId>& peerIds);
     static nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics);
 
   private:

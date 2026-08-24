@@ -260,6 +260,11 @@ mq_transport_metrics_test: build/tests/mq_transport_metrics_test.exe
 	@./build/tests/mq_transport_metrics_test.exe
 	@echo ""
 
+mq_data_delivery_failure_test: mq_leader_debug build/tests/mq_data_delivery_failure_peer.exe
+	@echo "Testing BoostMQ data-delivery failure reporting and cleanup..."
+	@bash quantas/Tests/mqDataDeliveryFailureTest.sh
+	@echo ""
+
 mq_runtime_config_test: build/tests/mq_runtime_config_test.exe
 	@echo "Testing required runtime counts..."
 	@./build/tests/mq_runtime_config_test.exe
@@ -289,7 +294,7 @@ mq_cleanup_test:
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test
+test: check-version rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_data_delivery_failure_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
@@ -416,6 +421,14 @@ build/tests/mq_transport_metrics_test.exe: quantas/Tests/boostMqTransportMetrics
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
 
+build/tests/mq_data_delivery_failure_peer.exe: \
+		quantas/Tests/boostMqDataDeliveryFailurePeer.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.cpp \
+		quantas/Common/LoggingSupport.cpp quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
 build/tests/mq_runtime_config_test.exe: quantas/Tests/runtimeConfigCountTest.cpp \
 		quantas/Common/Concrete/Runtime/Config/RuntimeConfig.cpp
 	@mkdir -p $(dir $@)
@@ -479,4 +492,4 @@ clean_outputs:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_debug_build mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test test clean_outputs
+.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_debug_build mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_data_delivery_failure_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test test clean_outputs

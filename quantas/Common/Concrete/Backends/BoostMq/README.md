@@ -133,6 +133,13 @@ only the useful facts: `timedOut`, `readyPeers`, and `missingPeers`. Detailed
 error explanations remain in `QUANTAS_LOG`. Transport metrics and researcher
 algorithm output remain separate evidence.
 
+If a destination data queue stays full until the send deadline, the sender
+records one `dropped_backpressure`, stops the current test, and reports failure
+to the leader. The leader writes `success: false`, keeps the failed peer's
+transport counters in `transportReliability`, stops the other peers, and exits
+with a nonzero status. This is a real BoostMQ delivery failure, not simulated
+Abstract packet loss.
+
 After a startup timeout, the leader asks peers that already started to stop,
 removes the QUANTAS BoostMQ queues, writes the leader report, and exits with a
 nonzero status. The launcher then terminates any remaining child processes.
@@ -204,6 +211,7 @@ The stricter `sent_total == received_raw_total` check can fail when fixed-round 
 - queue creation failed → stale queues or insufficient shared-memory resources
 - peer timeout → peer crashed or did not send `done`
 - message too large → increase `boostMq.maxMessageSizeBytes` or reduce the payload size
+- timed out sending data → the destination data queue stayed full, so the test failed
 
 ## Researcher algorithm contract
 

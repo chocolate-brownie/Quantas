@@ -29,6 +29,7 @@ leader times out waiting for peer 2
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <cassert>
 #include <chrono>
+#include <stdexcept>
 #include <thread>
 
 int main() {
@@ -53,7 +54,10 @@ int main() {
     std::thread sender([] {
         std::this_thread::sleep_for(10ms);
         message_queue doneQueue(boost::interprocess::open_only, "mq_done");
-        for (quantas::interfaceId id : {0, 0, 99, 1}) { doneQueue.send(&id, sizeof(id), 0); }
+        for (quantas::interfaceId id : {0, 0, 99, 1}) {
+            const quantas::PeerCompletionMessage completion{id, true};
+            doneQueue.send(&completion, sizeof(completion), 0);
+        }
     });
 
     const auto start = std::chrono::steady_clock::now();
@@ -65,7 +69,44 @@ int main() {
 
     assert(result.timedOut);
     assert((result.completedPeers == std::vector<quantas::interfaceId>{0, 1}));
+    assert(result.failedPeers.empty());
     assert(elapsed >= 90ms);
     assert(elapsed < 1s);
+
+    queueConfig.controlQueueCapacity = 2;
+    coordinator.configureExperiment(0, "test", true, 2, quantas::NO_PEER_ID, "cout",
+                                    quantas::StopMode::FixedRounds, queueConfig);
+    coordinator.createBarrier();
+
+    message_queue doneQueue(boost::interprocess::open_only, "mq_done");
+    const quantas::PeerCompletionMessage succeeded{0, true};
+    const quantas::PeerCompletionMessage failed{1, false};
+    doneQueue.send(&succeeded, sizeof(succeeded), 0);
+    doneQueue.send(&failed, sizeof(failed), 0);
+
+    const quantas::PeerCompletionResult mixedResult = coordinator.waitForAllDone(100ms);
+    coordinator.cleanUp();
+
+    assert(!mixedResult.timedOut);
+    assert((mixedResult.completedPeers == std::vector<quantas::interfaceId>{0}));
+    assert((mixedResult.failedPeers == std::vector<quantas::interfaceId>{1}));
+
+    queueConfig.controlQueueCapacity = 1;
+    coordinator.configureExperiment(0, "test", true, 1, quantas::NO_PEER_ID, "cout",
+                                    quantas::StopMode::FixedRounds, queueConfig);
+    coordinator.createBarrier();
+
+    message_queue malformedQueue(boost::interprocess::open_only, "mq_done");
+    const char malformed = 0;
+    malformedQueue.send(&malformed, sizeof(malformed), 0);
+
+    bool malformedRejected = false;
+    try {
+        (void)coordinator.waitForAllDone(100ms);
+    } catch (const std::runtime_error&) {
+        malformedRejected = true;
+    }
+    coordinator.cleanUp();
+    assert(malformedRejected);
     return 0;
 }

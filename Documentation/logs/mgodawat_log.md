@@ -409,3 +409,6 @@ In this file I document what I do everyday during my internship.
 - Finished issue #33. Assignment, start, and normal stop messages now have a configurable deadline and report the failed operation, peer ID, and timeout.
 - Control-send failures now produce `success: false`, stop peers best-effort, clean the queues, and return an error.
 - Focused tests, a normal BoostMQ run, ShellCheck, and all non-Raft memory checks passed. No BoostMQ processes or queues remained.
+- Finished issue #28. A full destination data queue now stops the sender and reports that peer's failure to the leader.
+- The leader writes `success: false`, keeps the failed peer's backpressure counter, stops the run, and exits with an error.
+- Focused tests, a normal BoostMQ run, ShellCheck, all non-Raft memory checks, and cleanup checks passed.

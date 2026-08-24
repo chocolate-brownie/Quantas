@@ -6,6 +6,7 @@
 #include "quantas/Common/Logger.hpp"
 #include "quantas/Common/LoggingSupport.hpp"
 #include <chrono>
+#include <cstddef>
 #include <exception>
 #include <iostream>
 #include <stdexcept>
@@ -261,16 +262,18 @@ int main(int argc, char* argv[]) {
                 testInfo.peerOutputFiles = quantas::BoostMqReportWriter::makePeerOutputFiles(
                     logFileBase, expIndex, testNumber, exp.initialPeers);
 
-                testInfo.success = !testInfo.completionTimedOut &&
-                                   completionResult.failedPeers.empty() &&
-                                   testInfo.missingPeers.empty();
-                allTestsSucceeded = allTestsSucceeded && testInfo.success;
-
                 std::vector<quantas::interfaceId> reportingPeers = testInfo.completedPeers;
                 reportingPeers.insert(reportingPeers.end(), completionResult.failedPeers.begin(),
                                       completionResult.failedPeers.end());
-                testInfo.peerMetrics = quantas::BoostMqReportWriter::readPeerMetrics(
-                    testInfo.peerOutputFiles, reportingPeers);
+                const bool allOutputsValid = quantas::BoostMqReportWriter::readPeerMetrics(
+                    testInfo.peerOutputFiles, reportingPeers, testInfo.peerMetrics);
+
+                testInfo.success = !testInfo.completionTimedOut &&
+                                   completionResult.failedPeers.empty() &&
+                                   testInfo.missingPeers.empty() && allOutputsValid;
+
+                allTestsSucceeded = allTestsSucceeded && testInfo.success;
+
                 testInfo.transportReliability =
                     quantas::BoostMqReportWriter::summarizeTransportReliability(
                         testInfo.peerMetrics);
@@ -279,7 +282,8 @@ int main(int argc, char* argv[]) {
 
                 /* Stop peers best-effort after a timeout and always release  this test's
                  * coordinator resources before continuing. */
-                if (testInfo.completionTimedOut || !completionResult.failedPeers.empty()) {
+                if (testInfo.completionTimedOut || !completionResult.failedPeers.empty() ||
+                    !allOutputsValid) {
                     experimentTimedOut = true;
                     coordinator.broadcastStopBestEffort();
                 }

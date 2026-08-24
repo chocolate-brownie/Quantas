@@ -7,6 +7,9 @@
 #include <iomanip>
 #include <iostream>
 #include <streambuf>
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
 
 namespace quantas {
 
@@ -22,6 +25,31 @@ constexpr const char* levelName(LogLevel level) noexcept {
     case LogLevel::Off: break;
     }
     return "OFF";
+}
+
+constexpr const char* levelColor(LogLevel level) noexcept {
+    switch (level) {
+    case LogLevel::Error: return "\033[31m";
+    case LogLevel::Warn: return "\033[33m";
+    case LogLevel::Info: return "";
+    case LogLevel::Debug: return "\033[36m";
+    case LogLevel::Trace: return "\033[90m";
+    case LogLevel::Off: break;
+    }
+    return "";
+}
+
+bool isTerminalStream(const std::ostream* stream) noexcept {
+#if defined(_WIN32)
+    (void)stream;
+    return false;
+#else
+    if (stream == &std::cout)
+        return ::isatty(STDOUT_FILENO) != 0;
+    if (stream == &std::cerr)
+        return ::isatty(STDERR_FILENO) != 0;
+    return false;
+#endif
 }
 
 std::string formatTimestamp() {
@@ -230,9 +258,16 @@ void Logger::write(std::string_view category, LogLevel level, std::string_view m
     if (!sink) {
         return;
     }
-    (*sink) << formatTimestamp() << ' '
-            << '[' << category << "]\t[" << levelName(level) << "] "
-            << message << '\n';
+    (*sink) << formatTimestamp() << ' ' << '[' << category << "]\t";
+
+    const char* color = isTerminalStream(sink) ? levelColor(level) : "";
+    if (*color != '\0')
+        (*sink) << color;
+    (*sink) << '[' << levelName(level) << ']';
+    if (*color != '\0')
+        (*sink) << "\033[0m";
+
+    (*sink) << ' ' << message << '\n';
     sink->flush();
 }
 

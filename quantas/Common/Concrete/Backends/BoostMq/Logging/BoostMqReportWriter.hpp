@@ -47,13 +47,14 @@ class BoostMqReportWriter {
     static void writeLeaderReport(const std::string& path, const nlohmann::json& report);
 
     /* Metrics operations: Read peer metrics and build the transport summary. */
-    static nlohmann::json readPeerMetrics(const nlohmann::json& peerOutputFiles,
-                                          const std::vector<interfaceId>& peerIds);
+    static bool readPeerMetrics(const nlohmann::json& peerOutputFiles,
+                                const std::vector<interfaceId>& peerIds,
+                                nlohmann::json& peerMetrics);
     static nlohmann::json summarizeTransportReliability(const nlohmann::json& peerMetrics);
 
   private:
     /* Utility: Read the JSON metrics written by one peer. */
-    static nlohmann::json readPeerMetricFile(const std::string& path);
+    static bool readPeerMetricFile(const std::string& path, nlohmann::json& peerMetrics);
 };
 
 } // namespace quantas

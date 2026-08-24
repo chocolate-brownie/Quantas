@@ -1,5 +1,7 @@
 #include "BoostMqReportWriter.hpp"
+#include "quantas/Common/Logger.hpp"
 #include "quantas/Common/LoggingSupport.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -10,19 +12,45 @@
 #include <vector>
 
 namespace quantas {
-/*
- * Utility: Read the JSON metrics written by one peer. Stop with a clear error
- * when the expected file cannot be opened.
- */
-nlohmann::json BoostMqReportWriter::readPeerMetricFile(const std::string& path) {
-    std::ifstream input(path);
-    if (!input.is_open()) {
-        throw std::runtime_error("error: cannot open peer metric file: " + path);
+
+/* Utility: Read the JSON metrics written by one peer. Stop with a clear error when the expected
+ * file cannot be opened. */
+bool BoostMqReportWriter::readPeerMetricFile(const std::string& path, nlohmann::json& peerMetrics) {
+    if (path.empty()) {
+        QUANTAS_LOG_ERROR("report") << "peer metrics path is empty";
+        return false;
     }
 
-    nlohmann::json metrics;
-    input >> metrics;
-    return metrics;
+    std::ifstream input(path);
+
+    if (!input) {
+        QUANTAS_LOG_ERROR("report") << "cannot open peer metrics file: " << path;
+        return false;
+    }
+
+    try {
+        input >> peerMetrics;
+    } catch (const nlohmann::json::parse_error& ex) {
+        QUANTAS_LOG_ERROR("report")
+            << "invalid JSON in peer metrics file " << path << ": " << ex.what();
+        return false;
+    } catch (const nlohmann::json::exception& ex) {
+        QUANTAS_LOG_ERROR("report")
+            << "cannot read peer metrics file " << path << ": " << ex.what();
+        return false;
+    }
+
+    if (input.bad()) {
+        QUANTAS_LOG_ERROR("report") << "I/O error while reading peer metrics file: " << path;
+        return false;
+    }
+
+    if (!peerMetrics.is_object()) {
+        QUANTAS_LOG_ERROR("report") << "peer metrics file must contain a JSON object: " << path;
+        return false;
+    }
+
+    return true;
 }
 /*
  * Main report operation: Create the basic experiment report before its tests
@@ -159,25 +187,38 @@ void BoostMqReportWriter::writeLeaderReport(const std::string& path, const nlohm
  * Main metrics operation: Read metrics for the supplied peer IDs. This can
  * include a failed peer that wrote its final transport counters before exit.
  */
-nlohmann::json
-BoostMqReportWriter::readPeerMetrics(const nlohmann::json& peerOutputFiles,
-                                     const std::vector<interfaceId>& peerIds) {
-    nlohmann::json peerMetrics = nlohmann::json::object();
+bool BoostMqReportWriter::readPeerMetrics(const nlohmann::json& peerOutputFiles,
+                                          const std::vector<interfaceId>& peerIds,
+                                          nlohmann::json& peerMetrics) {
+    bool allOutputsValid = true;
+    peerMetrics = nlohmann::json::object();
+
     for (interfaceId peerId : peerIds) {
         const std::string key = std::to_string(peerId);
-        const std::string path = peerOutputFiles.at(key).get<std::string>();
-        if (path == "cout" || path == "cerr") {
+        if (!peerOutputFiles.contains(key) || !peerOutputFiles.at(key).is_string()) {
+            QUANTAS_LOG_ERROR("report") << "missing output path for peer " << peerId;
+            allOutputsValid = false;
             continue;
         }
-        peerMetrics[key] = readPeerMetricFile(path);
+
+        const std::string path = peerOutputFiles.at(key).get<std::string>();
+        if (path == "cout" || path == "cerr")
+            continue;
+
+        nlohmann::json metrics;
+        if (!readPeerMetricFile(path, metrics)) {
+            allOutputsValid = false;
+            continue;
+        }
+
+        peerMetrics[key] = std::move(metrics);
     }
-    return peerMetrics;
+
+    return allOutputsValid;
 }
 
-/*
- * Main metrics operation: Combine peer transport counters into one simple
- * reliability summary for the test.
- */
+/* Main metrics operation: Combine peer transport counters into one simple reliability summary for
+ * the test. */
 nlohmann::json
 BoostMqReportWriter::summarizeTransportReliability(const nlohmann::json& peerMetrics) {
     uint64_t sentTotal = 0;
@@ -196,13 +237,16 @@ BoostMqReportWriter::summarizeTransportReliability(const nlohmann::json& peerMet
         droppedBackpressureTotal += transportMetrics.value("dropped_backpressure", 0);
     }
 
-    const bool reliable = sentTotal == receivedRawTotal &&
-                          receivedRawTotal == deliveredToInstreamTotal &&
-                          droppedBackpressureTotal == 0;
+    const uint64_t pendingAtShutdownTotal =
+        sentTotal > receivedRawTotal ? sentTotal - receivedRawTotal : 0;
+    const bool reliable =
+        droppedBackpressureTotal == 0 && receivedRawTotal == deliveredToInstreamTotal;
+
     return nlohmann::json{{"sent_total", sentTotal},
                           {"received_raw_total", receivedRawTotal},
                           {"delivered_to_instream_total", deliveredToInstreamTotal},
                           {"dropped_backpressure_total", droppedBackpressureTotal},
+                          {"pending_at_shutdown_total", pendingAtShutdownTotal},
                           {"reliable", reliable}};
 }
 

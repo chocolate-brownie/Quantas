@@ -204,6 +204,12 @@ BoostMQ report metrics describe real IPC behavior, not Abstract simulator channe
 
 The leader also summarizes these counters in `transportReliability`. Treat `dropped_backpressure_total == 0` and `received_raw_total == delivered_to_instream_total` as the primary transport-health check for the current implementation.
 
+`pending_at_shutdown_total` counts messages that were accepted into queues but
+were still waiting when the run ended. It is not a drop. A backpressure drop is
+counted only by `dropped_backpressure_total` when a send reaches its deadline.
+The `reliable` field is false when a backpressure drop occurred or when a raw
+message could not be delivered to the local input stream.
+
 The stricter `sent_total == received_raw_total` check can fail when fixed-round shutdown leaves final-round messages still queued. That is reported as pending-at-shutdown behavior, not automatically as modelled packet loss.
 
 ## Common failure messages

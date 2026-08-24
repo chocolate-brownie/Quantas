@@ -1,0 +1,12 @@
+{
+  "algorithms": ["ExamplePeer/ExamplePeer.cpp"],
+  "experiments": [{
+    "logFile": "build/tests/mqInvalidOutput.txt",
+    "parameters": {},
+    "topology": {"type": "complete", "initialPeers": 2, "initialPeerType": "ExamplePeer"},
+    "boostMq": {"readyTimeoutMs": 1000},
+    "tests": 1,
+    "rounds": 1,
+    "doneTimeoutMs": 1000
+  }]
+}

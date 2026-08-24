@@ -412,3 +412,6 @@ In this file I document what I do everyday during my internship.
 - Finished issue #28. A full destination data queue now stops the sender and reports that peer's failure to the leader.
 - The leader writes `success: false`, keeps the failed peer's backpressure counter, stops the run, and exits with an error.
 - Focused tests, a normal BoostMQ run, ShellCheck, all non-Raft memory checks, and cleanup checks passed.
+- Continued issue #39: peer output validation now checks every requested file,
+  keeps valid metrics, and reports pending shutdown messages separately from drops.
+- Added focused report tests for valid, missing, malformed, pending, and dropped output cases.

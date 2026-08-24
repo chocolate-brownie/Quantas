@@ -260,6 +260,16 @@ mq_transport_metrics_test: build/tests/mq_transport_metrics_test.exe
 	@./build/tests/mq_transport_metrics_test.exe
 	@echo ""
 
+mq_report_test: build/tests/mq_report_test.exe
+	@echo "Testing BoostMQ report validation and pending metrics..."
+	@./build/tests/mq_report_test.exe
+	@echo ""
+
+mq_invalid_output_test: mq_leader_debug build/tests/mq_invalid_output_peer.exe
+	@echo "Testing BoostMQ missing and malformed peer output..."
+	@bash quantas/Tests/mqInvalidOutputTest.sh
+	@echo ""
+
 mq_data_delivery_failure_test: mq_leader_debug build/tests/mq_data_delivery_failure_peer.exe
 	@echo "Testing BoostMQ data-delivery failure reporting and cleanup..."
 	@bash quantas/Tests/mqDataDeliveryFailureTest.sh
@@ -294,7 +304,7 @@ mq_cleanup_test:
 # folder such that the input files need not be listed here
 TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitUtility.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/LinearChordPeer/LinearChordInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
 
-test: check-version rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_data_delivery_failure_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test
+test: check-version rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_report_test mq_invalid_output_test mq_data_delivery_failure_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test
 	@echo "Running memory tests on all test inputs..."
 	@echo ""
 	@for file in $(TEST_INPUTS); do \
@@ -421,6 +431,18 @@ build/tests/mq_transport_metrics_test.exe: quantas/Tests/boostMqTransportMetrics
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
 
+build/tests/mq_report_test.exe: quantas/Tests/boostMqReportWriterTest.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Logging/BoostMqReportWriter.cpp \
+		quantas/Common/LoggingSupport.cpp quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
+build/tests/mq_invalid_output_peer.exe: quantas/Tests/boostMqInvalidOutputPeer.cpp \
+		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp \
+		quantas/Common/LoggingSupport.cpp quantas/Common/Logger.cpp | check_mq_deps
+	@mkdir -p $(dir $@)
+	@$(CXX) $(CXXFLAGS) $^ -o $@ $(MQ_LDLIBS)
+
 build/tests/mq_data_delivery_failure_peer.exe: \
 		quantas/Tests/boostMqDataDeliveryFailurePeer.cpp \
 		quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.cpp \
@@ -492,4 +514,4 @@ clean_outputs:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_debug_build mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_data_delivery_failure_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test test clean_outputs
+.PHONY: help clean mq_status mq_cleanup run mq mq_debug release debug mq_peer_release mq_peer_debug mq_release mq_debug_build mq_leader_release mq_leader_debug clang run_memory run_simple_memory run_debug check-version check-clang check_mq_deps rand_test mq_timeout_test mq_ready_identity_test mq_control_send_test mq_control_send_failure_test mq_queue_config_test mq_transport_metrics_test mq_report_test mq_invalid_output_test mq_data_delivery_failure_test mq_runtime_config_test mq_run_counts_test mq_ready_timeout_test init_parameters_test mq_cleanup_test test clean_outputs

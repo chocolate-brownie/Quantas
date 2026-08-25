@@ -308,7 +308,8 @@ produced a correct result.
 ### Existing algorithm audit
 
 - AltBit and StableDataLink can perform their main work from local state and
-  messages. Their experiment-wide metric totals belong to issue #54.
+  messages. Any calculations needed for the final comparison are handled
+  outside the BoostMQ runtime in issue #56.
 - ExamplePeer works when `changePeerType` is false. Replacing another peer
   through `peers[1]` is not supported across processes.
 - PBFT, Bitcoin, Ethereum, Raft, Kademlia, and LinearChord currently inspect the

@@ -21,10 +21,8 @@ BoostMQ, and produce enough evidence to diagnose failures and analyse results.
 
 ## Work order
 
-1. Define the required comparison calculations outside the BoostMQ runtime: #54.
-2. Validate and document the researcher handover: #43.
-3. Create and run the final Abstract-versus-BoostMQ comparison issue described
-   in `docs/logs/mqtodo.md`.
+1. Validate and document the researcher handover: #43.
+2. Run the final Abstract-versus-BoostMQ comparison: #56.
 
 ## Done when
 

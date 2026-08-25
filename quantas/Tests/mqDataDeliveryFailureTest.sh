@@ -7,14 +7,14 @@ launcher="$repo_root/quantas/Common/Concrete/Backends/BoostMq/Entrypoints/runBoo
 leader="$repo_root/build/debug/quantas_mq_leader.exe"
 peer="$repo_root/build/tests/mq_data_delivery_failure_peer.exe"
 input="$repo_root/quantas/Tests/BoostMqDataDeliveryFailureInput.json"
-report="$repo_root/build/tests/mqDataDeliveryFailure_EXP1_leader_report.json"
+result_dir="$repo_root/results/mqDataDeliveryFailure_EXP1"
+report="$result_dir/leader_report.json"
 run_log=$(mktemp)
 
 cleanup() {
 	make -C "$repo_root" --no-print-directory mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "$run_log" "$report" \
-		"$repo_root/build/tests/mqDataDeliveryFailure_EXP1_PEER0_TEST1.json" \
-		"$repo_root/build/tests/mqDataDeliveryFailure_EXP1_PEER1_TEST1.json"
+	rm -f -- "$run_log"
+	rm -rf -- "$result_dir"
 }
 trap cleanup EXIT
 

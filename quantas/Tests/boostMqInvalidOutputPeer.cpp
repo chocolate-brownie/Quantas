@@ -1,14 +1,13 @@
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
-#include "quantas/Common/LoggingSupport.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Logging/BoostMqOutputPaths.hpp"
 #include <fstream>
 #include <string>
 
 namespace {
 std::string outputPath(const std::string& base, int peerId) {
-    return quantas::addFileNameSuffix(
-        quantas::makeExperimentFileName(base, 0, peerId, ".json"), "_TEST1");
+    return quantas::makeBoostMqPeerOutputPath(base, 0, peerId, 1);
 }
-}
+} // namespace
 
 int main(int argc, char* argv[]) {
     if (argc != 5 || std::string(argv[1]) != "--experiment")
@@ -23,8 +22,8 @@ int main(int argc, char* argv[]) {
     auto& coordinator = quantas::ProcessCoordinatorMQ::instance();
     try {
         coordinator.configureExperiment(0, "ExamplePeer", false, 2, peerId,
-                                         "build/tests/mqInvalidOutput.txt",
-                                         quantas::StopMode::FixedRounds, queueConfig);
+                                        "build/tests/mqInvalidOutput.txt",
+                                        quantas::StopMode::FixedRounds, queueConfig);
         coordinator.createInbox();
         coordinator.sendReady();
         (void)coordinator.waitForAssignments();
@@ -33,7 +32,8 @@ int main(int argc, char* argv[]) {
         const std::string path = outputPath("build/tests/mqInvalidOutput.txt", peerId);
         if (peerId == 0) {
             std::ofstream output(path);
-            output << R"({"transportMetrics":{"sent":0,"received_raw":0,"delivered_to_instream":0,"dropped_backpressure":0}})";
+            output
+                << R"({"transportMetrics":{"sent":0,"received_raw":0,"delivered_to_instream":0,"dropped_backpressure":0}})";
         } else if (inputPath.find("Malformed") != std::string::npos) {
             std::ofstream output(path);
             output << "{ malformed";

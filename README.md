@@ -3,7 +3,7 @@ A Quantitative User-friendly Adaptive Networked Things Abstract Simulator.
 
 QUANTAS is an abstract, round-based simulator for studying distributed algorithms without committing to a specific network stack or operating system. The platform lets you compose experiments by mixing algorithm implementations, network topologies, and stochastic message-delay/disruption models. Recent updates add first-class support for modelling Byzantine behaviour, allowing you to attach reusable fault strategies to subsets of simulated peers.
 
-<img src="Documentation/abstract%20sim%20draw.pptx.jpg" alt="System Diagram" style="zoom: 33%;" />
+<img src="docs/abstract%20sim%20draw.pptx.jpg" alt="System Diagram" style="zoom: 33%;" />
 
 ## Build Dependencies
 

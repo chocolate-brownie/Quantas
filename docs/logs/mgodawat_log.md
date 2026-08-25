@@ -427,3 +427,12 @@ In this file I document what I do everyday during my internship.
   algorithm limits without changing Abstract or the public peer interface.
 - Added a focused workflow proving each process receives the correct local peer,
   neighbours, JSON parameters, and lifecycle-hook calls.
+
+### 25/08/2026
+
+- Finished issue #42. BoostMQ now stores each experiment's leader report and
+  peer/test files together under `results/<experiment>_EXP<N>/`.
+- The leader validates and references every raw peer output. Algorithm-specific
+  aggregation remains separate from the BoostMQ runtime.
+- Focused output, repeated-test, invalid-output, lifecycle, and cleanup checks
+  passed with no remaining BoostMQ processes or queues.

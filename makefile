@@ -156,7 +156,7 @@ help:
 	@printf "  %-42s # %s\n" "make mq_cleanup" "remove abandoned BoostMQ queues; refuses while active"
 	@printf "  %-42s # %s\n" "make test" "run focused tests and memory checks for all sample inputs"
 	@printf "  %-42s # %s\n" "make run_simple_memory INPUTFILE=..." "run a concise Valgrind memory check"
-	@printf "  %-42s # %s\n" "make clean_outputs" "remove root files using the generated _EXP naming pattern"
+	@printf "  %-42s # %s\n" "make clean_outputs" "remove generated experiment result folders"
 	@printf "  %-42s # %s\n" "make clean" "remove build artifacts and QUANTAS binary links"
 
 # Build and run abstract mode with the platform's normal Clang toolchain.
@@ -541,6 +541,10 @@ mq_cleanup:
 
 clean_outputs:
 	@find . -maxdepth 1 -type f -name '*_EXP*' -delete
+	@if test -d results; then \
+		find results -mindepth 1 -maxdepth 1 -type d -name '*_EXP[0-9]*' -exec rm -rf -- {} +; \
+		rmdir results 2>/dev/null || true; \
+	fi
 
 ############################### PHONY ###############################
 

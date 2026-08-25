@@ -1,5 +1,6 @@
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Logging/BoostMqOutputPaths.hpp"
 #include "quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.hpp"
 #include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Topology/PeerAssignment.hpp"
@@ -112,10 +113,8 @@ std::optional<CliArgs> parseArgs(int argc, char** argv) {
 // Resolve and configure the output destination for this experiment.
 std::string configureExperimentOutput(const std::string& logFileBase, size_t expIndex,
                                       int testNumber, std::optional<int> processDisambiguator) {
-    const std::string experimentFile =
-        quantas::makeExperimentFileName(logFileBase, expIndex, processDisambiguator, ".json");
-    const std::string metricsFile =
-        quantas::addFileNameSuffix(experimentFile, "_TEST" + std::to_string(testNumber));
+    const std::string metricsFile = quantas::makeBoostMqPeerOutputPath(
+        logFileBase, expIndex, processDisambiguator.value_or(quantas::NO_PEER_ID), testNumber);
     quantas::LogWriter::setLogFile(metricsFile);
     quantas::LogWriter::setTest(0);
     return metricsFile;

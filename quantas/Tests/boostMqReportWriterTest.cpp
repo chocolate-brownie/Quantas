@@ -15,7 +15,8 @@ int main() {
     const fs::path malformedPath = testDirectory / "peer_1.json";
     {
         std::ofstream valid(validPath);
-        valid << R"({"transportMetrics":{"sent":10,"received_raw":8,"delivered_to_instream":8,"dropped_backpressure":0}})";
+        valid
+            << R"({"transportMetrics":{"sent":10,"received_raw":8,"delivered_to_instream":8,"dropped_backpressure":0}})";
 
         std::ofstream malformed(malformedPath);
         malformed << "{ invalid json";
@@ -46,31 +47,41 @@ int main() {
         {"0", validPath.string()},
         {"1", malformedPath.string()},
     };
-    assert(!quantas::BoostMqReportWriter::readPeerMetrics(mixedMalformedPaths, {0, 1}, peerMetrics));
+    assert(
+        !quantas::BoostMqReportWriter::readPeerMetrics(mixedMalformedPaths, {0, 1}, peerMetrics));
     assert(peerMetrics.contains("0"));
     assert(!peerMetrics.contains("1"));
 
-    const nlohmann::json reliability =
-        quantas::BoostMqReportWriter::summarizeTransportReliability(
-            nlohmann::json{{"0", nlohmann::json{{"transportMetrics", {
-                {"sent", 10},
-                {"received_raw", 8},
-                {"delivered_to_instream", 8},
-                {"dropped_backpressure", 0},
-            }}}}});
+    const nlohmann::json reliability = quantas::BoostMqReportWriter::summarizeTransportReliability(
+        nlohmann::json{{"0", nlohmann::json{{"transportMetrics",
+                                             {
+                                                 {"sent", 10},
+                                                 {"received_raw", 8},
+                                                 {"delivered_to_instream", 8},
+                                                 {"dropped_backpressure", 0},
+                                             }}}}});
     assert(reliability.at("pending_at_shutdown_total") == 2);
     assert(reliability.at("reliable") == true);
 
-    const nlohmann::json dropped =
-        quantas::BoostMqReportWriter::summarizeTransportReliability(
-            nlohmann::json{{"0", nlohmann::json{{"transportMetrics", {
-                {"sent", 10},
-                {"received_raw", 8},
-                {"delivered_to_instream", 8},
-                {"dropped_backpressure", 1},
-            }}}}});
+    const nlohmann::json dropped = quantas::BoostMqReportWriter::summarizeTransportReliability(
+        nlohmann::json{{"0", nlohmann::json{{"transportMetrics",
+                                             {
+                                                 {"sent", 10},
+                                                 {"received_raw", 8},
+                                                 {"delivered_to_instream", 8},
+                                                 {"dropped_backpressure", 1},
+                                             }}}}});
     assert(dropped.at("reliable") == false);
 
+    const std::string leaderPath =
+        quantas::BoostMqReportWriter::makeLeaderReportPath("AltBitdropProb0.txt", 0);
+    assert(leaderPath == "results/AltBitdropProb0_EXP1/leader_report.json");
+    const nlohmann::json peerPaths =
+        quantas::BoostMqReportWriter::makePeerOutputFiles("AltBitdropProb0.txt", 0, 2, 2);
+    assert(peerPaths.at("0") == "results/AltBitdropProb0_EXP1/peer_0_TEST2.txt");
+    assert(peerPaths.at("1") == "results/AltBitdropProb0_EXP1/peer_1_TEST2.txt");
+
     fs::remove_all(testDirectory);
+    fs::remove_all("results/AltBitdropProb0_EXP1");
     return 0;
 }

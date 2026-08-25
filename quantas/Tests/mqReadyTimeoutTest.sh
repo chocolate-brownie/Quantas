@@ -7,7 +7,8 @@ input_file="$repo_root/quantas/Tests/BoostMqReadyTimeoutInput.json"
 leader_exe="$repo_root/build/debug/quantas_mq_leader.exe"
 peer_exe="$repo_root/build/debug/quantas_mq_peer.exe"
 launcher="$repo_root/quantas/Common/Concrete/Backends/BoostMq/Entrypoints/runBoostMq.sh"
-report_file="$repo_root/build/tests/mqReadyTimeout_EXP1_leader_report.json"
+result_dir="$repo_root/results/mqReadyTimeout_EXP1"
+report_file="$result_dir/leader_report.json"
 temp_dir=$(mktemp -d)
 peer_wrapper="$temp_dir/peer-wrapper.sh"
 process_pattern='(^|/)[q]uantas_mq_(leader|peer)\.exe([[:space:]]|$)'
@@ -15,7 +16,7 @@ resource_regex='.*/(mq_barrier|mq_done|peer_[0-9]+_(control|data))'
 
 cleanup() {
 	make -C "$repo_root" --no-print-directory mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "$report_file" "$repo_root"/build/tests/mqReadyTimeout_EXP1_peer_*.json
+	rm -rf -- "$result_dir"
 	rm -rf -- "$temp_dir"
 }
 trap cleanup EXIT

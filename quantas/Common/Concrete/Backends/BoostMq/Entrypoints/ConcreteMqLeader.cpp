@@ -170,6 +170,7 @@ int main(int argc, char* argv[]) {
             expStartTime = std::chrono::high_resolution_clock::now();
 
             const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
+
             const std::string reportPath =
                 quantas::BoostMqReportWriter::makeLeaderReportPath(logFileBase, expIndex);
 
@@ -183,7 +184,9 @@ int main(int argc, char* argv[]) {
 
             nlohmann::json expReport =
                 quantas::BoostMqReportWriter::makeBaseExperimentReport(expIndex, exp, boostConfig);
+
             expReport["inputFile"] = cli->inputPath;
+
             expReport["expectedPeers"] =
                 quantas::BoostMqReportWriter::expectedPeers(exp.initialPeers);
 
@@ -255,8 +258,7 @@ int main(int argc, char* argv[]) {
                 testEndTime = std::chrono::high_resolution_clock::now();
                 testInfo.duration = testEndTime - testStartTime;
 
-                /* Record completion state and peer output locations, then  aggregate peer transport
-                 * metrics into the test report. */
+                /* 1. Collect peer completion facts and expected output locations. */
                 testInfo.missingPeers = quantas::BoostMqReportWriter::findMissingPeers(
                     exp.initialPeers, testInfo.completedPeers);
                 testInfo.peerOutputFiles = quantas::BoostMqReportWriter::makePeerOutputFiles(
@@ -265,18 +267,21 @@ int main(int argc, char* argv[]) {
                 std::vector<quantas::interfaceId> reportingPeers = testInfo.completedPeers;
                 reportingPeers.insert(reportingPeers.end(), completionResult.failedPeers.begin(),
                                       completionResult.failedPeers.end());
+
+                /* 2. Read and validate every available peer output file. */
                 const bool allOutputsValid = quantas::BoostMqReportWriter::readPeerMetrics(
                     testInfo.peerOutputFiles, reportingPeers, testInfo.peerMetrics);
 
+                /* 3. Calculate the test status and transport summary. */
                 testInfo.success = !testInfo.completionTimedOut &&
                                    completionResult.failedPeers.empty() &&
                                    testInfo.missingPeers.empty() && allOutputsValid;
-
-                allTestsSucceeded = allTestsSucceeded && testInfo.success;
-
                 testInfo.transportReliability =
                     quantas::BoostMqReportWriter::summarizeTransportReliability(
                         testInfo.peerMetrics);
+                /* 4. Convert the collected facts to JSON and add this test to the experiment. */
+                allTestsSucceeded = allTestsSucceeded && testInfo.success;
+
                 expReport["tests"].push_back(
                     quantas::BoostMqReportWriter::makeTestReport(testInfo));
 

@@ -6,11 +6,12 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 launcher="$repo_root/quantas/Common/Concrete/Backends/BoostMq/Entrypoints/runBoostMq.sh"
 leader="$repo_root/build/debug/quantas_mq_leader.exe"
 peer="$repo_root/build/tests/mq_invalid_output_peer.exe"
-report="$repo_root/build/tests/mqInvalidOutput_EXP1_leader_report.json"
+result_dir="$repo_root/results/mqInvalidOutput_EXP1"
+report="$result_dir/leader_report.json"
 
 cleanup() {
 	make -C "$repo_root" --no-print-directory mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "$report" "$repo_root/build/tests/mqInvalidOutput_EXP1_p"*.json
+	rm -rf -- "$result_dir"
 }
 trap cleanup EXIT
 

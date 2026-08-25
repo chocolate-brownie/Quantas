@@ -1,7 +1,7 @@
 #include "quantas/Common/Concrete/Backends/BoostMq/Control/ProcessCoordinatorMQ.hpp"
+#include "quantas/Common/Concrete/Backends/BoostMq/Logging/BoostMqOutputPaths.hpp"
 #include "quantas/Common/Concrete/Backends/BoostMq/Transport/NetworkInterfaceConcreteMQ.hpp"
 #include "quantas/Common/Concrete/Runtime/Metrics/TransportMetrics.hpp"
-#include "quantas/Common/LoggingSupport.hpp"
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <chrono>
 #include <fstream>
@@ -15,9 +15,8 @@ constexpr quantas::interfaceId kSenderId = 0;
 constexpr quantas::interfaceId kBlockedReceiverId = 1;
 
 std::string metricsPath(quantas::interfaceId peerId) {
-    const std::string experimentFile = quantas::makeExperimentFileName(
-        "build/tests/mqDataDeliveryFailure.txt", 0, peerId, ".json");
-    return quantas::addFileNameSuffix(experimentFile, "_TEST1");
+    return quantas::makeBoostMqPeerOutputPath("build/tests/mqDataDeliveryFailure.txt", 0, peerId,
+                                              1);
 }
 
 void writeMetrics(quantas::interfaceId peerId, const quantas::TransportMetrics& metrics) {

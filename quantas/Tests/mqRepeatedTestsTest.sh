@@ -4,12 +4,12 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 input_file=quantas/Tests/BoostMqRepeatedTestsInput.json
-report=build/tests/mqRepeatedTests_EXP1_leader_report.json
+result_dir=results/mqRepeatedTests_EXP1
+report=$result_dir/leader_report.json
 
 cleanup() {
 	make --no-print-directory -s -C "$repo_root" mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "$repo_root/$report" \
-		"$repo_root"/build/tests/mqRepeatedTests_EXP1_p*.txt
+	rm -rf -- "${repo_root:?}/${result_dir:?}"
 }
 trap cleanup EXIT
 

@@ -4,16 +4,11 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 input_file=quantas/Tests/BoostMqMixedCountsInput.json
-output_files=(
-	build/tests/mqCountsFirst_EXP1_leader_report.json
-	build/tests/mqCountsSecond_EXP2_leader_report.json
-)
+result_dirs=(results/mqCountsFirst_EXP1 results/mqCountsSecond_EXP2)
 
 cleanup_test_state() {
 	make --no-print-directory -s -C "$repo_root" mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "${output_files[@]/#/$repo_root/}" \
-		"$repo_root"/build/tests/mqCountsFirst_EXP1_p*.txt \
-		"$repo_root"/build/tests/mqCountsSecond_EXP2_p*.txt
+	rm -rf -- "${result_dirs[@]/#/$repo_root/}"
 }
 trap cleanup_test_state EXIT
 
@@ -47,8 +42,8 @@ import sys
 
 root = pathlib.Path(sys.argv[1])
 expected = [
-    ("build/tests/mqCountsFirst_EXP1_leader_report.json", 2, 1, 1),
-    ("build/tests/mqCountsSecond_EXP2_leader_report.json", 3, 2, 2),
+    ("results/mqCountsFirst_EXP1/leader_report.json", 2, 1, 1),
+    ("results/mqCountsSecond_EXP2/leader_report.json", 3, 2, 2),
 ]
 
 for relative_path, peers, tests, rounds in expected:
@@ -59,6 +54,14 @@ for relative_path, peers, tests, rounds in expected:
     assert len(report["tests"]) == tests
     assert all(test["completedPeerCount"] == peers for test in report["tests"])
     assert all(len(test["completedPeers"]) == peers for test in report["tests"])
+    for test_number, test in enumerate(report["tests"], start=1):
+        expected_directory = str((root / relative_path).parent)
+        assert len(test["peerOutputFiles"]) == peers
+        for peer_id, output_path in test["peerOutputFiles"].items():
+            path = root / output_path
+            assert str(path.parent) == expected_directory
+            assert path.name == f"peer_{peer_id}_TEST{test_number}.txt"
+            assert path.is_file()
 PY
 
 if pgrep -af '(^|/)[q]uantas_mq_(leader|peer)\.exe([[:space:]]|$)' >/dev/null; then

@@ -138,7 +138,24 @@ Invalid topology settings fail during leader preflight before queues or peer
 processes start. With `"identifiers": "random"`, identifier order may differ
 between Abstract and BoostMQ runs. Live topology changes remain unsupported.
 
-A run writes one leader report named like `AlgorithmName_EXP<N>_leader_report.json`, plus one peer metrics file per peer. The leader report records `peerCount`, `testCount`, `rounds`, and each test's `completedPeerCount`.
+### Result files
+
+BoostMQ stores generated output under `results/`. Each experiment gets one
+folder named from its configured `logFile` and experiment number:
+
+```text
+results/
+  AltBitdropProb0_EXP1/
+    leader_report.json
+    peer_0_TEST1.txt
+    peer_1_TEST1.txt
+```
+
+`leader_report.json` is the main experiment report. The peer files contain the
+raw output for one peer and one test. The leader report references every raw
+file in `peerOutputFiles`. A JSON file containing several experiments creates a
+separate folder for each experiment. `make clean_outputs` removes generated
+experiment folders and legacy root `_EXP` output files.
 
 ### How success is decided
 
@@ -284,13 +301,14 @@ BoostMQ currently supports:
 - per-peer metric files; and
 - leader completion and transport reports.
 
-Experiment-wide algorithm-result collection belongs to issue #42. A clean exit
-alone does not prove that an algorithm produced a correct result.
+The leader collects and validates raw peer output. Algorithm-specific analysis
+is handled separately. A clean exit alone does not prove that an algorithm
+produced a correct result.
 
 ### Existing algorithm audit
 
 - AltBit and StableDataLink can perform their main work from local state and
-  messages. Their experiment-wide metric totals still belong to issue #42.
+  messages. Their experiment-wide metric totals belong to issue #54.
 - ExamplePeer works when `changePeerType` is false. Replacing another peer
   through `peers[1]` is not supported across processes.
 - PBFT, Bitcoin, Ethereum, Raft, Kademlia, and LinearChord currently inspect the

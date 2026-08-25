@@ -8,17 +8,17 @@ output_files=(
 	build/tests/initParametersExample.json
 	build/tests/initParametersExample2.json
 	build/tests/initParametersEmpty.json
-	build/tests/initParametersExample_EXP1_p0_TEST1.json
-	build/tests/initParametersExample2_EXP2_p0_TEST1.json
-	build/tests/initParametersEmpty_EXP3_p0_TEST1.json
-	build/tests/initParametersExample_EXP1_leader_report.json
-	build/tests/initParametersExample2_EXP2_leader_report.json
-	build/tests/initParametersEmpty_EXP3_leader_report.json
+)
+result_dirs=(
+	results/initParametersExample_EXP1
+	results/initParametersExample2_EXP2
+	results/initParametersEmpty_EXP3
 )
 
 cleanup_test_state() {
 	make --no-print-directory -s -C "$repo_root" mq_cleanup >/dev/null 2>&1 || true
 	rm -f -- "${output_files[@]/#/$repo_root/}"
+	rm -rf -- "${result_dirs[@]/#/$repo_root/}"
 }
 trap cleanup_test_state EXIT
 
@@ -36,17 +36,17 @@ root = pathlib.Path(sys.argv[1])
 checks = [
     (
         "build/tests/initParametersExample.json",
-        "build/tests/initParametersExample_EXP1_p0_TEST1.json",
+        "results/initParametersExample_EXP1/peer_0_TEST1.json",
         {"parameter1": 731, "parameter2": "example-peer", "changePeerType": False},
     ),
     (
         "build/tests/initParametersExample2.json",
-        "build/tests/initParametersExample2_EXP2_p0_TEST1.json",
+        "results/initParametersExample2_EXP2/peer_0_TEST1.json",
         {"parameter1": 947, "parameter2": "example-peer-2", "parameter3": True},
     ),
     (
         "build/tests/initParametersEmpty.json",
-        "build/tests/initParametersEmpty_EXP3_p0_TEST1.json",
+        "results/initParametersEmpty_EXP3/peer_0_TEST1.json",
         {"changePeerType": False},
     ),
 ]

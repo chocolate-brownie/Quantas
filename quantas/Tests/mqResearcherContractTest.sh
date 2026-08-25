@@ -4,15 +4,16 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 input_file=quantas/Tests/BoostMqResearcherContractInput.json
-report=build/tests/mqResearcherContract_EXP1_leader_report.json
+result_dir=results/mqResearcherContract_EXP1
+report=$result_dir/leader_report.json
 peer_outputs=(
-	build/tests/mqResearcherContract_EXP1_p0_TEST1.json
-	build/tests/mqResearcherContract_EXP1_p1_TEST1.json
+	"$result_dir/peer_0_TEST1.json"
+	"$result_dir/peer_1_TEST1.json"
 )
 
 cleanup() {
 	make --no-print-directory -s -C "$repo_root" mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "$repo_root/$report" "${peer_outputs[@]/#/$repo_root/}"
+	rm -rf -- "${repo_root:?}/${result_dir:?}"
 }
 trap cleanup EXIT
 

@@ -6,7 +6,8 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 leader="$repo_root/build/debug/quantas_mq_leader.exe"
 ready_sender="$repo_root/build/tests/mq_send_ready_ids.exe"
 input="$repo_root/quantas/Tests/BoostMqControlSendFailureInput.json"
-report="$repo_root/build/tests/mqControlSendFailure_EXP1_leader_report.json"
+result_dir="$repo_root/results/mqControlSendFailure_EXP1"
+report="$result_dir/leader_report.json"
 leader_log=$(mktemp)
 leader_pid=""
 
@@ -16,7 +17,8 @@ cleanup() {
 		wait "$leader_pid" 2>/dev/null || true
 	fi
 	make -C "$repo_root" --no-print-directory mq_cleanup >/dev/null 2>&1 || true
-	rm -f -- "$leader_log" "$report"
+	rm -f -- "$leader_log"
+	rm -rf -- "$result_dir"
 }
 trap cleanup EXIT
 

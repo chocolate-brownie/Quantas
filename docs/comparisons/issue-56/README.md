@@ -6,6 +6,10 @@ same JSON is used by both backends. Abstract receives `maxDelay` values from 1
 through 5; BoostMQ uses real local processes and message queues, so it ignores
 the Abstract-only delay model.
 
+The same comparison was also run with the existing supported `AltBitPeer`
+algorithm. Its result is documented in `altbit-comparison-report.md` and uses
+the same runtime metric and calculation script.
+
 ## Reproduce
 
 From the repository root:

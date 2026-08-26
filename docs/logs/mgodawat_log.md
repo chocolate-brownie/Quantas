@@ -447,3 +447,4 @@ In this file I document what I do everyday during my internship.
 - Final `make mq_status` showed no QUANTAS BoostMQ processes or `/dev/shm` resources. `git diff --check` passed.
 - Completed issue #56's Abstract-versus-BoostMQ timing comparison with a reproducible StableDataLink fixture, saved raw reports, a calculation script, and a written result.
 - Abstract `maxDelay=3` was the closest of settings 1 through 5, but still differed from BoostMQ by 96.32%; the result is outside the 5% target and confirms that Abstract delay is not a wall-clock substitute for real BoostMQ IPC.
+- Repeated the issue #56 comparison with the existing AltBit algorithm: Abstract `maxDelay=2` was closest, but still differed from BoostMQ by 95.98%; all five BoostMQ experiments completed without backpressure drops or leftover resources.

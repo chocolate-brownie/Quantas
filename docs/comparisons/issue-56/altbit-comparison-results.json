@@ -1,0 +1,49 @@
+{
+  "metric": "total runtime in seconds",
+  "formula": "abs(Abstract RunTime - BoostMQ durationSeconds) / BoostMQ durationSeconds * 100",
+  "results": [
+    {
+      "delay": 1,
+      "abstractSeconds": 0.006601088,
+      "boostMqSeconds": 0.278170706,
+      "differenceSeconds": 0.271569618,
+      "differencePercent": 97.6269650766174,
+      "withinFivePercent": false
+    },
+    {
+      "delay": 2,
+      "abstractSeconds": 0.010975433,
+      "boostMqSeconds": 0.273265049,
+      "differenceSeconds": 0.262289616,
+      "differencePercent": 95.9835943015164,
+      "withinFivePercent": false
+    },
+    {
+      "delay": 3,
+      "abstractSeconds": 0.007840989,
+      "boostMqSeconds": 0.26716566,
+      "differenceSeconds": 0.259324671,
+      "differencePercent": 97.06512094406145,
+      "withinFivePercent": false
+    },
+    {
+      "delay": 4,
+      "abstractSeconds": 0.00779949,
+      "boostMqSeconds": 0.260555718,
+      "differenceSeconds": 0.25275622799999997,
+      "differencePercent": 97.00659419034511,
+      "withinFivePercent": false
+    },
+    {
+      "delay": 5,
+      "abstractSeconds": 0.010514266,
+      "boostMqSeconds": 0.276188506,
+      "differenceSeconds": 0.26567424,
+      "differencePercent": 96.19308342976446,
+      "withinFivePercent": false
+    }
+  ],
+  "closestAbstractDelay": 2,
+  "closestDifferencePercent": 95.9835943015164,
+  "closestWithinFivePercent": false
+}

@@ -29,13 +29,15 @@ int main() {
     assert(defaults.readyTimeoutMs == quantas::BoostMqQueueConfig::DEFAULT_READY_TIMEOUT_MS);
     assert(defaults.controlSendTimeoutMs ==
            quantas::BoostMqQueueConfig::DEFAULT_CONTROL_SEND_TIMEOUT_MS);
+    assert(defaults.dataSendTimeoutMs == quantas::BoostMqQueueConfig::DEFAULT_DATA_SEND_TIMEOUT_MS);
 
     const nlohmann::json validExperiment = nlohmann::json::parse(R"({
         "boostMq": {
             "dataQueueCapacity": 25,
             "maxMessageSizeBytes": 512,
             "readyTimeoutMs": 250,
-            "controlSendTimeoutMs": 75
+            "controlSendTimeoutMs": 75,
+            "dataSendTimeoutMs": 25
         }
     })");
     const quantas::BoostMqQueueConfig validConfig = quantas::parseBoostMqConfig(validExperiment, 4);
@@ -45,6 +47,7 @@ int main() {
     assert(validConfig.maxMessageSizeBytes == 512);
     assert(validConfig.readyTimeoutMs == 250);
     assert(validConfig.controlSendTimeoutMs == 75);
+    assert(validConfig.dataSendTimeoutMs == 25);
     quantas::preflightBoostMqQueues(validConfig, 0);
 
     quantas::PeerAssignment assignment;
@@ -86,6 +89,14 @@ int main() {
             {"boostMq", {{"controlSendTimeoutMs", invalidTimeout}}}};
         assert(throwsWithText([&] { quantas::parseBoostMqConfig(invalidExperiment, 2); },
                               "boostMq.controlSendTimeoutMs"));
+    }
+
+    for (const nlohmann::json invalidTimeout :
+         {nlohmann::json(0), nlohmann::json(-1), nlohmann::json(1.5), nlohmann::json("100")}) {
+        const nlohmann::json invalidExperiment = {
+            {"boostMq", {{"dataSendTimeoutMs", invalidTimeout}}}};
+        assert(throwsWithText([&] { quantas::parseBoostMqConfig(invalidExperiment, 2); },
+                              "boostMq.dataSendTimeoutMs"));
     }
 
     quantas::BoostMqQueueConfig undersizedConfig = validConfig;

@@ -44,6 +44,7 @@ assert test["transportReliability"]["reliable"] is False
 PY
 
 grep -q "leader recorded failure from peer 0" "$run_log"
+grep -q "after 25 ms" "$run_log"
 
 if pgrep -f 'quantas_mq_(leader|peer)\.exe|mq_data_delivery_failure_peer\.exe' >/dev/null; then
 	echo "FAIL: BoostMQ processes remain after the data-send failure" >&2

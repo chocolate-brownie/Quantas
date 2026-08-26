@@ -60,7 +60,8 @@ int main() {
 
     message_queue blockedQueue(create_only, blockedQueueName.c_str(), 1, maxMessageSize);
     blockedQueue.send(bytes.data(), bytes.size(), 0);
-    networkInterface.configure(peerId, {blockedPeerId});
+    constexpr std::size_t dataSendTimeoutMs = 25;
+    networkInterface.configure(peerId, {blockedPeerId}, dataSendTimeoutMs);
 
     const auto sendStart = std::chrono::steady_clock::now();
     std::string sendError;
@@ -74,6 +75,7 @@ int main() {
     assert(!sendError.empty());
     assert(sendError.find("peer " + std::to_string(peerId)) != std::string::npos);
     assert(sendError.find("peer " + std::to_string(blockedPeerId)) != std::string::npos);
+    assert(sendError.find("after 25 ms") != std::string::npos);
     assert(sendDuration < std::chrono::seconds(1));
     assert(networkInterface.transportMetrics().droppedBackpressure == 1);
 

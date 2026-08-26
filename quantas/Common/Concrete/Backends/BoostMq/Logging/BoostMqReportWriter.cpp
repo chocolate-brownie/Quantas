@@ -69,7 +69,8 @@ BoostMqReportWriter::makeBaseExperimentReport(size_t expIndex, const RuntimeExpe
     report["boostMq"] = {{"controlQueueCapacity", queueConfig.controlQueueCapacity},
                          {"dataQueueCapacity", queueConfig.dataQueueCapacity},
                          {"maxMessageSizeBytes", queueConfig.maxMessageSizeBytes},
-                         {"readyTimeoutMs", queueConfig.readyTimeoutMs}};
+                         {"readyTimeoutMs", queueConfig.readyTimeoutMs},
+                         {"dataSendTimeoutMs", queueConfig.dataSendTimeoutMs}};
 
     report["tests"] = nlohmann::json::array();
     return report;

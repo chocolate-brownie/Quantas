@@ -112,17 +112,20 @@ Each experiment may configure its data queues:
   "dataQueueCapacity": 1000,
   "maxMessageSizeBytes": 4096,
   "readyTimeoutMs": 30000,
-  "controlSendTimeoutMs": 5000
+  "controlSendTimeoutMs": 5000,
+  "dataSendTimeoutMs": 5
 }
 ```
 
-All four settings are optional. Their defaults are `1000` messages, `4096` bytes,
-`30000` milliseconds for readiness, and `5000` milliseconds for required control
-sends. `readyTimeoutMs` limits how long the leader waits for every expected peer
-to report ready. `controlSendTimeoutMs` limits each assignment, start, and normal
-stop send. The control queue capacity is derived from `topology.initialPeers`; it
-is not a separate JSON setting. Before launching workers, `make mq` checks that
-the queues can be created and that every topology assignment fits within
+All five settings are optional. Their defaults are `1000` messages, `4096` bytes,
+`30000` milliseconds for readiness, `5000` milliseconds for required control
+sends, and `5` milliseconds for data sends. `readyTimeoutMs` limits how long the
+leader waits for every expected peer to report ready. `controlSendTimeoutMs`
+limits each assignment, start, and normal stop send. `dataSendTimeoutMs` limits
+how long a peer waits to put one algorithm message into a full destination queue.
+The control queue capacity is derived from `topology.initialPeers`; it is not a
+separate JSON setting. Before launching workers, `make mq` checks that the queues
+can be created and that every topology assignment fits within
 `maxMessageSizeBytes`.
 
 ### Static topologies

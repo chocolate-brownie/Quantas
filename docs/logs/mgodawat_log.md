@@ -436,3 +436,8 @@ In this file I document what I do everyday during my internship.
   aggregation remains separate from the BoostMQ runtime.
 - Focused output, repeated-test, invalid-output, lifecycle, and cleanup checks
   passed with no remaining BoostMQ processes or queues.
+
+### 26/08/2026
+
+- Finished the configurable BoostMQ data-send timeout implementation: JSON values now reach `timed_send()`, with a default of 5 ms and clear report/documentation coverage.
+- Focused configuration, transport, report, failure-cleanup, debug-build, and normal BoostMQ checks passed.

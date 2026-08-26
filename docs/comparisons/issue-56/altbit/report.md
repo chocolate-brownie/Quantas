@@ -30,6 +30,28 @@ The closest Abstract setting was `maxDelay = 5`, with a `96.74%` difference.
 All five BoostMQ experiments completed all five tests with both peers and the
 leader reporting success. No backpressure drops occurred.
 
+## Transport evidence
+
+The final test in each delay run reported the delivery totals below. Peak queue
+usage is the maximum observed across the complete five-test run:
+
+| Delay | Sent | Delivered | Pending at shutdown | Backpressure drops | Peak queue usage |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 111 | 99 | 12 | 0 | 9 |
+| 2 | 115 | 95 | 20 | 0 | 3 |
+| 3 | 117 | 102 | 15 | 0 | 2 |
+| 4 | 116 | 100 | 16 | 0 | 1 |
+| 5 | 114 | 95 | 19 | 0 | 2 |
+
+`reliable: true` means that no messages were rejected by a full queue. It does
+not mean that every sent message had been delivered before fixed-round
+shutdown. The pending counts are therefore evidence for the queue-draining
+follow-up, not evidence that AltBit lost messages.
+
+Per-message latency, throughput, and a cross-backend final-state comparison
+were not collected by this timing fixture; they remain explicit follow-up
+measurements rather than being inferred from total runtime.
+
 The configuration, manifest, Abstract outputs, BoostMQ leader reports, and
 peer reports are stored in the `altbit/` directory beside this report. The result is not a claim that AltBit
 is incorrect; it shows that Abstract logical-round timing and BoostMQ real

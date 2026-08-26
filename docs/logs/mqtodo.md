@@ -47,3 +47,32 @@ The larger research question is whether the abstract simulation model is realist
 ---
 
 How we do we know the maximum number of messages waiting to be received properly so we can adjust the size using `sudo sysctl -w fs.mqueue.msg_max=N` if thats necessary
+
+## Follow-up: complete delivery before shutdown
+
+The Issue #56 reports show that `success: true` and `reliable: true` can be
+reported while messages are still pending at shutdown. For example, one AltBit
+run sent 114 messages, delivered 95, and had 19 pending. This is not a
+backpressure drop, but it means the experiment stopped before all queued work
+was drained.
+
+Create one focused follow-up issue for this problem rather than separate
+issues for every measurement:
+
+- Define the completion rule: a successful experiment must finish its required
+  algorithm work and drain all relevant queues before shutdown.
+- Make the leader report pending messages clearly and do not call the run
+  complete if required messages remain pending.
+- Add a small test where messages are intentionally delayed, then verify that
+  the launcher waits for delivery before returning success.
+- Record sent, delivered, pending, dropped, and peak queue-usage totals.
+- Run the test with both StableDataLink and AltBit, and verify that
+  `make mq_status` is clean afterward.
+- Keep queue-capacity measurement separate from the obsolete
+  `fs.mqueue.msg_max` workflow. The current BoostMQ backend uses configured
+  Boost.Interprocess queue capacities under `/dev/shm`.
+
+This follow-up also provides the missing correctness evidence for the
+Abstract-versus-BoostMQ comparison. Timing, per-message latency, throughput,
+queue pressure, and final algorithm state should be reported as separate
+measurements; they should not be combined into one score.

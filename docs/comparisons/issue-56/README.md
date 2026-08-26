@@ -72,3 +72,10 @@ abs(Abstract RunTime - BoostMQ durationSeconds) / BoostMQ durationSeconds * 100
 `RunTime` and `durationSeconds` are total framework runtime values. They are
 not proof that message ordering, queue pressure, or algorithm correctness is
 equivalent. BoostMQ scheduling and IPC timing can vary between runs.
+
+## Follow-up required
+
+The saved BoostMQ reports include transport counters, but the current
+fixed-round experiment can stop while messages are still pending. A successful
+run must eventually define whether the queues must be drained before
+shutdown. See `docs/logs/mqtodo.md` for the focused follow-up work.

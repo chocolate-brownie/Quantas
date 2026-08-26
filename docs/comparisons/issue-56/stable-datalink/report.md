@@ -42,6 +42,28 @@ leader reporting success. No backpressure drops occurred. Pending shutdown
 messages are reported separately by BoostMQ and are not treated as packet
 loss.
 
+## Transport evidence
+
+The final test in each delay run reported the delivery totals below. Peak queue
+usage is the maximum observed across the complete five-test run:
+
+| Delay | Sent | Delivered | Pending at shutdown | Backpressure drops | Peak queue usage |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 38 | 26 | 12 | 0 | 2 |
+| 2 | 20 | 0 | 20 | 0 | 0 |
+| 3 | 42 | 32 | 10 | 0 | 8 |
+| 4 | 62 | 61 | 1 | 0 | 2 |
+| 5 | 42 | 28 | 14 | 0 | 10 |
+
+These measurements show that the queues were not full, but they also show
+that the current fixed-round shutdown can leave messages waiting. The next
+follow-up must define and test queue draining before declaring an experiment
+semantically complete.
+
+Per-message latency, throughput, and a cross-backend final-state comparison
+were not collected by this timing fixture; they remain explicit follow-up
+measurements rather than being inferred from total runtime.
+
 ## Reproducibility
 
 The input, manifest, calculation script, Abstract JSON outputs, and BoostMQ

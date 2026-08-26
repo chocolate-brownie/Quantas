@@ -1,0 +1,426 @@
+{
+    "backend": "mq",
+    "boostMq": {
+        "controlQueueCapacity": 2,
+        "dataQueueCapacity": 1000,
+        "dataSendTimeoutMs": 5,
+        "maxMessageSizeBytes": 4096,
+        "readyTimeoutMs": 30000
+    },
+    "doneTimeoutMs": 30000,
+    "durationSeconds": 0.253917846,
+    "expectedPeers": [
+        0,
+        1
+    ],
+    "experimentIndex": 1,
+    "inputFile": "docs/comparisons/issue-56/altbit/comparison.json",
+    "peerCount": 2,
+    "peerType": "AltBitPeer",
+    "rounds": 100,
+    "success": true,
+    "testCount": 5,
+    "tests": [
+        {
+            "completedPeerCount": 2,
+            "completedPeers": [
+                0,
+                1
+            ],
+            "durationSeconds": 0.20007666,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 5000.0,
+                    "RunTime": 0.000984696,
+                    "tests": [
+                        {
+                            "messages": [
+                                50.0
+                            ],
+                            "throughput": [
+                                25.0
+                            ],
+                            "utility": [
+                                50.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 50,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 1,
+                        "received_raw": 50,
+                        "sent": 50
+                    }
+                },
+                "1": {
+                    "Peak Memory KB": 5116.0,
+                    "RunTime": 0.001269496,
+                    "tests": [
+                        {
+                            "messages": [
+                                66.0
+                            ],
+                            "throughput": [
+                                0.0
+                            ],
+                            "utility": [
+                                0.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 50,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 1,
+                        "received_raw": 50,
+                        "sent": 66
+                    }
+                }
+            },
+            "peerOutputFiles": {
+                "0": "results/altbit-delay-2_EXP2/peer_0_TEST1.json",
+                "1": "results/altbit-delay-2_EXP2/peer_1_TEST1.json"
+            },
+            "readyPeers": [
+                0,
+                1
+            ],
+            "success": true,
+            "testIndex": 0,
+            "timedOut": false,
+            "transportReliability": {
+                "delivered_to_instream_total": 100,
+                "dropped_backpressure_total": 0,
+                "pending_at_shutdown_total": 16,
+                "received_raw_total": 100,
+                "reliable": true,
+                "sent_total": 116
+            }
+        },
+        {
+            "completedPeerCount": 2,
+            "completedPeers": [
+                0,
+                1
+            ],
+            "durationSeconds": 0.013111196,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 5148.0,
+                    "RunTime": 0.000692367,
+                    "tests": [
+                        {
+                            "messages": [
+                                38.0
+                            ],
+                            "throughput": [
+                                6.0
+                            ],
+                            "utility": [
+                                15.789473684210526
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 29,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 1,
+                        "received_raw": 29,
+                        "sent": 38
+                    }
+                },
+                "1": {
+                    "Peak Memory KB": 5276.0,
+                    "RunTime": 0.001358639,
+                    "tests": [
+                        {
+                            "messages": [
+                                68.0
+                            ],
+                            "throughput": [
+                                0.0
+                            ],
+                            "utility": [
+                                0.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 38,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 9,
+                        "received_raw": 38,
+                        "sent": 68
+                    }
+                }
+            },
+            "peerOutputFiles": {
+                "0": "results/altbit-delay-2_EXP2/peer_0_TEST2.json",
+                "1": "results/altbit-delay-2_EXP2/peer_1_TEST2.json"
+            },
+            "readyPeers": [
+                0,
+                1
+            ],
+            "success": true,
+            "testIndex": 1,
+            "timedOut": false,
+            "transportReliability": {
+                "delivered_to_instream_total": 67,
+                "dropped_backpressure_total": 0,
+                "pending_at_shutdown_total": 39,
+                "received_raw_total": 67,
+                "reliable": true,
+                "sent_total": 106
+            }
+        },
+        {
+            "completedPeerCount": 2,
+            "completedPeers": [
+                0,
+                1
+            ],
+            "durationSeconds": 0.012664642,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 5148.0,
+                    "RunTime": 0.000601589,
+                    "tests": [
+                        {
+                            "messages": [
+                                40.0
+                            ],
+                            "throughput": [
+                                9.0
+                            ],
+                            "utility": [
+                                22.5
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 34,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 1,
+                        "received_raw": 34,
+                        "sent": 40
+                    }
+                },
+                "1": {
+                    "Peak Memory KB": 5276.0,
+                    "RunTime": 0.001011504,
+                    "tests": [
+                        {
+                            "messages": [
+                                68.0
+                            ],
+                            "throughput": [
+                                0.0
+                            ],
+                            "utility": [
+                                0.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 40,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 5,
+                        "received_raw": 40,
+                        "sent": 68
+                    }
+                }
+            },
+            "peerOutputFiles": {
+                "0": "results/altbit-delay-2_EXP2/peer_0_TEST3.json",
+                "1": "results/altbit-delay-2_EXP2/peer_1_TEST3.json"
+            },
+            "readyPeers": [
+                0,
+                1
+            ],
+            "success": true,
+            "testIndex": 2,
+            "timedOut": false,
+            "transportReliability": {
+                "delivered_to_instream_total": 74,
+                "dropped_backpressure_total": 0,
+                "pending_at_shutdown_total": 34,
+                "received_raw_total": 74,
+                "reliable": true,
+                "sent_total": 108
+            }
+        },
+        {
+            "completedPeerCount": 2,
+            "completedPeers": [
+                1,
+                0
+            ],
+            "durationSeconds": 0.013970919,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 5160.0,
+                    "RunTime": 0.002076672,
+                    "tests": [
+                        {
+                            "messages": [
+                                50.0
+                            ],
+                            "throughput": [
+                                27.0
+                            ],
+                            "utility": [
+                                54.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 64,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 2,
+                        "received_raw": 64,
+                        "sent": 50
+                    }
+                },
+                "1": {
+                    "Peak Memory KB": 5276.0,
+                    "RunTime": 0.001864786,
+                    "tests": [
+                        {
+                            "messages": [
+                                64.0
+                            ],
+                            "throughput": [
+                                0.0
+                            ],
+                            "utility": [
+                                0.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 45,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 3,
+                        "received_raw": 45,
+                        "sent": 64
+                    }
+                }
+            },
+            "peerOutputFiles": {
+                "0": "results/altbit-delay-2_EXP2/peer_0_TEST4.json",
+                "1": "results/altbit-delay-2_EXP2/peer_1_TEST4.json"
+            },
+            "readyPeers": [
+                0,
+                1
+            ],
+            "success": true,
+            "testIndex": 3,
+            "timedOut": false,
+            "transportReliability": {
+                "delivered_to_instream_total": 109,
+                "dropped_backpressure_total": 0,
+                "pending_at_shutdown_total": 5,
+                "received_raw_total": 109,
+                "reliable": true,
+                "sent_total": 114
+            }
+        },
+        {
+            "completedPeerCount": 2,
+            "completedPeers": [
+                0,
+                1
+            ],
+            "durationSeconds": 0.013319912,
+            "missingPeers": [],
+            "peerMetrics": {
+                "0": {
+                    "Peak Memory KB": 5160.0,
+                    "RunTime": 0.001061658,
+                    "tests": [
+                        {
+                            "messages": [
+                                48.0
+                            ],
+                            "throughput": [
+                                21.0
+                            ],
+                            "utility": [
+                                43.75
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 47,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 1,
+                        "received_raw": 47,
+                        "sent": 48
+                    }
+                },
+                "1": {
+                    "Peak Memory KB": 5276.0,
+                    "RunTime": 0.001387054,
+                    "tests": [
+                        {
+                            "messages": [
+                                67.0
+                            ],
+                            "throughput": [
+                                0.0
+                            ],
+                            "utility": [
+                                0.0
+                            ]
+                        }
+                    ],
+                    "transportMetrics": {
+                        "data_queue_capacity": 1000,
+                        "delivered_to_instream": 48,
+                        "dropped_backpressure": 0,
+                        "peak_observed_queue_usage": 3,
+                        "received_raw": 48,
+                        "sent": 67
+                    }
+                }
+            },
+            "peerOutputFiles": {
+                "0": "results/altbit-delay-2_EXP2/peer_0_TEST5.json",
+                "1": "results/altbit-delay-2_EXP2/peer_1_TEST5.json"
+            },
+            "readyPeers": [
+                0,
+                1
+            ],
+            "success": true,
+            "testIndex": 4,
+            "timedOut": false,
+            "transportReliability": {
+                "delivered_to_instream_total": 95,
+                "dropped_backpressure_total": 0,
+                "pending_at_shutdown_total": 20,
+                "received_raw_total": 95,
+                "reliable": true,
+                "sent_total": 115
+            }
+        }
+    ],
+    "topologyType": "complete"
+}

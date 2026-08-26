@@ -1,0 +1,25 @@
+{
+    "Peak Memory KB": 5580.0,
+    "RunTime": 0.001341557,
+    "tests": [
+        {
+            "messages": [
+                39.0
+            ],
+            "throughput": [
+                8.0
+            ],
+            "utility": [
+                20.51282051282051
+            ]
+        }
+    ],
+    "transportMetrics": {
+        "data_queue_capacity": 1000,
+        "delivered_to_instream": 32,
+        "dropped_backpressure": 0,
+        "peak_observed_queue_usage": 2,
+        "received_raw": 32,
+        "sent": 39
+    }
+}

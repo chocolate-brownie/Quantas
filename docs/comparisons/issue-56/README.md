@@ -1,43 +1,67 @@
 # Issue #56: Abstract vs BoostMQ timing comparison
 
-This comparison uses the supported `StableDataLinkPeer` algorithm with two
-peers, a complete static topology, five tests, and 100 rounds per test. The
-same JSON is used by both backends. Abstract receives `maxDelay` values from 1
-through 5; BoostMQ uses real local processes and message queues, so it ignores
-the Abstract-only delay model.
+This directory contains two independent, reproducible experiments. Each
+algorithm has its own folder so configurations, manifests, results, and raw
+backend output cannot be confused or overwritten.
 
-The same comparison was also run with the existing supported `AltBitPeer`
-algorithm. Its result is documented in `altbit-comparison-report.md` and uses
-the same runtime metric and calculation script.
+```text
+issue-56/
+├── compare_timings.py
+├── stable-datalink/
+│   ├── comparison.json
+│   ├── manifest.json
+│   ├── results.json
+│   ├── report.md
+│   └── raw/{abstract,boostmq}/
+└── altbit/
+    ├── comparison.json
+    ├── manifest.json
+    ├── results.json
+    ├── report.md
+    └── raw/{abstract,boostmq}/
+```
 
-## Reproduce
+Both experiments use two peers, a complete static topology, five tests, and
+100 rounds per test. Abstract receives `maxDelay` values from 1 through 5;
+BoostMQ uses real local processes and message queues, so it does not use the
+Abstract-only delay model.
+
+## Reproduce StableDataLink
 
 From the repository root:
 
 ```sh
-mkdir -p docs/comparisons/issue-56/raw/abstract docs/comparisons/issue-56/raw/boostmq
-make run INPUTFILE=docs/comparisons/issue-56/stable-datalink-comparison.json
-make mq INPUTFILE=docs/comparisons/issue-56/stable-datalink-comparison.json
+mkdir -p docs/comparisons/issue-56/stable-datalink/raw/abstract docs/comparisons/issue-56/stable-datalink/raw/boostmq
+make run INPUTFILE=docs/comparisons/issue-56/stable-datalink/comparison.json
+make mq INPUTFILE=docs/comparisons/issue-56/stable-datalink/comparison.json
 ```
 
-The Abstract run writes five files under `raw/abstract/`. BoostMQ writes five
-leader reports under `results/stable-delay-N_EXP<N>/`; copy each
-`leader_report.json` into the matching `raw/boostmq/` path before calculating.
-
-Create a manifest with one row per delay:
-
-```json
-[
-  {"delay": 1, "abstract": "raw/abstract/stable-delay-1.json", "boostmq": "raw/boostmq/stable-delay-1.json"}
-]
-```
-
-Add rows for delays 2 through 5, then run:
+The Abstract run writes `stable-datalink-delay-1.json` through
+`stable-datalink-delay-5.json` under `stable-datalink/raw/abstract/`.
+BoostMQ writes matching directories under `results/`; copy each complete
+directory into `stable-datalink/raw/boostmq/`.
 
 ```sh
-python3 docs/comparisons/issue-56/compare_timings.py manifest.json \
-  --output docs/comparisons/issue-56/comparison-results.json
+python3 docs/comparisons/issue-56/compare_timings.py \
+  docs/comparisons/issue-56/stable-datalink/manifest.json \
+  --output docs/comparisons/issue-56/stable-datalink/results.json
 ```
+
+## Reproduce AltBit
+
+```sh
+mkdir -p docs/comparisons/issue-56/altbit/raw/abstract docs/comparisons/issue-56/altbit/raw/boostmq
+make run INPUTFILE=docs/comparisons/issue-56/altbit/comparison.json
+make mq INPUTFILE=docs/comparisons/issue-56/altbit/comparison.json
+python3 docs/comparisons/issue-56/compare_timings.py \
+  docs/comparisons/issue-56/altbit/manifest.json \
+  --output docs/comparisons/issue-56/altbit/results.json
+```
+
+Copy the five `altbit-delay-N_EXPN` BoostMQ result directories into
+`altbit/raw/boostmq/` before calculating. The manifests point to each
+algorithm's complete raw report set; the calculation can therefore be rerun
+without rerunning either backend.
 
 The percentage is:
 

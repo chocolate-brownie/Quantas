@@ -1,0 +1,61 @@
+{
+    "Previous Peak Memory KB": 4712,
+    "RunTime": 0.008402457,
+    "tests": [
+        {
+            "messages": [
+                91.0
+            ],
+            "throughput": [
+                18.0
+            ],
+            "utility": [
+                19.78021978021978
+            ]
+        },
+        {
+            "messages": [
+                93.0
+            ],
+            "throughput": [
+                16.0
+            ],
+            "utility": [
+                17.20430107526882
+            ]
+        },
+        {
+            "messages": [
+                87.0
+            ],
+            "throughput": [
+                16.0
+            ],
+            "utility": [
+                18.39080459770115
+            ]
+        },
+        {
+            "messages": [
+                88.0
+            ],
+            "throughput": [
+                17.0
+            ],
+            "utility": [
+                19.318181818181817
+            ]
+        },
+        {
+            "messages": [
+                89.0
+            ],
+            "throughput": [
+                16.0
+            ],
+            "utility": [
+                17.97752808988764
+            ]
+        }
+    ]
+}

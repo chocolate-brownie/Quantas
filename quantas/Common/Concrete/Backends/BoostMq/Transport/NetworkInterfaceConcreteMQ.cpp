@@ -35,10 +35,12 @@ NetworkInterfaceConcreteMQ::~NetworkInterfaceConcreteMQ() {
     clearAll();
 }
 
-void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId> neighbors) {
+void NetworkInterfaceConcreteMQ::configure(interfaceId id, std::set<interfaceId> neighbors,
+                                           std::size_t dataSendTimeoutMs) {
     _publicId = id;
     _internalId = id;
     _neighbors = neighbors;
+    _dataSendTimeoutMs = dataSendTimeoutMs;
 
     std::ostringstream neighborList;
     bool first = true;
@@ -87,9 +89,8 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
 
         /* Bound the send so a full destination queue fails the test instead of
          * blocking the peer forever. */
-        constexpr int dataSendTimeoutMs = 5;
         const auto deadline = boost::posix_time::microsec_clock::universal_time() +
-                              boost::posix_time::milliseconds(dataSendTimeoutMs);
+                              boost::posix_time::milliseconds(_dataSendTimeoutMs);
 
         const bool sent = mq.timed_send(bytes.data(), bytes.size(), 0, deadline);
 
@@ -97,7 +98,7 @@ void NetworkInterfaceConcreteMQ::unicastTo(nlohmann::json msg, const interfaceId
             ++_transportMetrics.droppedBackpressure;
             throw std::runtime_error("peer " + std::to_string(publicId()) +
                                      " timed out sending data to peer " + std::to_string(dest) +
-                                     " after " + std::to_string(dataSendTimeoutMs) + " ms");
+                                     " after " + std::to_string(_dataSendTimeoutMs) + " ms");
         }
 
         _transportMetrics.sent++;

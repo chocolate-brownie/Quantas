@@ -1,6 +1,7 @@
 #ifndef NETWORK_INTERFACE_CONCRETE_MQ_HPP
 #define NETWORK_INTERFACE_CONCRETE_MQ_HPP
 
+#include "quantas/Common/Concrete/Backends/BoostMq/Control/QueueConfig.hpp"
 #include "quantas/Common/Concrete/Runtime/Metrics/TransportMetrics.hpp"
 #include "quantas/Common/Json.hpp"
 #include "quantas/Common/NetworkInterface.hpp"
@@ -17,6 +18,7 @@ class NetworkInterfaceConcreteMQ : public NetworkInterface {
     std::atomic<bool> _configured{false};
     std::optional<boost::interprocess::message_queue> _myInbox;
     TransportMetrics _transportMetrics;
+    std::size_t _dataSendTimeoutMs{BoostMqQueueConfig::DEFAULT_DATA_SEND_TIMEOUT_MS};
 
   public:
     NetworkInterfaceConcreteMQ();
@@ -24,7 +26,9 @@ class NetworkInterfaceConcreteMQ : public NetworkInterface {
     NetworkInterfaceConcreteMQ(interfaceId pubId, interfaceId internalId);
     ~NetworkInterfaceConcreteMQ() override;
 
-    void configure(interfaceId id, std::set<interfaceId> neighbors);
+    void
+    configure(interfaceId id, std::set<interfaceId> neighbors,
+              std::size_t dataSendTimeoutMs = BoostMqQueueConfig::DEFAULT_DATA_SEND_TIMEOUT_MS);
 
     void unicastTo(nlohmann::json msg, const interfaceId &dest) override;
     void receive() override;

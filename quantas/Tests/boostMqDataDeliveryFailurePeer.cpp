@@ -5,6 +5,7 @@
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <chrono>
 #include <fstream>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -37,6 +38,7 @@ int main(int argc, char* argv[]) {
     quantas::BoostMqQueueConfig queueConfig;
     queueConfig.controlQueueCapacity = kTotalPeers;
     queueConfig.dataQueueCapacity = 1;
+    queueConfig.dataSendTimeoutMs = 25;
     queueConfig.controlSendTimeoutMs = 1000;
 
     auto& coordinator = quantas::ProcessCoordinatorMQ::instance();
@@ -65,12 +67,13 @@ int main(int argc, char* argv[]) {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(25));
         quantas::NetworkInterfaceConcreteMQ networkInterface;
-        networkInterface.configure(kSenderId, {kBlockedReceiverId});
+        networkInterface.configure(kSenderId, {kBlockedReceiverId}, queueConfig.dataSendTimeoutMs);
 
         try {
             networkInterface.unicastTo(nlohmann::json{{"message", "force backpressure"}},
                                        kBlockedReceiverId);
-        } catch (const std::runtime_error&) {
+        } catch (const std::runtime_error& ex) {
+            std::cerr << ex.what() << '\n';
             writeMetrics(peerId, networkInterface.transportMetrics());
             coordinator.notifyPeerFailed(peerId);
             coordinator.cleanUp();

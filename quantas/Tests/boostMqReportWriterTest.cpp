@@ -1,4 +1,5 @@
 #include "quantas/Common/Concrete/Backends/BoostMq/Logging/BoostMqReportWriter.hpp"
+#include "quantas/Common/Concrete/Runtime/Config/RuntimeConfig.hpp"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -72,6 +73,19 @@ int main() {
                                                  {"dropped_backpressure", 1},
                                              }}}}});
     assert(dropped.at("reliable") == false);
+
+    quantas::RuntimeExperimentConfig experiment;
+    experiment.initialPeers = 2;
+    experiment.initialPeerType = "ExamplePeer";
+    experiment.topology = {{"type", "complete"}};
+    experiment.rounds = 10;
+    experiment.tests = 1;
+    quantas::BoostMqQueueConfig queueConfig;
+    queueConfig.controlQueueCapacity = 2;
+    queueConfig.dataSendTimeoutMs = 25;
+    const nlohmann::json baseReport =
+        quantas::BoostMqReportWriter::makeBaseExperimentReport(0, experiment, queueConfig);
+    assert(baseReport.at("boostMq").at("dataSendTimeoutMs") == 25);
 
     const std::string leaderPath =
         quantas::BoostMqReportWriter::makeLeaderReportPath("AltBitdropProb0.txt", 0);

@@ -70,10 +70,10 @@ void validateAssignment(const PeerAssignment& assignment, int totalPeers) {
 
 // Bind assignment data to the MQ interface, then attach it to the peer.
 void applyAssignment(const PeerAssignment& assignment, quantas::NetworkInterfaceConcreteMQ* mq,
-                     quantas::Peer* peer) {
+                     quantas::Peer* peer, std::size_t dataSendTimeoutMs) {
     QUANTAS_LOG_INFO("topology") << "peer " << assignment.id
                                  << " using topology=" << assignment.topologyType;
-    mq->configure(assignment.id, assignment.neighbors);
+    mq->configure(assignment.id, assignment.neighbors, dataSendTimeoutMs);
     peer->setNetworkInterface(mq);
 }
 
@@ -136,14 +136,15 @@ void initRendezvous(quantas::ProcessCoordinatorMQ& coord, int myId) {
 /* Construct all peers assigned to this worker and bind each peer to an MQ
    interface configured from its assignment (id + neighbors). */
 std::vector<quantas::Peer*> buildLocalPeers(const std::string& peerType,
-                                            const std::vector<PeerAssignment>& assignments) {
+                                            const std::vector<PeerAssignment>& assignments,
+                                            std::size_t dataSendTimeoutMs) {
     std::vector<quantas::Peer*> localPeers;
     localPeers.reserve(assignments.size());
 
     for (const auto& assignment : assignments) {
         quantas::Peer* peer = quantas::PeerRegistry::makePeer(peerType, assignment.id);
         auto* mq = new quantas::NetworkInterfaceConcreteMQ();
-        applyAssignment(assignment, mq, peer);
+        applyAssignment(assignment, mq, peer, dataSendTimeoutMs);
         localPeers.push_back(peer);
     }
 
@@ -223,7 +224,7 @@ void runRounds(std::vector<quantas::Peer*>& localPeers, int rounds,
 // Try to build peers from topology rules
 bool prepareLocalPeers(const quantas::RuntimeExperimentConfig& exp,
                        const std::vector<PeerAssignment>& assignments,
-                       std::vector<quantas::Peer*>& localPeers) {
+                       std::vector<quantas::Peer*>& localPeers, std::size_t dataSendTimeoutMs) {
     if (assignments.empty())
         return false;
 
@@ -231,7 +232,7 @@ bool prepareLocalPeers(const quantas::RuntimeExperimentConfig& exp,
         validateAssignment(assignment, exp.initialPeers);
     }
 
-    localPeers = buildLocalPeers(exp.initialPeerType, assignments);
+    localPeers = buildLocalPeers(exp.initialPeerType, assignments, dataSendTimeoutMs);
     return !localPeers.empty();
 }
 
@@ -335,7 +336,7 @@ int main(int argc, char** argv) {
             initRendezvous(coordinator, cli->peerId);
 
             std::vector<PeerAssignment> assignments = coordinator.waitForAssignments();
-            if (!prepareLocalPeers(exp, assignments, localPeers)) {
+            if (!prepareLocalPeers(exp, assignments, localPeers, queueConfig.dataSendTimeoutMs)) {
                 cleanUp(localPeers);
                 coordinator.cleanUp();
                 QUANTAS_LOG_WARN("runner")

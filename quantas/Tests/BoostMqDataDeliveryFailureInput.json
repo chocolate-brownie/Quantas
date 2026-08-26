@@ -14,6 +14,7 @@
       },
       "boostMq": {
         "dataQueueCapacity": 1,
+        "dataSendTimeoutMs": 25,
         "readyTimeoutMs": 1000,
         "controlSendTimeoutMs": 1000
       },

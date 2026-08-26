@@ -1,0 +1,45 @@
+{
+  "algorithms": ["StableDataLinkPeer/StableDataLinkPeer.cpp"],
+  "experiments": [
+    {
+      "logFile": "docs/comparisons/issue-56/raw/abstract/stable-delay-1.json",
+      "threadCount": 1,
+      "distribution": {"type": "uniform", "maxDelay": 1, "dropProbability": 0.0},
+      "topology": {"type": "complete", "initialPeers": 2, "initialPeerType": "StableDataLinkPeer"},
+      "tests": 5,
+      "rounds": 100
+    },
+    {
+      "logFile": "docs/comparisons/issue-56/raw/abstract/stable-delay-2.json",
+      "threadCount": 1,
+      "distribution": {"type": "uniform", "maxDelay": 2, "dropProbability": 0.0},
+      "topology": {"type": "complete", "initialPeers": 2, "initialPeerType": "StableDataLinkPeer"},
+      "tests": 5,
+      "rounds": 100
+    },
+    {
+      "logFile": "docs/comparisons/issue-56/raw/abstract/stable-delay-3.json",
+      "threadCount": 1,
+      "distribution": {"type": "uniform", "maxDelay": 3, "dropProbability": 0.0},
+      "topology": {"type": "complete", "initialPeers": 2, "initialPeerType": "StableDataLinkPeer"},
+      "tests": 5,
+      "rounds": 100
+    },
+    {
+      "logFile": "docs/comparisons/issue-56/raw/abstract/stable-delay-4.json",
+      "threadCount": 1,
+      "distribution": {"type": "uniform", "maxDelay": 4, "dropProbability": 0.0},
+      "topology": {"type": "complete", "initialPeers": 2, "initialPeerType": "StableDataLinkPeer"},
+      "tests": 5,
+      "rounds": 100
+    },
+    {
+      "logFile": "docs/comparisons/issue-56/raw/abstract/stable-delay-5.json",
+      "threadCount": 1,
+      "distribution": {"type": "uniform", "maxDelay": 5, "dropProbability": 0.0},
+      "topology": {"type": "complete", "initialPeers": 2, "initialPeerType": "StableDataLinkPeer"},
+      "tests": 5,
+      "rounds": 100
+    }
+  ]
+}

@@ -445,3 +445,5 @@ In this file I document what I do everyday during my internship.
 - Passed `make check_mq_deps`, release and debug BoostMQ builds, the normal ExamplePeer workflow, StableDataLink runs, topology parity/preflight, repeated-test isolation, researcher-contract, timeout, backpressure, control-send, report, and cleanup tests.
 - Ran the PBFT and Kademlia configurations successfully as process-level smoke tests; their global peer-collection setup remains documented as not equivalent because BoostMQ provides process-local peer objects only.
 - Final `make mq_status` showed no QUANTAS BoostMQ processes or `/dev/shm` resources. `git diff --check` passed.
+- Completed issue #56's Abstract-versus-BoostMQ timing comparison with a reproducible StableDataLink fixture, saved raw reports, a calculation script, and a written result.
+- Abstract `maxDelay=3` was the closest of settings 1 through 5, but still differed from BoostMQ by 96.32%; the result is outside the 5% target and confirms that Abstract delay is not a wall-clock substitute for real BoostMQ IPC.

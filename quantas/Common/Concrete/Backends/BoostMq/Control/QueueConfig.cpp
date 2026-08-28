@@ -82,14 +82,10 @@ BoostMqQueueConfig parseBoostMqConfig(const nlohmann::json& experiment, int init
     return config;
 }
 
-/*
- * Check that every serialized topology assignment fits inside a control queue
- * message before any worker process starts.
- *
- * The function serializes each assignment exactly as the leader will send it.
- * If one is too large, it reports the experiment, peer, required bytes, and
- * configured maximum message size.
- */
+/* Check that every serialized topology assignment fits inside a control queue message before any
+ * worker process starts. The function serializes each assignment exactly as the leader will send
+ * it. If one is too large, it reports the experiment, peer, required bytes, and configured maximum
+ * message size. */
 void validateBoostMqAssignmentPayloads(const std::vector<PeerAssignment>& assignments,
                                        const BoostMqQueueConfig& queueConfig,
                                        std::size_t experimentIndex) {
@@ -110,14 +106,10 @@ void validateBoostMqAssignmentPayloads(const std::vector<PeerAssignment>& assign
     }
 }
 
-/*
- * Check that the operating system can create queues using the requested
- * capacities and maximum message size.
- *
- * The function first rejects zero or impossible sizes, then creates temporary
- * control and data queues using the real configuration. Temporary queues are
- * removed after success and also when queue creation fails.
- */
+/* Check that the operating system can create queues using the requested capacities and maximum
+ * message size. The function first rejects zero or impossible sizes, then creates temporary control
+ * and data queues using the real configuration. Temporary queues are removed after success and also
+ * when queue creation fails. */
 void preflightBoostMqQueues(const BoostMqQueueConfig& queueConfig, std::size_t experimentIndex) {
     if (queueConfig.controlQueueCapacity == 0 || queueConfig.dataQueueCapacity == 0 ||
         queueConfig.maxMessageSizeBytes == 0) {

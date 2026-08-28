@@ -136,14 +136,12 @@ void ProcessCoordinatorMQ::createBarrier() {
     message_queue::remove("mq_barrier");
     message_queue::remove("mq_done");
 
-    /* Keep shared control queues small and rely on timed sender retries while
-        the leader drains. */
     try {
-        // mq_barrier ← peers send "I am ready"
+        // The queue that peers sends the "I am ready" signal to
         _myBarrier.emplace(create_only, "mq_barrier", _queueConfig.controlQueueCapacity,
                            sizeof(interfaceId));
 
-        // mq_done ← peers send their ID and success status
+        // The queue that peers send their id and success state to
         message_queue doneQueue(create_only, "mq_done", _queueConfig.controlQueueCapacity,
                                 sizeof(PeerCompletionMessage));
     } catch (const interprocess_exception& ex) {

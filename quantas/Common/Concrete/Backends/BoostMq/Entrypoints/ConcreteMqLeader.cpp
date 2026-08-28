@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+using bmqrep = quantas::BoostMqReportWriter;
+
 namespace {
 struct LeaderCliArgs {
     std::string inputPath;
@@ -20,11 +22,8 @@ struct LeaderCliArgs {
     bool preflightOnly{false};
 };
 
-/*
- * Purpose: Load the input JSON and verify that it contains at least one
- * experiment. Used by: `main()` at startup so execution stops early when the
- * input is unusable.
- */
+/* Purpose: Load the input JSON and verify that it contains at least one experiment. Used by:
+ * `main()` at startup so execution stops early when the input is unusable. */
 std::optional<nlohmann::json> parseAndLoadConfig(const std::string& inputPath) {
     return quantas::loadRuntimeConfig(inputPath);
 }
@@ -62,13 +61,14 @@ std::optional<std::vector<size_t>> selectExperimentIndexes(const LeaderCliArgs& 
                                                            size_t experimentCount) {
     std::vector<size_t> indexes;
 
-    if (cli.preflightOnly) {
+    if (cli.preflightOnly) { // if mode --preflight has been checked true
         indexes.reserve(experimentCount);
         for (size_t i = 0; i < experimentCount; ++i)
             indexes.push_back(i);
         return indexes;
     }
 
+    // if the user parsed number is not the same as inside the JSON's number of experiments
     if (*cli.experimentIndex >= experimentCount) {
         std::cerr << "error: experiment index " << *cli.experimentIndex << " is out of range\n";
         return std::nullopt;
@@ -82,30 +82,28 @@ std::optional<std::vector<size_t>> selectExperimentIndexes(const LeaderCliArgs& 
  * and remove the queues created for this test. */
 void handleReadinessTimeout(
     bool& allTestsSucceeded, bool& experimentTimedOut, quantas::ProcessCoordinatorMQ& coordinator,
-    quantas::BoostMqReportWriter::TestReportInfo& testInfo, nlohmann::json& expReport,
-    int totalPeers,
+    bmqrep::TestReportInfo& testInfo, nlohmann::json& expReport, int totalPeers,
     const std::chrono::time_point<std::chrono::high_resolution_clock>& testStartTime) {
 
     allTestsSucceeded = false;
     experimentTimedOut = true;
     const auto testEndTime = std::chrono::high_resolution_clock::now();
     testInfo.duration = testEndTime - testStartTime;
-    testInfo.missingPeers =
-        quantas::BoostMqReportWriter::findMissingPeers(totalPeers, testInfo.readyPeers);
+    testInfo.missingPeers = bmqrep::findMissingPeers(totalPeers, testInfo.readyPeers);
     testInfo.success = false;
 
     QUANTAS_LOG_ERROR("coord") << "leader readiness timed out; readyPeers="
                                << nlohmann::json(testInfo.readyPeers).dump()
                                << " missingPeers=" << nlohmann::json(testInfo.missingPeers).dump();
 
-    expReport["tests"].push_back(quantas::BoostMqReportWriter::makeTestReport(testInfo));
+    expReport["tests"].push_back(bmqrep::makeTestReport(testInfo));
     coordinator.broadcastStopBestEffort();
     coordinator.cleanUp();
 }
 
 void handleControlSendFailure(
     bool& allTestsSucceeded, bool& experimentTimedOut, quantas::ProcessCoordinatorMQ& coordinator,
-    quantas::BoostMqReportWriter::TestReportInfo& testInfo, nlohmann::json& expReport,
+    bmqrep::TestReportInfo& testInfo, nlohmann::json& expReport,
     const std::chrono::time_point<std::chrono::high_resolution_clock>& testStartTime) {
 
     allTestsSucceeded = false;
@@ -113,14 +111,13 @@ void handleControlSendFailure(
     testInfo.duration = std::chrono::high_resolution_clock::now() - testStartTime;
     testInfo.success = false;
 
-    expReport["tests"].push_back(quantas::BoostMqReportWriter::makeTestReport(testInfo));
+    expReport["tests"].push_back(bmqrep::makeTestReport(testInfo));
     coordinator.broadcastStopBestEffort();
     coordinator.cleanUp();
 }
 
 } // namespace
 
-/* ------------------------------------- Leader Runtime ------------------------------------------*/
 int main(int argc, char* argv[]) {
     /* Validate the command line and select normal execution or validation-only  preflight mode.
      * Both modes operate on one JSON input file. */
@@ -134,8 +131,8 @@ int main(int argc, char* argv[]) {
     if (!config)
         return 1;
 
-    /* Select every experiment for preflight, or one requested experiment for a  normal run. Return
-     * no value when the requested experiment does not exist. */
+    /* Build the list of JSON experiment-array indexes to process: every index during preflight, or
+     * the single index passed by the launcher during a normal run. */
     const auto experimentIndexes = selectExperimentIndexes(*cli, (*config)["experiments"].size());
     if (!experimentIndexes)
         return 1;
@@ -148,20 +145,36 @@ int main(int argc, char* argv[]) {
      * corresponding experiment index. */
     for (const size_t expIndex : *experimentIndexes) {
         try {
+            /* :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+            ::::::::::::::::::::::::::::::::::PREFLIGHT CHECK:::::::::::::::::::::::::::::::::::::
+            ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
+
             const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
 
-            /* Parse backend-independent runtime settings, then validate the  BoostMQ queue sizes
-             * and topology payloads before creating queues. */
-            quantas::RuntimeExperimentConfig exp =
-                quantas::parseRuntimeExperiment(*config, expIndex);
+            /* Read the experiment settings, then check the BoostMQ queue sizes and topology
+             * messages before creating any queues. */
+            const auto exp = quantas::parseRuntimeExperiment(*config, expIndex);
 
-            const auto [assignments] = quantas::buildTopology(exp.topology);
+            /* Read the boostmq settings from the json, and then check whether the os can create
+             * queues using the requested capacities and maximum message size aka the preflight
+             * check */
             auto boostConfig = quantas::parseBoostMqConfig(experiment, exp.initialPeers);
             quantas::preflightBoostMqQueues(boostConfig, expIndex);
-            quantas::validateBoostMqAssignmentPayloads(assignments, boostConfig, expIndex);
 
+            /* Build the selected topology. The result contains one assignment per peer with its
+             * ID, topology type, and neighbour IDs and then check that every serialized topology
+             * assignment fits inside a control queue message before any worker process starts */
+            auto topology = quantas::buildTopology(exp.topology);
+            quantas::validateBoostMqAssignmentPayloads(topology.assignments, boostConfig, expIndex);
+
+            /* If preflight-only mode is enabled, skip execution after validation and continue with
+             * the next configured experiment. */
             if (cli->preflightOnly)
                 continue;
+
+            /* :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+            ::::::::::::::::::::::::::::::::::EXPERIMENT EXECUTION::::::::::::::::::::::::::::::::
+            ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 
             /* Initialize timing, output paths, and coordinator state for this  experiment before
              * any peers enter the rendezvous. */
@@ -169,11 +182,12 @@ int main(int argc, char* argv[]) {
             std::chrono::duration<double> expDuration{};
             expStartTime = std::chrono::high_resolution_clock::now();
 
-            const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
+            /* Choose the output base name, then use it with the experiment index to build this
+             * experiment's leader-report path. */
+            const auto logFileBase = quantas::chooseLogFileBase(*config, experiment);
+            const auto reportPath = bmqrep::makeLeaderReportPath(logFileBase, expIndex);
 
-            const std::string reportPath =
-                quantas::BoostMqReportWriter::makeLeaderReportPath(logFileBase, expIndex);
-
+            // Give the coordinator all the information he needs
             coordinator.configureExperiment(expIndex, exp.initialPeerType, true, exp.initialPeers,
                                             quantas::NO_PEER_ID, logFileBase,
                                             quantas::StopMode::FixedRounds, boostConfig);
@@ -182,22 +196,23 @@ int main(int argc, char* argv[]) {
                 << "leader starting rendezvous for experiment " << expIndex
                 << " with totalPeers=" << exp.initialPeers << " tests=" << exp.tests;
 
-            nlohmann::json expReport =
-                quantas::BoostMqReportWriter::makeBaseExperimentReport(expIndex, exp, boostConfig);
-
+            /* Create the base leader report object so we can continue adding information to it
+             * while the experiment runs. */
+            nlohmann::json expReport = bmqrep::makeBaseExperimentReport(expIndex, exp, boostConfig);
             expReport["inputFile"] = cli->inputPath;
+            expReport["expectedPeers"] = bmqrep::expectedPeers(exp.initialPeers);
 
-            expReport["expectedPeers"] =
-                quantas::BoostMqReportWriter::expectedPeers(exp.initialPeers);
+            bool allTestsSucceeded{true}, experimentTimedOut{false};
 
-            bool allTestsSucceeded = true;
-            bool experimentTimedOut = false;
+            /* :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+            :::::::::::::::::::::::::::::::::::TEST EXECUTION:::::::::::::::::::::::::::::::::::::
+            ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 
             /* Run every test in the experiment through a fresh rendezvous and  collect an
              * independent result for the final experiment report. */
             for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
                 const int testNumber = testIndex + 1;
-                quantas::BoostMqReportWriter::TestReportInfo testInfo;
+                bmqrep::TestReportInfo testInfo;
                 testInfo.testIndex = static_cast<size_t>(testIndex);
 
                 QUANTAS_LOG_INFO("coord")
@@ -208,8 +223,8 @@ int main(int argc, char* argv[]) {
 
                 testStartTime = std::chrono::high_resolution_clock::now();
 
-                /* Wait for all peers, distribute their topology assignments, start the run
-                 * together, and wait for completion or timeout. */
+                /* Create fresh leader-owned queues: `mq_barrier` receives ready signals and
+                 * `mq_done` receives completion reports from peers. */
                 coordinator.createBarrier();
 
                 /* Wait for every expected peer to report that it is ready. If the deadline is
@@ -222,13 +237,14 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
-                auto [assignments] = quantas::buildTopology(exp.topology);
+                if (exp.topology.value("identifiers", "") == "random")
+                    topology = quantas::buildTopology(exp.topology);
 
                 /* Assignment and start are required control messages. If either send fails or
                  * reaches its deadline, save the failed test, stop peers, clean the queues, and
                  * leave the test loop instead of allowing the leader to wait forever. */
                 try {
-                    coordinator.sendAssignments(assignments);
+                    coordinator.sendAssignments(topology.assignments);
                     coordinator.broadcastStart();
                 } catch (const std::exception& ex) {
                     QUANTAS_LOG_ERROR("coord") << ex.what();
@@ -259,9 +275,9 @@ int main(int argc, char* argv[]) {
                 testInfo.duration = testEndTime - testStartTime;
 
                 /* 1. Collect peer completion facts and expected output locations. */
-                testInfo.missingPeers = quantas::BoostMqReportWriter::findMissingPeers(
-                    exp.initialPeers, testInfo.completedPeers);
-                testInfo.peerOutputFiles = quantas::BoostMqReportWriter::makePeerOutputFiles(
+                testInfo.missingPeers =
+                    bmqrep::findMissingPeers(exp.initialPeers, testInfo.completedPeers);
+                testInfo.peerOutputFiles = bmqrep::makePeerOutputFiles(
                     logFileBase, expIndex, testNumber, exp.initialPeers);
 
                 std::vector<quantas::interfaceId> reportingPeers = testInfo.completedPeers;
@@ -269,7 +285,7 @@ int main(int argc, char* argv[]) {
                                       completionResult.failedPeers.end());
 
                 /* 2. Read and validate every available peer output file. */
-                const bool allOutputsValid = quantas::BoostMqReportWriter::readPeerMetrics(
+                const bool allOutputsValid = bmqrep::readPeerMetrics(
                     testInfo.peerOutputFiles, reportingPeers, testInfo.peerMetrics);
 
                 /* 3. Calculate the test status and transport summary. */
@@ -277,13 +293,11 @@ int main(int argc, char* argv[]) {
                                    completionResult.failedPeers.empty() &&
                                    testInfo.missingPeers.empty() && allOutputsValid;
                 testInfo.transportReliability =
-                    quantas::BoostMqReportWriter::summarizeTransportReliability(
-                        testInfo.peerMetrics);
+                    bmqrep::summarizeTransportReliability(testInfo.peerMetrics);
                 /* 4. Convert the collected facts to JSON and add this test to the experiment. */
                 allTestsSucceeded = allTestsSucceeded && testInfo.success;
 
-                expReport["tests"].push_back(
-                    quantas::BoostMqReportWriter::makeTestReport(testInfo));
+                expReport["tests"].push_back(bmqrep::makeTestReport(testInfo));
 
                 /* Stop peers best-effort after a timeout and always release  this test's
                  * coordinator resources before continuing. */
@@ -311,7 +325,7 @@ int main(int argc, char* argv[]) {
             expDuration = expEndTime - expStartTime;
             expReport["durationSeconds"] = expDuration.count();
             expReport["success"] = allTestsSucceeded;
-            quantas::BoostMqReportWriter::writeLeaderReport(reportPath, expReport);
+            bmqrep::writeLeaderReport(reportPath, expReport);
             QUANTAS_LOG_INFO("coord") << "leader report written to " << reportPath;
 
             if (experimentTimedOut)

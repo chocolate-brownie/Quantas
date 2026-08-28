@@ -7,7 +7,7 @@ namespace quantas {
 
 namespace {
 
-int requiredPositiveInteger(const nlohmann::json& object, const char* field, const char* path) {
+int requiredPosInt(const nlohmann::json& object, const char* field, const char* path) {
     if (!object.contains(field) || !object[field].is_number_integer()) {
         throw std::runtime_error(std::string("error: ") + path + " must be a positive integer");
     }
@@ -49,20 +49,20 @@ RuntimeExperimentConfig parseRuntimeExperiment(const nlohmann::json& config, siz
         throw std::runtime_error("error: experiment missing 'topology'");
 
     RuntimeExperimentConfig out;
-    out.initialPeers = requiredPositiveInteger(
-        experiment["topology"],
-        "initialPeers",
-        "topology.initialPeers"
-    );
-    out.initialPeerType = experiment["topology"].value("initialPeerType", "");
-    out.topology = experiment["topology"];
-    out.rounds = requiredPositiveInteger(experiment, "rounds", "rounds");
-    out.tests = requiredPositiveInteger(experiment, "tests", "tests");
+
+    const auto topology = experiment["topology"];
+    out.topology = topology;
+
+    out.initialPeerType = topology.value("initialPeerType", "");
+    out.initialPeers = requiredPosInt(topology, "initialPeers", "topology.initialPeers");
+    out.rounds = requiredPosInt(experiment, "rounds", "rounds");
+    out.tests = requiredPosInt(experiment, "tests", "tests");
     out.doneTimeoutMs = experiment.value("doneTimeoutMs", 30000);
 
     if (out.initialPeerType.empty())
         throw std::runtime_error("error: topology.initialPeerType is empty");
-    if (out.doneTimeoutMs <= 0) throw std::runtime_error("error: doneTimeoutMs must be > 0");
+    if (out.doneTimeoutMs <= 0)
+        throw std::runtime_error("error: doneTimeoutMs must be > 0");
 
     return out;
 }

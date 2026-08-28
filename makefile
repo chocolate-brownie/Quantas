@@ -139,18 +139,18 @@ mq_debug_build: mq_peer_debug mq_leader_debug
 ############################### Running Commands ###############################
 
 help:
-	@printf "🧭 QUANTAS make targets\n"
+	@printf " QUANTAS make targets\n"
 	@echo ""
-	@printf "🧪Abstract runtime\n"
+	@printf "Abstract runtime\n"
 	@printf "  %s\n" "make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json"
 	@printf "  %s\n" "make debug INPUTFILE=..."
 	@echo ""
-	@printf "🚀BoostMQ runtime\n"
+	@printf "BoostMQ runtime\n"
 	@printf "  %-42s # %s\n" "make mq_debug_build INPUTFILE=..." "build debug leader and peer binaries without launching"
 	@printf "  %-42s # %s\n" "make mq INPUTFILE=..." "run the JSON experiments with release binaries"
 	@printf "  %-42s # %s\n" "make mq_debug INPUTFILE=..." "run the same JSON experiments with debug binaries"
 	@echo ""
-	@printf "🔍Tests / diagnostics\n"
+	@printf "Tests / diagnostics\n"
 	@printf "  %-42s # %s\n" "make check_mq_deps" "verify BoostMQ compile/link dependencies"
 	@printf "  %-42s # %s\n" "make mq_status" "list active BoostMQ processes and queue resources"
 	@printf "  %-42s # %s\n" "make mq_cleanup" "remove abandoned BoostMQ queues; refuses while active"

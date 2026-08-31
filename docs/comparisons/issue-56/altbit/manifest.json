@@ -1,7 +1,0 @@
-[
-  {"delay": 1, "abstract": "docs/comparisons/issue-56/altbit/raw/abstract/altbit-delay-1.json", "boostmq": "docs/comparisons/issue-56/altbit/raw/boostmq/altbit-delay-1/leader_report.json"},
-  {"delay": 2, "abstract": "docs/comparisons/issue-56/altbit/raw/abstract/altbit-delay-2.json", "boostmq": "docs/comparisons/issue-56/altbit/raw/boostmq/altbit-delay-2/leader_report.json"},
-  {"delay": 3, "abstract": "docs/comparisons/issue-56/altbit/raw/abstract/altbit-delay-3.json", "boostmq": "docs/comparisons/issue-56/altbit/raw/boostmq/altbit-delay-3/leader_report.json"},
-  {"delay": 4, "abstract": "docs/comparisons/issue-56/altbit/raw/abstract/altbit-delay-4.json", "boostmq": "docs/comparisons/issue-56/altbit/raw/boostmq/altbit-delay-4/leader_report.json"},
-  {"delay": 5, "abstract": "docs/comparisons/issue-56/altbit/raw/abstract/altbit-delay-5.json", "boostmq": "docs/comparisons/issue-56/altbit/raw/boostmq/altbit-delay-5/leader_report.json"}
-]

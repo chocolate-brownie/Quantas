@@ -229,10 +229,8 @@ void ProcessCoordinatorMQ::waitForAllReady(std::vector<interfaceId>& readyPeerId
             interfaceId readyPeerId = NO_PEER_ID;
             message_queue::size_type recvd_size;
 
-            const bool received = _myBarrier->timed_receive(&readyPeerId, sizeof(readyPeerId),
-                                                            recvd_size, priority, deadline);
-
-            if (!received) {
+            if (!_myBarrier->timed_receive(&readyPeerId, sizeof(readyPeerId), recvd_size, priority,
+                                           deadline)) {
                 readyPeerIds.assign(uniqueReadyPeers.begin(), uniqueReadyPeers.end());
                 std::sort(readyPeerIds.begin(), readyPeerIds.end());
                 readyTimedOut = true;
@@ -391,12 +389,18 @@ void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment>& as
         return;
 
     for (const PeerAssignment& assignment : assignments) {
+        /* Set an absolute deadline by adding the configured control-send timeout to the current
+         * time. The later send must finish before this deadline. */
         const auto deadline = boost::posix_time::microsec_clock::universal_time() +
                               boost::posix_time::milliseconds(_queueConfig.controlSendTimeoutMs);
+
+        /* Serialize the peer's ID, topology type, and neighbour IDs into bytes before sending the
+         * assignment through that peer's control queue. */
         std::stringstream ss;
         boost::archive::binary_oarchive oa(ss);
         oa << assignment;
         const std::string bytes = ss.str();
+
         const std::string queueName = peerControlQueueName(assignment.id);
 
         try {
@@ -420,14 +424,13 @@ void ProcessCoordinatorMQ::sendAssignments(const std::vector<PeerAssignment>& as
 
     const std::string topologyType =
         assignments.empty() ? "unknown" : assignments.front().topologyType;
+
     QUANTAS_LOG_INFO("coord") << "leader sent assignments topology=" << topologyType
                               << " peers=" << assignments.size();
 }
 
-/*
- * Major operation: Wait for this peer's serialized topology assignment,
- * decode it, and return it as a one-item list for the peer startup code.
- */
+/* Major operation: Wait for this peer's serialized topology assignment, decode it, and return it as
+ * a one-item list for the peer startup code. */
 std::vector<PeerAssignment> ProcessCoordinatorMQ::waitForAssignments() {
     if (_isLeader)
         return {};

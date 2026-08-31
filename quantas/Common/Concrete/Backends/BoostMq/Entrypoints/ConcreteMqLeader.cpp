@@ -237,6 +237,9 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
+                /* Rebuild the topology for each test when identifiers are random, so every test
+                 * gets a fresh shuffled neighbour arrangement. Fixed identifiers reuse the topology
+                 * built during preflight. */
                 if (exp.topology.value("identifiers", "") == "random")
                     topology = quantas::buildTopology(exp.topology);
 

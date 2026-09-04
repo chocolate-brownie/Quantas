@@ -292,40 +292,56 @@ void emitFinalExperimentMetrics(const std::chrono::high_resolution_clock::time_p
 // --------------------------- Worker runtime ---------------------------
 
 int main(int argc, char** argv) {
-    auto cli = parseArgs(argc, argv); // CLI input validation
+    /* Read the command and find this process's experiment number, JSON file, and peer ID. */
+    auto cli = parseArgs(argc, argv);
     if (!cli)
         return 1;
 
+    /* Open and validate the complete experiment JSON file. */
     auto config = quantas::loadRuntimeConfig(cli->jsonPath);
     if (!config)
         return 1;
+
+    /* Make sure the requested experiment exists in the JSON file. */
     if (cli->experimentIndex >= (*config)["experiments"].size()) {
         std::cerr << "error: experiment index " << cli->experimentIndex << " is out of range\n";
         return 1;
     }
 
+    /* Get the coordinator that talks to the leader through the BoostMQ control queues. */
     auto& coordinator = quantas::ProcessCoordinatorMQ::instance();
     const size_t expIndex = cli->experimentIndex;
 
+    /* Keep this process's algorithm peer objects and remember which test is active in case
+     * something fails. */
     std::vector<quantas::Peer*> localPeers;
     int activeTestNumber = 0;
     try {
-        /* ==================== Phase 1: Setup / Assembly ====================
-        Build all runtime state needed to execute this experiment in the
-        current worker process. */
+        /* Select the requested experiment and turn its common JSON settings into an easier-to-use
+         * C++ object. */
         const nlohmann::json& experiment = (*config)["experiments"].at(expIndex);
         quantas::RuntimeExperimentConfig exp = quantas::parseRuntimeExperiment(*config, expIndex);
+
+        /* Read this experiment's BoostMQ queue settings, or use the default settings when they are
+         * not written in the JSON. */
         const auto queueConfig = quantas::parseBoostMqConfig(experiment, exp.initialPeers);
 
+        /* Choose the results location and use the peer ID to keep different peer processes from
+         * writing to the same file. */
         const std::string logFileBase = quantas::chooseLogFileBase(*config, experiment);
         const std::optional<int> processDisambiguator = cli->peerId;
 
+        /* Run every configured test one after another inside this same peer process. */
         for (int testIndex = 0; testIndex < exp.tests; ++testIndex) {
             const int testNumber = testIndex + 1;
             activeTestNumber = testNumber;
 
+            /* Create a unique metrics file for this experiment, test, and peer process. */
             const std::string metricsFile =
                 configureExperimentOutput(logFileBase, expIndex, testNumber, processDisambiguator);
+
+            /* Tell the coordinator which test is running, who this peer is, and which queue
+             * settings to use. */
             coordinator.configureExperiment(expIndex, exp.initialPeerType, false, exp.initialPeers,
                                             cli->peerId, logFileBase,
                                             quantas::StopMode::FixedRounds, queueConfig);
@@ -333,9 +349,15 @@ int main(int argc, char** argv) {
             QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " starting experiment "
                                        << expIndex << " test " << testNumber;
 
+            /* Create this peer's inbox and send READY to tell the leader that this process is
+             * prepared. */
             initRendezvous(coordinator, cli->peerId);
 
+            /* Wait for the leader to send this peer's ID, topology type, and neighbour IDs. */
             std::vector<PeerAssignment> assignments = coordinator.waitForAssignments();
+
+            /* Create the algorithm peer and attach a BoostMQ network interface configured with its
+             * assignment. */
             if (!prepareLocalPeers(exp, assignments, localPeers, queueConfig.dataSendTimeoutMs)) {
                 cleanUp(localPeers);
                 coordinator.cleanUp();
@@ -343,36 +365,58 @@ int main(int argc, char** argv) {
                     << "experiment " << expIndex << ": no runnable local peers, skipping";
                 continue;
             }
+
+            /* Clear the transport counters so this test starts with no message counts left over
+             * from an earlier test. */
             resetTransportMetrics(localPeers);
 
+            /* Wait until the leader confirms that every peer is ready and sends the START signal*/
             QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " waiting for start";
             coordinator.waitForStart();
             QUANTAS_LOG_INFO("runner") << "peer " << cli->peerId << " start signal acknowledged";
 
+            /* Give the JSON algorithm parameters to the local peer so it can prepare its own
+             * algorithm state. */
             initializeHooks(experiment, localPeers);
+
+            /* Start the timer immediately before the algorithm begins running its rounds. */
             const auto startTime = std::chrono::high_resolution_clock::now();
 
-            /*
-               =================== Phase 2: Execute / Cleanup ====================
-               Execute rounds for all local peers, then release experiment state.
-               */
-
             try {
+                /* Let this peer receive messages and perform its algorithm work for the configured
+                 * number of local rounds. */
                 runRounds(localPeers, exp.rounds, coordinator);
             } catch (...) {
-                /* Preserve transport evidence collected before a data-send failure, then let the
-                 * existing outer handler log the test failure and clean process state. */
+                /* If execution fails, save the metrics collected so far and pass the error to the
+                 * main failure handler below. */
                 emitFinalExperimentMetrics(startTime, localPeers, queueConfig.dataQueueCapacity);
                 throw;
             }
+
+            /* Save this peer's runtime, memory use, and message transport counters after a
+             * successful run. */
             emitFinalExperimentMetrics(startTime, localPeers, queueConfig.dataQueueCapacity);
+
+            /* Send DONE to tell the leader that this peer completed its configured local rounds and
+             * wrote its metrics. */
             coordinator.notifyPeerStopped(localPeers.front()->publicId());
+
+            /* Keep this process alive until the leader receives DONE from every peer and sends the
+             * final STOP signal. */
             coordinator.waitForStop();
 
+            /* Delete this test's algorithm peer and network interface before starting the next
+             * test. */
             cleanUp(localPeers);
         }
+
+        /* After all tests finish, release the coordinator's remaining queues and other BoostMQ
+         * resources. */
         coordinator.cleanUp();
+
     } catch (const std::exception& ex) {
+        /* If any step fails, report the failure when possible, release all local resources, print
+         * the reason, and exit with an error code. */
         if (activeTestNumber > 0) {
             try {
                 coordinator.notifyPeerFailed(cli->peerId);

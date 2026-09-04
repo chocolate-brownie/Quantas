@@ -22,7 +22,7 @@ struct BoostMqQueueConfig {
     static constexpr std::size_t DEFAULT_CONTROL_SEND_TIMEOUT_MS = 5000;
 
     // Maximum time a peer waits to place one algorithm message in a full queue.
-    static constexpr std::size_t DEFAULT_DATA_SEND_TIMEOUT_MS = 5;
+    static constexpr std::size_t DEFAULT_DATA_SEND_TIMEOUT_MS = 10;
 
     std::size_t controlQueueCapacity{0};
     std::size_t dataQueueCapacity{DEFAULT_DATA_QUEUE_CAPACITY};

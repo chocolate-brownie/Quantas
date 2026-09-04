@@ -101,6 +101,29 @@ Run the same complete workflow with debug binaries and detailed symbols using:
 make mq_debug INPUTFILE=quantas/ExamplePeer/ExampleInput.json
 ```
 
+### MTRC topology batches
+
+The CPA and Dolev MTRC inputs live in `quantas/MTRCPeer/topologies/`. One
+topology JSON can contain multiple experiments and repeated tests. Run one
+topology input through BoostMQ with:
+
+```sh
+make mq INPUTFILE=quantas/MTRCPeer/topologies/cpa_edge_remover_n50_k3_t1.json
+```
+
+Use the MTRC batch runner to launch several topology inputs one after another:
+
+```sh
+python3 quantas/MTRCPeer/run_boostmq_experiments.py --n 50 --limit 10
+```
+
+`--n` selects filenames for a peer count (`50` or `100`). `--limit` restricts
+the run to that many new matching topology files. The runner records each
+successful filename in `quantas/MTRCPeer/boostmq_experiments_ran.json` and
+skips recorded files on later invocations. Omit `--limit` to run every new
+matching topology file. Do not use Lorenzo's original MTRC runner for BoostMQ:
+it calls `make run`, which launches the Abstract simulator.
+
 The leader sizes the shared `mq_barrier` and `mq_done` queues from the experiment peer count so each peer has room for one ready or done signal. On the supported Linux environment, Boost.Interprocess stores these resources under `/dev/shm`, for example `/dev/shm/mq_barrier` and `/dev/shm/peer_0_data`. They are not governed by the POSIX message-queue setting `fs.mqueue.msg_max`.
 
 ### Queue configuration
@@ -113,7 +136,7 @@ Each experiment may configure its data queues:
   "maxMessageSizeBytes": 4096,
   "readyTimeoutMs": 30000,
   "controlSendTimeoutMs": 5000,
-  "dataSendTimeoutMs": 5
+  "dataSendTimeoutMs": 10
 }
 ```
 
